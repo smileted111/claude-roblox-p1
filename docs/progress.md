@@ -12,7 +12,7 @@
 
 ## S1 프로토타입 (M0)
 
-- [ ] S1-1 공용 데이터·리모트
+- [x] S1-1 공용 데이터·리모트 — `Config/` 10개(Stages, Monsters, MonsterScaling, MonsterAI, Survivor, Chasers, Items, Match, MapObjects, RateLimits), `Types`, `Remotes`(서버→클라 6, 클라→서버 7), `Strings`, `server/Util/RateLimit`(토큰 버킷). GDD에 수치가 없는 값(스태미나, 시야 거리, 아이템 반경 등)은 `-- 임시`로 표시. 지속 상태(단계·남은 시간·역할·생존자 상태)는 Attribute로, 리모트는 한 번 일어나는 사건에만. 플레이테스트에서 서버·클라이언트 require, 데이터 일관성, 빈도 제한 동작 확인, 오류 없음. `Remotes.setupServer`가 다른 실행 환경에서 다시 불리면 리모트를 중복 생성하던 문제를 테스트 중 발견해 수정.
 - [ ] S1-2 테스트 맵 (블록)
 - [ ] S1-3 매치 루프·역할 배정
 - [ ] S1-4 생존자 이동·달리기·숨기
