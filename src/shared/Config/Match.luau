@@ -19,6 +19,7 @@ export type MatchConfig = {
 	SpectateSwitchDelay: number, -- 관전 대상이 잡히면 다음 대상으로 넘어가기까지 (초)
 	SoloOfferWaitTime: number, -- 같이 하기 대기 중 혼자면 솔로를 제안하기까지 (초)
 	SoloRewardMultiplier: number, -- 솔로 보상 배율
+	PhaseTickInterval: number, -- 단계 타이머가 남은 시간을 갱신하고 조기 종료 조건을 확인하는 간격 (초)
 }
 
 local Match: MatchConfig = {
@@ -36,6 +37,7 @@ local Match: MatchConfig = {
 	SpectateSwitchDelay = 1,
 	SoloOfferWaitTime = 30,
 	SoloRewardMultiplier = 0.7,
+	PhaseTickInterval = 0.2, -- 임시
 }
 
 return Match

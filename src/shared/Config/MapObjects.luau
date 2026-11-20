@@ -21,7 +21,12 @@ export type PlankConfig = {
 	ChaserStunTime: number, -- 넘어진 판자에 맞은 추격자의 기절 시간 (초)
 }
 
+export type ChaserGateConfig = {
+	OpenTransparency: number, -- 열린 대기실 문의 투명도 (1이면 안 보임). 열리면 통과할 수 있게 충돌도 끈다
+}
+
 export type MapObjectsConfig = {
+	ChaserGate: ChaserGateConfig,
 	HideSpot: HideSpotConfig,
 	Generator: GeneratorConfig,
 	Exit: ExitConfig,
@@ -29,6 +34,9 @@ export type MapObjectsConfig = {
 }
 
 local MapObjects: MapObjectsConfig = {
+	ChaserGate = {
+		OpenTransparency = 1, -- 임시
+	},
 	HideSpot = {
 		BreathAfter = 20,
 		BreathRevealRadius = 12, -- docs/studio-workflow.md S1-4

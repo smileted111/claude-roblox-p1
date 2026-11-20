@@ -14,7 +14,7 @@
 
 - [x] S1-1 공용 데이터·리모트 — `Config/` 10개(Stages, Monsters, MonsterScaling, MonsterAI, Survivor, Chasers, Items, Match, MapObjects, RateLimits), `Types`, `Remotes`(서버→클라 6, 클라→서버 7), `Strings`, `server/Util/RateLimit`(토큰 버킷). GDD에 수치가 없는 값(스태미나, 시야 거리, 아이템 반경 등)은 `-- 임시`로 표시. 지속 상태(단계·남은 시간·역할·생존자 상태)는 Attribute로, 리모트는 한 번 일어나는 사건에만. 플레이테스트에서 서버·클라이언트 require, 데이터 일관성, 빈도 제한 동작 확인, 오류 없음. `Remotes.setupServer`가 다른 실행 환경에서 다시 불리면 리모트를 중복 생성하던 문제를 테스트 중 발견해 수정.
 - [ ] S1-2 테스트 맵 (블록)
-- [ ] S1-3 매치 루프·역할 배정
+- [x] S1-3 매치 루프·역할 배정 — MatchService(대기 ↔ 스테이지 반복, `CharacterAutoLoads=false`로 입장·사망·복귀 시 서버가 캐릭터 생성), StageService(역할 공개 → 준비 → 추격 → 결과, `Workspace.CurrentMap` 복제·제거, 시작 위치 배치, 대기실 문), RoleService(덜 해본 사람 우선·"추격자 안 하기", Role/SurvivorState Attribute). 공용 `MatchState`(Attribute 이름·읽기 함수), `MapTags`(태그 이름), 서버 `Util/PhaseTimer`. 매치 상태는 ReplicatedStorage Attribute(Phase, PhaseEndsAt, TimeLeft, StageId, HasChaser, SurvivorsLeft). 솔로는 역할 공개 생략(GDD 3.1). 스테이지 중 들어온 사람은 다음 스테이지까지 관전자(캐릭터 없음). 추격자 횟수는 서버에 있는 동안 유지 — S2-1에서 매치 시작 때 `resetChaserCounts()`. 1인 플레이테스트: 시간 종료·전원 잡힘(Attribute로 흉내) 두 경로, 추격 중 사망 후 SurvivorSpawn 재생성, 문 열림, 클라이언트에서 Attribute 읽기 확인, 오류 없음. 추격자 선정 규칙은 Edit 모드에서 가짜 플레이어로 검증. 3인 테스트는 사용자 확인 대기.
 - [ ] S1-4 생존자 이동·달리기·숨기
 - [ ] S1-5 추격자 공격·잡힘 판정
 - [ ] S1-6 괴물 AI (배회자)
