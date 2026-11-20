@@ -8,7 +8,7 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 - Claude Code는 사용자 PC의 이 저장소 폴더에서 실행되며, Roblox Studio 내장 MCP 서버에 연결되어 있다.
 - **코드**는 `src/`의 `.luau` 파일로 작성하고 Rojo로 Studio에 동기화한다. Studio 안에 스크립트를 직접 만들지 않는다.
 - **맵·파트·조명·태그처럼 플레이스에 저장되는 것**은 Studio MCP로 만든다. 만든 뒤 사용자에게 Studio에서 저장(Ctrl+S)하라고 알린다.
-- 도구: Rokit(도구 버전 고정), Rojo, Wally, Selene, StyLua.
+- 도구: Rokit(도구 버전 고정), Rojo, Wally, Selene, StyLua, luau-lsp(타입 검사).
 
 ## Rojo 매핑
 
@@ -51,7 +51,7 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 
 프롬프트가 "단계 완료 절차"를 요청하면 아래 순서대로 한다.
 
-1. `selene src`와 `stylua --check src`를 실행하고 문제를 고친다.
+1. `selene src`, `stylua --check src`, `python tools/typecheck.py`(luau-lsp 타입 검사)를 실행하고 문제를 고친다.
 2. Studio MCP로 플레이테스트를 시작해 출력 창의 오류·경고를 확인하고, 오류가 있으면 고친 뒤 다시 테스트한다. 끝나면 플레이테스트를 멈춘다.
 3. `docs/progress.md`에서 해당 단계를 체크하고 메모를 남긴다.
 4. 변경 내용 요약과 **사용자가 Studio에서 직접 확인할 항목**(멀티 플레이어 테스트 등)을 짧게 알려준다.

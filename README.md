@@ -11,7 +11,8 @@ Roblox 비대칭 추격 생존 게임.
 
 - [Roblox Studio](https://create.roblox.com/)
 - [Git](https://git-scm.com/)
-- [Rokit](https://github.com/rojo-rbx/rokit) — Rojo, Wally, Selene, StyLua의 버전을 `rokit.toml`대로 맞춰 준다.
+- [Rokit](https://github.com/rojo-rbx/rokit) — Rojo, Wally, Selene, StyLua, luau-lsp의 버전을 `rokit.toml`대로 맞춰 준다.
+- Python 3 — 타입 검사 스크립트(`tools/typecheck.py`)에 쓴다.
 
 ## 설치
 
@@ -53,9 +54,13 @@ wally install    # wally.toml의 패키지를 Packages/에 받기
 ## 코드 검사
 
 ```sh
-selene src           # 린트
-stylua --check src   # 포맷 검사
-stylua src           # 포맷 자동 정리
+selene src                  # 린트
+stylua --check src          # 포맷 검사
+stylua src                  # 포맷 자동 정리
+python tools/typecheck.py   # --!strict 타입 검사 (luau-lsp)
 ```
+
+- 타입 검사는 처음 실행할 때 `rokit.toml`의 luau-lsp 버전에 맞는 Roblox API 타입 정의를 `.luau-lsp/`에 받고, 매번 `sourcemap.json`을 새로 만든 뒤 `src/`를 검사한다.
+- Luau **새 타입 솔버**로 검사한다. `Config`의 ID별 테이블(`{ [Types.StageId]: StageDef }`)은 구 솔버에서 `Stages.Stage1`처럼 점으로 접근하면 경고가 난다.
 
 VS Code의 Luau LSP 확장을 쓰면 `rojo sourcemap --watch -o sourcemap.json`을 켜 두어야 Studio 경로의 자동 완성이 된다.

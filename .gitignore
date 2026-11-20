@@ -5,6 +5,9 @@ DevPackages/
 
 # Rojo
 sourcemap.json
+
+# luau-lsp 타입 정의 (tools/typecheck.py가 받음)
+.luau-lsp/
 *.rbxl
 *.rbxlx
 *.rbxl.lock
