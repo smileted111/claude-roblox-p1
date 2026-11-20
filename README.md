@@ -29,6 +29,7 @@ wally install    # wally.toml의 패키지를 Packages/에 받기
 
 1. **Rojo 서버 켜기**: 저장소 폴더에서 `rojo serve`를 실행하고 켜 둔다.
 2. **Rojo 플러그인 설치** (처음 한 번): Studio의 Creator Store에서 "Rojo"를 검색해 설치하거나, 터미널에서 `rojo plugin install`을 실행한 뒤 Studio를 다시 시작한다.
+   - `rojo plugin install`이 `Couldn't find registry keys` 오류를 내면, [Rojo 릴리스](https://github.com/rojo-rbx/rojo/releases)에서 `rokit.toml`과 같은 버전의 `Rojo.rbxm`을 받아 `%LOCALAPPDATA%\Roblox\Plugins` 폴더(없으면 만든다)에 넣는다.
 3. **플레이스 열기**: Studio에서 "라스트 서바이벌" 플레이스를 연다.
 4. **연결**: Studio **플러그인 (Plugins)** 탭 → **Rojo** → **연결 (Connect)** (기본 주소 `localhost:34872`).
 5. **확인**: 탐색기에 `ServerScriptService.Server`, `ReplicatedStorage.Shared`, `StarterPlayer.StarterPlayerScripts.Client`가 생기면 성공이다. 플레이하면 출력 창에 `[Service] ... started`, `[Controller] ... started` 로그가 찍힌다.

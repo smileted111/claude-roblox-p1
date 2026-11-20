@@ -8,7 +8,7 @@
 - [x] S0-2 새 게임 만들고 게시 — Universe ID `10778008056`, Place ID `131560237546176`
 - [x] S0-3 Studio MCP 연결
 - [x] S0-4 프로젝트 골격 — Rokit으로 rojo 7.7.1, wally 0.3.2, selene 0.32.0, stylua 2.6.0 고정. 서비스 9개·컨트롤러 7개 빈 모듈, 공용 로더 `src/shared/Util/ModuleLoader.luau`. selene·stylua 통과, `rojo build` 확인. 플레이테스트는 S0-5에서.
-- [ ] S0-5 Rojo 연결
+- [x] S0-5 Rojo 연결 — `rojo plugin install`이 레지스트리 오류로 실패해 릴리스의 `Rojo.rbxm`(7.7.1)을 `%LOCALAPPDATA%\Roblox\Plugins`에 직접 설치. 플레이테스트에서 started 로그 16개(서비스 9·컨트롤러 7), 스크립트 오류 없음. `rbxassetid://203785492`(Pop Close Sound) 형식 불일치 메시지 6건은 플레이스에 없는 에셋이라 무시.
 
 ## S1 프로토타입 (M0)
 
