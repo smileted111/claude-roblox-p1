@@ -15,6 +15,7 @@ export type MatchConfig = {
 	StageOrder: { Types.StageId }, -- 한 매치에 나오는 스테이지 순서
 	ChaserCount: number, -- 스테이지마다 뽑는 추격자 수
 	MinPlayersForChaser: number, -- 이 인원 이상이면 추격자를 뽑음. 아래면 솔로 (괴물만)
+	DefaultChaser: Types.ChaserId, -- 추격자 종류. 로비에서 고르는 기능(S3-3) 전까지 모든 추격자가 이 종류
 	CaughtEffectTime: number, -- 잡힘 연출 뒤 관전 시작까지 (초)
 	SpectateSwitchDelay: number, -- 관전 대상이 잡히면 다음 대상으로 넘어가기까지 (초)
 	SoloOfferWaitTime: number, -- 같이 하기 대기 중 혼자면 솔로를 제안하기까지 (초)
@@ -33,6 +34,7 @@ local Match: MatchConfig = {
 	StageOrder = { "Stage1", "Stage2", "Stage3" },
 	ChaserCount = 1,
 	MinPlayersForChaser = 2,
+	DefaultChaser = "Hunter", -- 임시: 기본 해금 추격자 (GDD 7.1)
 	CaughtEffectTime = 2,
 	SpectateSwitchDelay = 1,
 	SoloOfferWaitTime = 30,

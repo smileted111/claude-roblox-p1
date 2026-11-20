@@ -114,6 +114,17 @@ function RoleService.getActiveSurvivors(): { Player }
 	return survivors
 end
 
+-- 지금 추격자 역할인 플레이어 (0명 또는 Config.Match.ChaserCount명)
+function RoleService.getChasers(): { Player }
+	local chasers: { Player } = {}
+	for _, player in Players:GetPlayers() do
+		if MatchState.getRole(player) == "Chaser" then
+			table.insert(chasers, player)
+		end
+	end
+	return chasers
+end
+
 -- 스테이지가 끝나면 모든 역할을 지운다 (대기 중에는 역할 없음).
 function RoleService.clearAll(): ()
 	for _, player in Players:GetPlayers() do

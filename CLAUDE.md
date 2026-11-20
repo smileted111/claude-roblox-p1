@@ -31,7 +31,7 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 | `ChaserGate` | 준비 시간이 끝나면 열리는 대기실 문 |
 | `MonsterSpawn` | 괴물 생성 위치 |
 | `PatrolPoint` | 괴물 순찰 지점 (Attribute `Route`: 경로 이름, `Order`: 순서) |
-| `HideSpot` | 숨는 곳 (Model, PrimaryPart 필요) |
+| `HideSpot` | 숨는 곳 (Model, PrimaryPart 필요. PrimaryPart 앞면(LookVector)이 열린 쪽 — 프롬프트가 생기고 나온 생존자가 서는 곳) |
 | `Generator` | 목표 장치 |
 | `Exit` | 출구 (Attribute `ExitId`) |
 | `ItemSpawn` | 아이템 생성 위치 |

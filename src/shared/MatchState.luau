@@ -1,6 +1,6 @@
 --!strict
 -- 클라이언트에 공개하는 매치 상태(Attribute)의 이름과 읽기 함수를 이 파일 한 곳에서 정의한다.
--- 쓰기는 서버만 한다 (MatchService, StageService, RoleService, server/Util/PhaseTimer).
+-- 쓰기는 서버만 한다 (MatchService, StageService, RoleService, MovementService, HideService, server/Util/PhaseTimer).
 --
 -- ReplicatedStorage의 Attribute (매치 전체)
 --   Phase          Types.MatchPhase    현재 단계
@@ -14,6 +14,9 @@
 --   Role           Types.Role?             이번 스테이지의 역할. 대기 중에는 nil
 --   SurvivorState  Types.SurvivorState?    생존자 상태. 이번 스테이지의 생존자(였던 사람)만 있음
 --   ChaserOptOut   boolean?                "추격자 안 하기" 설정 (GDD 2.1)
+--   Stamina        number?                 스태미나 (0 ~ Config.Survivor.Stamina.Max, 정수로 반올림) (MovementService)
+--   Running        boolean?                지금 달리는 중인가 (MovementService)
+--   Hidden         boolean?                숨는 곳에 숨어 있는가 (HideService). 어디에 숨었는지는 HideSpotState
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -29,6 +32,9 @@ local Attribute = table.freeze({
 	Role = "Role",
 	SurvivorState = "SurvivorState",
 	ChaserOptOut = "ChaserOptOut",
+	Stamina = "Stamina",
+	Running = "Running",
+	Hidden = "Hidden",
 })
 
 local function readString(instance: Instance, name: string): string?
@@ -82,6 +88,18 @@ end
 
 function MatchState.isChaserOptOut(player: Player): boolean
 	return player:GetAttribute(Attribute.ChaserOptOut) == true
+end
+
+function MatchState.getStamina(player: Player): number?
+	return readNumber(player, Attribute.Stamina)
+end
+
+function MatchState.isRunning(player: Player): boolean
+	return player:GetAttribute(Attribute.Running) == true
+end
+
+function MatchState.isHidden(player: Player): boolean
+	return player:GetAttribute(Attribute.Hidden) == true
 end
 
 return MatchState

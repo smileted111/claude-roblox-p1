@@ -4,7 +4,7 @@
 -- 한 스테이지: 역할 공개 → 준비 → 추격 → 결과 (MatchService가 runStage로 부름)
 --   역할 공개  Config.Match.RoleRevealTime   추격자를 뽑고 룰렛 신호(RoleReveal)를 보냄. 솔로는 생략 (GDD 3.1)
 --   준비       Config.Match.PreparationTime  맵을 Workspace.CurrentMap에 복제하고 생존자는 SurvivorSpawn,
---                                            추격자는 ChaserSpawn에 배치. ChaserGate는 닫아 둠
+--                                            추격자는 ChaserSpawn에 배치. ChaserGate는 닫아 둠. 숨는 곳 준비(HideService)
 --   추격       Config.Stages[id].TimeLimit   ChaserGate를 엶
 --   결과       Config.Match.StageResultTime  결과를 출력 창에 남김. 끝나면 맵을 지우고 역할을 비움
 --
@@ -25,6 +25,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
+local HideService = require(script.Parent.HideService)
 local RoleService = require(script.Parent.RoleService)
 
 local MAPS_FOLDER = "Maps" -- ServerStorage.Maps
@@ -260,6 +261,7 @@ local function logResult(run: StageRun, reason: EndReason): ()
 end
 
 local function finish(): ()
+	HideService.clearMap()
 	StageService.unloadMap()
 	RoleService.clearAll()
 	ReplicatedStorage:SetAttribute(Attribute.StageId, nil)
@@ -361,6 +363,7 @@ function StageService.runStage(stageId: Types.StageId): ()
 	if outcome == "TimeUp" then
 		local map = loadMap(stageId)
 		run.map = map
+		HideService.setupMap(map)
 		setGateOpen(run, false)
 		placeParticipants(run, map)
 		local notice = Remotes.get("Notice")
