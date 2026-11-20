@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>라스트 서바이벌 기획서</title>
+<style>
+:root{--bg:#f7f7f8;--panel:#fff;--text:#1d1d22;--muted:#5f6170;--line:#e3e4ea;
+--accent:#c8323c;--accent-soft:#fbe9ea;--code:#f1f2f5;--th:#f3f4f7;--ok:#1f7a4d;--ok-soft:#e5f4ec}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121317;--panel:#1a1b21;
+--text:#e8e9ee;--muted:#9a9cab;--line:#2c2e37;--accent:#ff5d66;--accent-soft:#3a1f23;--code:#23252d;
+--th:#21232b;--ok:#5fd39a;--ok-soft:#173326}}
+:root[data-theme="dark"]{--bg:#121317;--panel:#1a1b21;--text:#e8e9ee;--muted:#9a9cab;--line:#2c2e37;
+--accent:#ff5d66;--accent-soft:#3a1f23;--code:#23252d;--th:#21232b;--ok:#5fd39a;--ok-soft:#173326}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:16px}
+body{margin:0;background:var(--bg);color:var(--text);line-height:1.7;font-size:15px;
+font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+word-break:keep-all;overflow-wrap:anywhere}
+.layout{display:grid;grid-template-columns:260px minmax(0,1fr);max-width:1240px;margin:0 auto}
+nav.toc{position:sticky;top:0;height:100vh;overflow-y:auto;padding:28px 18px;border-right:1px solid var(--line)}
+nav.toc .brand{font-weight:800;font-size:17px;margin-bottom:4px}
+nav.toc .sub{color:var(--muted);font-size:12px;margin-bottom:18px}
+nav.toc ul{list-style:none;margin:0;padding:0}
+nav.toc li a{display:block;padding:5px 10px;border-radius:6px;color:var(--muted);text-decoration:none;font-size:13.5px}
+nav.toc li a:hover,nav.toc li a.active{background:var(--accent-soft);color:var(--accent)}
+nav.toc li li a{padding-left:24px;font-size:12.5px}
+main{padding:40px 48px 80px;min-width:0}
+.hero{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px 30px;margin-bottom:28px;
+border-top:4px solid var(--accent)}
+.hero .kicker{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.12em}
+.hero h1{margin:6px 0 8px;font-size:32px;line-height:1.3}
+.hero p{margin:0;color:var(--muted)}
+section.doc h1{display:none}
+h2{font-size:22px;margin:44px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+h3{font-size:17px;margin:28px 0 10px}
+h4{font-size:15px;margin:22px 0 8px;color:var(--accent)}
+a{color:var(--accent)}
+.table-wrap{overflow-x:auto;margin:12px 0 18px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:var(--th);font-weight:700;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td:first-child{white-space:nowrap}
+pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.55}
+code{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.92em}
+:not(pre)>code{background:var(--code);padding:1px 6px;border-radius:5px}
+blockquote{margin:14px 0;padding:10px 16px;border-left:4px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0}
+hr{display:none}
+ul,ol{padding-left:22px}
+.tag{display:inline-block;padding:0 7px;border-radius:999px;font-size:12px;font-weight:700;line-height:1.7;vertical-align:1px}
+.tag.rec{background:var(--accent-soft);color:var(--accent)}
+.tag.fix{background:var(--ok-soft);color:var(--ok)}
+.theme-btn{margin-top:18px;background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:12px}
+@media (max-width:900px){.layout{display:block}nav.toc{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:18px 16px}
+nav.toc li li{display:none}main{padding:24px 16px 60px}.hero{padding:22px 18px}.hero h1{font-size:26px}}
+@media print{nav.toc{display:none}.layout{display:block}main{padding:0}.table-wrap{overflow:visible}}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc">
+<div class="brand">라스트 서바이벌 (Last Survival)</div>
+<div class="sub">게임 기획서 · v1.0 · 2026-11-20</div>
+<div class="toc">
+<ul>
+<li><a href="#0-확정-요구사항">0. 확정 요구사항</a></li>
+<li><a href="#1-게임-개요">1. 게임 개요</a><ul>
+<li><a href="#11-핵심-컨셉">1.1 핵심 컨셉</a></li>
+<li><a href="#12-차별점">1.2 차별점</a></li>
+<li><a href="#13-디자인-원칙">1.3 디자인 원칙</a></li>
+</ul>
+</li>
+<li><a href="#2-역할">2. 역할</a><ul>
+<li><a href="#21-추격자-정하기-추천">2.1 추격자 정하기</a></li>
+<li><a href="#22-잡힘-규칙-추천">2.2 잡힘 규칙</a></li>
+</ul>
+</li>
+<li><a href="#3-게임-흐름">3. 게임 흐름</a><ul>
+<li><a href="#31-한-스테이지-진행">3.1 한 스테이지 진행</a></li>
+<li><a href="#32-스테이지-승패">3.2 스테이지 승패</a></li>
+<li><a href="#33-스테이지-사이">3.3 스테이지 사이</a></li>
+<li><a href="#34-매치-종료와-라스트-서바이버">3.4 매치 종료와 "라스트 서바이버"</a></li>
+</ul>
+</li>
+<li><a href="#4-스테이지와-괴물-r3">4. 스테이지와 괴물 (R3)</a><ul>
+<li><a href="#41-괴물-종류">4.1 괴물 종류</a></li>
+<li><a href="#42-스테이지-구성-생존자-4명-기준-괴물-수">4.2 스테이지 구성 (생존자 4명 기준 괴물 수)</a></li>
+<li><a href="#43-인원에-따른-괴물-수-보정">4.3 인원에 따른 괴물 수 보정</a></li>
+<li><a href="#44-괴물-ai">4.4 괴물 AI</a></li>
+</ul>
+</li>
+<li><a href="#5-솔로-모드-r4">5. 솔로 모드 (R4)</a></li>
+<li><a href="#6-생존자-시스템">6. 생존자 시스템</a><ul>
+<li><a href="#61-숨기">6.1 숨기</a></li>
+<li><a href="#62-목표-장치">6.2 목표 장치</a></li>
+<li><a href="#63-아이템-맵에-무작위-배치-최대-2칸">6.3 아이템 (맵에 무작위 배치, 최대 2칸)</a></li>
+<li><a href="#64-환경-장치">6.4 환경 장치</a></li>
+</ul>
+</li>
+<li><a href="#7-추격자-시스템">7. 추격자 시스템</a><ul>
+<li><a href="#71-추격자-종류">7.1 추격자 종류</a></li>
+</ul>
+</li>
+<li><a href="#8-관전-모드-r1">8. 관전 모드 (R1)</a></li>
+<li><a href="#9-진행성장">9. 진행·성장</a></li>
+<li><a href="#10-수익-모델">10. 수익 모델</a></li>
+<li><a href="#11-ui-ux">11. UI / UX</a></li>
+<li><a href="#12-아트사운드">12. 아트·사운드</a></li>
+<li><a href="#13-기술-구조">13. 기술 구조</a><ul>
+<li><a href="#131-프로젝트-셋업-r5">13.1 프로젝트 셋업 (R5)</a></li>
+<li><a href="#132-코드-구조">13.2 코드 구조</a></li>
+<li><a href="#133-원칙">13.3 원칙</a></li>
+<li><a href="#134-성능-목표">13.4 성능 목표</a></li>
+</ul>
+</li>
+<li><a href="#14-콘텐츠-분량-mvp">14. 콘텐츠 분량 (MVP)</a></li>
+<li><a href="#15-개발-로드맵">15. 개발 로드맵</a></li>
+<li><a href="#16-성과-지표">16. 성과 지표</a></li>
+<li><a href="#17-위험-요소">17. 위험 요소</a></li>
+</ul>
+</div>
+
+<button class="theme-btn" id="theme" type="button">밝게 / 어둡게</button>
+</nav>
+<main>
+<header class="hero">
+<div class="kicker">GAME DESIGN DOCUMENT</div>
+<h1>라스트 서바이벌 (Last Survival)</h1>
+<p>v1.0 · 2026-11-20 · 원본: docs/GDD.md</p>
+</header>
+<section class="doc">
+<h1 id="라스트-서바이벌-last-survival-게임-기획서">라스트 서바이벌 (Last Survival) — 게임 기획서</h1>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>항목</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>문서 버전</td>
+<td>v1.0</td>
+</tr>
+<tr>
+<td>작성일</td>
+<td>2026-11-20</td>
+</tr>
+<tr>
+<td>상태</td>
+<td>장르 확정. <span class="tag rec">추천</span> 항목은 <code>docs/questionnaire.md</code>의 추천 답변을 반영한 것으로, 바뀌면 수정</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>변경 이력</strong></p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>버전</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v1.0</td>
+<td>장르를 <strong>비대칭 추격 생존</strong>으로 변경 (추격자 플레이어 + 스테이지별 괴물). 생존 스탯·제작·기지 건설 삭제. 솔로는 괴물만 등장. 질문지 추천 답변 반영</td>
+</tr>
+<tr>
+<td>v0.2</td>
+<td>잡히면 관전 모드 전환 요구사항 추가</td>
+</tr>
+<tr>
+<td>v0.1</td>
+<td>초안 (협동 PvE 생존)</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="0-확정-요구사항">0. 확정 요구사항</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>요구사항</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1</td>
+<td>플레이어가 잡히면 다른 플레이어의 플레이를 보는 <strong>관전 모드</strong>로 전환된다</td>
+<td>요청 (v0.2)</td>
+</tr>
+<tr>
+<td>R2</td>
+<td><strong>추격자 역할은 플레이어</strong>가 맡는다</td>
+<td>질문 답변</td>
+</tr>
+<tr>
+<td>R3</td>
+<td><strong>스테이지마다 괴물의 종류와 수가 다르다</strong></td>
+<td>질문 답변</td>
+</tr>
+<tr>
+<td>R4</td>
+<td><strong>혼자 플레이하면 추격자 없이 괴물만</strong> 등장한다</td>
+<td>질문 답변</td>
+</tr>
+<tr>
+<td>R5</td>
+<td>기존 Roblox 그룹·게임이 없으므로 <strong>새로 만든다</strong></td>
+<td>질문 답변</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="1-게임-개요">1. 게임 개요</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>항목</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>게임명</td>
+<td>라스트 서바이벌 (Last Survival)</td>
+</tr>
+<tr>
+<td>장르</td>
+<td>비대칭 추격 생존 (추격자 1명 vs 생존자 여러 명 + AI 괴물), 스테이지형</td>
+</tr>
+<tr>
+<td>플랫폼</td>
+<td>Roblox (PC, 모바일, 콘솔, 태블릿)</td>
+</tr>
+<tr>
+<td>타깃</td>
+<td>만 9~16세 중심 Roblox 이용자, 술래잡기·캐주얼 호러 선호층</td>
+</tr>
+<tr>
+<td>서버당 인원</td>
+<td>1~8명 (2명 이상: 추격자 1 + 생존자 최대 7 / 1명: 생존자 1 + 괴물)</td>
+</tr>
+<tr>
+<td>매치 길이</td>
+<td>3 스테이지 × 약 4~5분 = 약 15분 <span class="tag rec">추천</span></td>
+</tr>
+<tr>
+<td>한 줄 소개</td>
+<td>추격자와 괴물을 피해 스테이지를 하나씩 버텨라. 끝까지 살아남은 사람만이 라스트 서바이버.</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="11-핵심-컨셉">1.1 핵심 컨셉</h3>
+<ul>
+<li>매 스테이지마다 플레이어 1명이 <strong>추격자</strong>가 되고, 나머지는 <strong>생존자</strong>가 된다.</li>
+<li>스테이지마다 맵과 <strong>괴물의 종류·수</strong>가 달라서, 뒤로 갈수록 살아남기 어려워진다.</li>
+<li>생존자는 숨고, 달리고, 아이템을 쓰며 <strong>목표 장치를 작동시켜 탈출</strong>하거나 <strong>제한 시간을 버틴다</strong>.</li>
+<li>잡히면 그 스테이지가 끝날 때까지 <strong>관전</strong>한다.</li>
+<li>혼자 하면 추격자 없이 괴물만 상대하는 <strong>솔로 모드</strong>가 된다.</li>
+</ul>
+<h3 id="12-차별점">1.2 차별점</h3>
+<ol>
+<li><strong>사람 추격자 + AI 괴물</strong>: 추격자는 괴물과 협력하고, 생존자는 사람과 AI를 동시에 피해야 한다.</li>
+<li><strong>스테이지 진행</strong>: 판마다 같은 맵을 반복하는 대신 스테이지마다 새로운 괴물 조합이 나온다.</li>
+<li><strong>혼자서도 플레이 가능</strong>: 인원이 없어도 솔로 모드로 바로 시작할 수 있다.</li>
+</ol>
+<h3 id="13-디자인-원칙">1.3 디자인 원칙</h3>
+<ul>
+<li><strong>10초 안에 이해</strong>: 역할이 공개되면 무엇을 해야 하는지 화면에 바로 보인다.</li>
+<li><strong>모바일 우선 조작</strong>: 핵심 버튼은 달리기, 상호작용, 아이템, 스킬 4개.</li>
+<li><strong>잡혀도 지루하지 않게</strong>: 관전은 한 스테이지(최대 5분)까지만 하고, 다음 스테이지에서 복귀한다.</li>
+<li><strong>무섭지만 잔인하지 않게</strong>: 피·신체 훼손 없이 소리·조명·실루엣으로 긴장감을 만든다.</li>
+<li><strong>결제는 꾸미기 중심</strong>: 추격자가 될 확률이나 능력치를 팔지 않는다.</li>
+</ul>
+<hr />
+<h2 id="2-역할">2. 역할</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>역할</th>
+<th>인원</th>
+<th>목표</th>
+<th>할 수 있는 것</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>생존자</td>
+<td>1~7명</td>
+<td>잡히지 않고 탈출하거나 시간을 버틴다</td>
+<td>걷기·달리기(스태미나), 숨기, 목표 장치 작동, 아이템 사용, 판자 넘어뜨리기, 아군 치료</td>
+</tr>
+<tr>
+<td>추격자</td>
+<td>0~1명 (플레이어 2명 이상일 때 1명)</td>
+<td>제한 시간 안에 생존자를 모두 잡는다</td>
+<td>빠른 이동, 공격, 숨은 곳 열어보기, 고유 스킬 1개, 괴물 위치 보기</td>
+</tr>
+<tr>
+<td>괴물</td>
+<td>스테이지별</td>
+<td>(AI) 생존자를 찾아 공격한다</td>
+<td>순찰, 시야·소리 감지, 추격. <strong>추격자는 공격하지 않음</strong></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="21-추격자-정하기-추천">2.1 추격자 정하기 <span class="tag rec">추천</span></h3>
+<ul>
+<li>스테이지가 시작될 때마다 새로 뽑는다.</li>
+<li>이번 매치에서 추격자를 덜 해본 사람이 우선, 같으면 무작위.</li>
+<li>설정에서 "추격자 안 하기"를 켤 수 있다. 모두 켜 두었으면 그중 무작위로 뽑는다.</li>
+<li>역할 공개는 5초 룰렛 연출로 보여준다.</li>
+</ul>
+<h3 id="22-잡힘-규칙-추천">2.2 잡힘 규칙 <span class="tag rec">추천</span></h3>
+<ul>
+<li>생존자 상태는 <strong>정상 → 부상 → 잡힘</strong> 3단계.</li>
+<li>추격자나 괴물에게 한 번 맞으면 <strong>부상</strong>(이동 속도 -10%, 발자국 흔적이 남음).</li>
+<li>부상 상태에서 한 번 더 맞으면 <strong>잡힘</strong> → 관전 모드 (R1).</li>
+<li>부상은 붕대(아이템) 또는 아군이 4초간 치료하면 정상으로 돌아온다.</li>
+<li>일부 강한 괴물(거인)은 한 번에 잡는다.</li>
+</ul>
+<hr />
+<h2 id="3-게임-흐름">3. 게임 흐름</h2>
+<pre><code>로비 ─┬─ [같이 하기] 매칭 대기 (최대 8명, 최소 1명)
+      └─ [혼자 하기] 솔로 서버 생성
+         ↓
+   스테이지 1 → 스테이지 2 → 스테이지 3 → 최종 결과 → 로비
+</code></pre>
+<h3 id="31-한-스테이지-진행">3.1 한 스테이지 진행</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>단계</th>
+<th>시간</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>역할 공개</td>
+<td>5초</td>
+<td>추격자 룰렛 (솔로는 생략)</td>
+</tr>
+<tr>
+<td>준비</td>
+<td>15초</td>
+<td>생존자는 맵에 흩어지고, 추격자는 대기실에 갇혀 있음. 괴물은 이 시간 동안 움직이지 않음</td>
+</tr>
+<tr>
+<td>추격</td>
+<td>4분 (3스테이지는 5분)</td>
+<td>추격자·괴물 활동. 생존자는 목표 장치 작동</td>
+</tr>
+<tr>
+<td>출구 개방</td>
+<td>목표 완료 시</td>
+<td>출구 2곳 중 1곳이 열림. 들어가면 즉시 생존 확정</td>
+</tr>
+<tr>
+<td>스테이지 결과</td>
+<td>10초</td>
+<td>생존·잡힘·탈출 표시, 점수 지급</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="32-스테이지-승패">3.2 스테이지 승패</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>결과</th>
+<th>조건</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>생존자 성공</td>
+<td>출구로 탈출했거나, 제한 시간이 끝날 때까지 잡히지 않음 (사람마다 따로 판정)</td>
+</tr>
+<tr>
+<td>추격자 승리</td>
+<td>제한 시간 안에 생존자를 모두 잡음</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="33-스테이지-사이">3.3 스테이지 사이</h3>
+<ul>
+<li>잡혔던 플레이어도 <strong>다음 스테이지에 생존자로 복귀</strong>한다 <span class="tag rec">추천</span>.</li>
+<li>추격자는 새로 뽑는다.</li>
+</ul>
+<h3 id="34-매치-종료와-라스트-서바이버">3.4 매치 종료와 "라스트 서바이버"</h3>
+<ul>
+<li>3 스테이지를 모두 생존한 플레이어는 <strong>라스트 서바이버</strong> 칭호와 큰 보상을 받는다.</li>
+<li>아무도 없으면 매치 최고 점수자가 "베스트 서바이버"가 된다.</li>
+<li>결과 화면: 스테이지별 생존 여부, 잡은 수(추격자), 목표 기여, 획득 코인.</li>
+</ul>
+<hr />
+<h2 id="4-스테이지와-괴물-r3">4. 스테이지와 괴물 (R3)</h2>
+<h3 id="41-괴물-종류">4.1 괴물 종류</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>괴물</th>
+<th>속도</th>
+<th>감지</th>
+<th>특징</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>배회자</td>
+<td>느림 (12)</td>
+<td>시야 짧음</td>
+<td>정해진 길을 순찰하다 생존자를 보면 쫓아옴</td>
+</tr>
+<tr>
+<td>사냥개</td>
+<td>빠름 (22)</td>
+<td>소리</td>
+<td>달리는 소리에 반응해 짧게 돌진, 5초 후 포기</td>
+</tr>
+<tr>
+<td>감시자</td>
+<td>움직이지 않음</td>
+<td>시야 넓음</td>
+<td>생존자를 보면 경보 → 추격자에게 그 위치가 5초간 표시됨</td>
+</tr>
+<tr>
+<td>그림자</td>
+<td>보통 (16)</td>
+<td>시야</td>
+<td>어두운 곳에서는 거의 안 보임. 손전등을 비추면 2초간 멈춤</td>
+</tr>
+<tr>
+<td>거인</td>
+<td>느림 (10)</td>
+<td>시야</td>
+<td>판자·문을 부수고 지나감. 맞으면 <strong>즉시 잡힘</strong></td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li>생존자 기본 속도: 걷기 16, 달리기 24 (스태미나 소모). 추격자: 20, 스킬로 순간 가속.</li>
+<li>수치는 초기값이며 플레이테스트로 조정한다.</li>
+</ul>
+<h3 id="42-스테이지-구성-생존자-4명-기준-괴물-수">4.2 스테이지 구성 (생존자 4명 기준 괴물 수)</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>스테이지</th>
+<th>맵</th>
+<th>괴물</th>
+<th>목표 장치</th>
+<th>제한 시간</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>폐교</td>
+<td>배회자 3</td>
+<td>발전기 3</td>
+<td>4분</td>
+</tr>
+<tr>
+<td>2</td>
+<td>폐병원</td>
+<td>배회자 2, 사냥개 2</td>
+<td>발전기 4</td>
+<td>4분</td>
+</tr>
+<tr>
+<td>3</td>
+<td>지하 연구소</td>
+<td>사냥개 2, 감시자 2, 그림자 2</td>
+<td>발전기 5</td>
+<td>5분</td>
+</tr>
+<tr>
+<td>4 (출시 후)</td>
+<td>놀이공원</td>
+<td>배회자 2, 그림자 2, 거인 1</td>
+<td>발전기 5</td>
+<td>5분</td>
+</tr>
+<tr>
+<td>5 (출시 후)</td>
+<td>폐쇄된 지하철</td>
+<td>사냥개 3, 감시자 2, 거인 1</td>
+<td>발전기 6</td>
+<td>5분</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="43-인원에-따른-괴물-수-보정">4.3 인원에 따른 괴물 수 보정</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>생존자 수</th>
+<th>괴물 수 배율</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 (솔로, 추격자 없음)</td>
+<td>×0.7</td>
+<td>종류마다 최소 1마리</td>
+</tr>
+<tr>
+<td>1~2 (추격자 있음)</td>
+<td>×0.6</td>
+<td></td>
+</tr>
+<tr>
+<td>3~5</td>
+<td>×1.0</td>
+<td></td>
+</tr>
+<tr>
+<td>6~7</td>
+<td>×1.3</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li>결과는 반올림. 동시에 활동하는 괴물은 최대 20마리.</li>
+<li>데이터 테이블(ModuleScript)로 관리해 코드 수정 없이 스테이지·괴물 구성을 바꿀 수 있게 한다.</li>
+</ul>
+<h3 id="44-괴물-ai">4.4 괴물 AI</h3>
+<ul>
+<li>상태: <strong>순찰 → 의심(소리·흔적 확인) → 추격 → 공격 → 포기 후 순찰 복귀</strong></li>
+<li>경로: PathfindingService. 숨은 생존자는 감지하지 못함 (거인은 숨는 곳을 부술 수 있음).</li>
+<li>시야: 전방 원뿔 + 레이캐스트로 벽 뒤는 안 보이게.</li>
+<li>성능: 서버에서 AI를 0.2초 간격으로 나눠 갱신, 멀리 있는 괴물은 단순 이동만.</li>
+</ul>
+<hr />
+<h2 id="5-솔로-모드-r4">5. 솔로 모드 (R4)</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>항목</th>
+<th>규칙</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>시작</td>
+<td>로비의 "혼자 하기" 버튼 → 혼자만 들어가는 서버 생성. 같이 하기 대기 중 30초 동안 아무도 오지 않으면 솔로로 시작할지 물어봄</td>
+</tr>
+<tr>
+<td>추격자</td>
+<td>없음. 괴물만 등장</td>
+</tr>
+<tr>
+<td>괴물 수</td>
+<td>4.3의 ×0.7</td>
+</tr>
+<tr>
+<td>진행</td>
+<td>3 스테이지 동일. 잡히면 관전할 대상이 없으므로 스테이지 결과로 바로 이동</td>
+</tr>
+<tr>
+<td>보상</td>
+<td>같이 하기의 70%</td>
+</tr>
+<tr>
+<td>중간 합류</td>
+<td>불가</td>
+</tr>
+<tr>
+<td>멀티에서 1명만 남은 경우</td>
+<td>추격자가 나가면 그 스테이지는 괴물만으로 진행. 생존자가 모두 나가면 추격자 승리</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="6-생존자-시스템">6. 생존자 시스템</h2>
+<h3 id="61-숨기">6.1 숨기</h3>
+<ul>
+<li>옷장·사물함·상자에 들어가 숨는다 (ProximityPrompt).</li>
+<li>숨은 동안 괴물에게 감지되지 않음. 추격자는 숨는 곳을 열어볼 수 있다 (열기 1초).</li>
+<li>한 곳에 20초 이상 숨으면 숨소리가 들려 추격자가 가까이 오면 위치가 드러남 (숨기만 하는 플레이 방지).</li>
+</ul>
+<h3 id="62-목표-장치">6.2 목표 장치</h3>
+<ul>
+<li>맵에 발전기 등 목표 장치가 있고, 하나 작동하는 데 혼자 12초 (2명이면 7초).</li>
+<li>작동 중 진행 바가 보이고, 소리가 나서 추격자와 사냥개에게 알려진다.</li>
+<li>모두 작동하면 출구 1곳이 열린다.</li>
+</ul>
+<h3 id="63-아이템-맵에-무작위-배치-최대-2칸">6.3 아이템 (맵에 무작위 배치, 최대 2칸)</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>아이템</th>
+<th>효과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>손전등</td>
+<td>그림자를 2초간 멈춤 (배터리 제한)</td>
+</tr>
+<tr>
+<td>붕대</td>
+<td>부상 회복</td>
+</tr>
+<tr>
+<td>연막탄</td>
+<td>5초간 주변 시야 차단 (추격자·괴물 모두)</td>
+</tr>
+<tr>
+<td>알람시계</td>
+<td>던진 곳에 소리를 내서 괴물을 유인</td>
+</tr>
+<tr>
+<td>에너지 드링크</td>
+<td>스태미나 즉시 회복</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="64-환경-장치">6.4 환경 장치</h3>
+<ul>
+<li>판자: 넘어뜨리면 추격자가 2초간 기절, 길이 막힘 (1회용)</li>
+<li>문: 닫으면 괴물이 잠시 막힘. 추격자는 열 수 있음</li>
+</ul>
+<hr />
+<h2 id="7-추격자-시스템">7. 추격자 시스템</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>항목</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>공격</td>
+<td>근접 공격 (쿨다운 1.5초), 맞히면 생존자 상태가 한 단계 내려감</td>
+</tr>
+<tr>
+<td>시야</td>
+<td>괴물 위치가 항상 보임. 감시자가 발견한 생존자 위치가 5초간 표시됨</td>
+</tr>
+<tr>
+<td>고유 스킬</td>
+<td>추격자 종류마다 1개</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="71-추격자-종류">7.1 추격자 종류</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>추격자</th>
+<th>해금</th>
+<th>스킬 (쿨다운)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>사냥꾼</td>
+<td>기본</td>
+<td>돌진: 2초간 이동 속도 +50% (20초)</td>
+</tr>
+<tr>
+<td>추적자</td>
+<td>기본</td>
+<td>흔적 보기: 8초간 생존자 발자국이 보임 (30초)</td>
+</tr>
+<tr>
+<td>망령</td>
+<td>코인</td>
+<td>순간이동: 바라보는 방향으로 짧게 이동 (25초)</td>
+</tr>
+<tr>
+<td>조종자</td>
+<td>코인</td>
+<td>괴물 부르기: 가장 가까운 괴물 2마리를 내 위치로 부름 (35초)</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li>추격자는 게임 전용 캐릭터 모델을 쓴다 (꾸미기 스킨 적용 가능).</li>
+</ul>
+<hr />
+<h2 id="8-관전-모드-r1">8. 관전 모드 (R1)</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>항목</th>
+<th>규칙</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>진입</td>
+<td>잡힘 → 2초 잡힘 연출 → 자동으로 관전 시작</td>
+</tr>
+<tr>
+<td>첫 관전 대상</td>
+<td>가장 가까이 있던 생존자</td>
+</tr>
+<tr>
+<td>볼 수 있는 대상</td>
+<td>살아있는 생존자 + 추격자</td>
+</tr>
+<tr>
+<td>대상 바꾸기</td>
+<td>이전/다음 버튼 (PC: Q/E 또는 ←/→, 모바일: 화면 버튼, 콘솔: LB/RB)</td>
+</tr>
+<tr>
+<td>카메라</td>
+<td>대상을 따라가는 3인칭. 대상 주변으로 시점 회전 가능</td>
+</tr>
+<tr>
+<td>대상이 잡히면</td>
+<td>1초 후 다음 대상으로 자동 전환</td>
+</tr>
+<tr>
+<td>관전자 캐릭터</td>
+<td>맵에서 제거. 어떤 것과도 상호작용 불가</td>
+</tr>
+<tr>
+<td>관전 화면 정보</td>
+<td>대상 이름·역할·상태, 남은 생존자 수, 남은 시간, 목표 진행도</td>
+</tr>
+<tr>
+<td>채팅</td>
+<td><strong>관전자끼리만</strong> 보이는 채널 (추격자 위치를 생존자에게 알려주는 것을 막기 위해)</td>
+</tr>
+<tr>
+<td>끝나는 때</td>
+<td>스테이지 종료 → 다음 스테이지에 복귀</td>
+</tr>
+<tr>
+<td>나가기</td>
+<td>"로비로 돌아가기" 버튼. 그때까지 얻은 보상은 받음</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="9-진행성장">9. 진행·성장</h2>
+<ul>
+<li><strong>코인</strong>: 생존 스테이지 수, 탈출, 목표 장치 작동, 아군 치료, 잡은 수(추격자)에 따라 지급</li>
+<li><strong>사용처</strong>: 추격자 종류 해금, 생존자·추격자 꾸미기, 이모트</li>
+<li><strong>레벨</strong>: 경험치로 오르며 칭호·꾸미기 보상</li>
+<li><strong>퀘스트</strong>: 일일 3개, 주간 3개</li>
+<li><strong>배지</strong>: 첫 탈출, 첫 라스트 서바이버, 솔로 클리어, 한 스테이지에서 모두 잡기 등</li>
+<li><strong>리더보드</strong>: 누적 생존 스테이지 수, 누적 잡은 수</li>
+</ul>
+<hr />
+<h2 id="10-수익-모델">10. 수익 모델</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>종류</th>
+<th>예시</th>
+<th>원칙</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>게임패스</td>
+<td>VIP (이름 색상, 로비 전용 이모트, 코인 +20%)</td>
+<td>승패에 영향 없음</td>
+</tr>
+<tr>
+<td>꾸미기</td>
+<td>생존자 스킨, 추격자 스킨, 잡을 때 연출, 이모트</td>
+<td>능력치 없음</td>
+</tr>
+<tr>
+<td>개발자 상품</td>
+<td>코인 묶음</td>
+<td>꾸미기·해금 시간 단축용</td>
+</tr>
+<tr>
+<td>비공개 서버</td>
+<td>친구끼리 하는 서버</td>
+<td>무료</td>
+</tr>
+<tr>
+<td>프리미엄 페이아웃</td>
+<td>Premium 이용자 체류 시간</td>
+<td>자동</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><strong>추격자 확률을 높이는 상품은 팔지 않는다.</strong></li>
+<li>결제 처리는 <code>MarketplaceService.ProcessReceipt</code>에서 영수증 ID를 기록해 중복 지급을 막는다.</li>
+</ul>
+<hr />
+<h2 id="11-ui-ux">11. UI / UX</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>화면</th>
+<th>요소</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>로비</td>
+<td>같이 하기, 혼자 하기, 추격자 선택, 상점, 퀘스트, 설정 (추격자 안 하기)</td>
+</tr>
+<tr>
+<td>역할 공개</td>
+<td>룰렛 연출, 내 역할과 목표 한 줄 설명</td>
+</tr>
+<tr>
+<td>생존자 HUD</td>
+<td>상태(정상/부상), 스태미나, 아이템 2칸, 목표 진행 (n/3), 남은 시간, 남은 생존자 수</td>
+</tr>
+<tr>
+<td>추격자 HUD</td>
+<td>스킬 쿨다운, 남은 생존자 수, 남은 시간, 목표 진행</td>
+</tr>
+<tr>
+<td>관전</td>
+<td>8장 참고</td>
+</tr>
+<tr>
+<td>스테이지 결과</td>
+<td>생존·탈출·잡힘 목록, 획득 코인</td>
+</tr>
+<tr>
+<td>최종 결과</td>
+<td>라스트 서바이버 발표, 스테이지별 기록, 다시 하기</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li>카메라: 생존자·추격자 모두 3인칭 (추격자는 카메라 거리를 짧게)</li>
+<li>모바일: 화면 버튼 4개 (달리기, 상호작용, 아이템, 스킬)</li>
+<li>언어: 한국어 + 영어 (Roblox 현지화 테이블)</li>
+</ul>
+<hr />
+<h2 id="12-아트사운드">12. 아트·사운드</h2>
+<ul>
+<li><strong>아트</strong>: 로우폴리 캐주얼 호러. 어둡지만 형태는 잘 보이게 하고, 괴물은 실루엣과 발광하는 눈으로 표현.</li>
+<li><strong>조명</strong>: Future 조명, 손전등과 비상등이 주요 광원.</li>
+<li><strong>사운드</strong>: 추격자·괴물이 가까워지면 심장 박동 효과음이 커짐. 괴물마다 고유 소리. Roblox 라이선스 오디오로 시작.</li>
+<li><strong>표현 수위</strong>: 피·신체 훼손 없음. 잡힐 때는 화면 암전 + 효과음으로 처리.</li>
+</ul>
+<hr />
+<h2 id="13-기술-구조">13. 기술 구조</h2>
+<h3 id="131-프로젝트-셋업-r5">13.1 프로젝트 셋업 (R5)</h3>
+<ul>
+<li>Roblox 그룹·게임이 없으므로 새로 만든다. 소유 계정(개인/그룹)은 팀 구성에 따라 결정 (질문 Q8-5).</li>
+<li>Studio에서 빈 게임을 게시한 뒤 Universe ID·Place ID를 저장소 설정에 기록한다.</li>
+<li>MVP는 <strong>단일 플레이스</strong> (로비 공간 + 스테이지 맵을 불러오는 방식). 출시 후 로비/매치 플레이스 분리 검토.</li>
+<li>개발 방식: 코드는 Git + Rojo, 맵은 Studio에서 제작.</li>
+</ul>
+<h3 id="132-코드-구조">13.2 코드 구조</h3>
+<pre><code>src/
+  shared/          -- ReplicatedStorage: 스테이지·괴물·아이템·추격자 데이터 테이블, 공용 타입, 유틸
+  server/          -- ServerScriptService
+    Services/
+      MatchService      -- 매치 시작·종료, 스테이지 순서
+      StageService      -- 맵 불러오기, 타이머, 목표 장치, 출구
+      RoleService       -- 추격자 선정, 역할 배정
+      MonsterService    -- 괴물 생성·AI
+      CatchService      -- 피격·부상·잡힘 판정
+      SpectateService   -- 관전 상태·대상 관리
+      ItemService       -- 아이템 배치·사용
+      DataService       -- 저장 (ProfileStore)
+      ShopService       -- 게임패스·상품
+  client/          -- StarterPlayerScripts
+    Controllers/
+      InputController, UIController, CameraController,
+      SpectateController, SoundController, ChaserController, SurvivorController
+</code></pre>
+<h3 id="133-원칙">13.3 원칙</h3>
+<ul>
+<li>피격·잡힘·아이템·목표 진행은 모두 <strong>서버가 판정</strong>한다. 클라이언트는 입력과 연출만 맡는다.</li>
+<li>원격 호출은 빈도 제한 + 거리 검사로 익스플로잇을 막는다.</li>
+<li>관전 중일 때는 서버에서 <code>Player.ReplicationFocus</code>를 관전 대상으로 바꿔 StreamingEnabled 환경에서도 대상 주변 맵이 보이게 한다.</li>
+<li>관전자 채팅은 TextChatService에서 별도 채널로 분리한다.</li>
+<li>저장 항목: 코인, 레벨, 해금한 추격자, 꾸미기, 퀘스트, 통계. 매치 진행 상황은 저장하지 않음.</li>
+</ul>
+<h3 id="134-성능-목표">13.4 성능 목표</h3>
+<ul>
+<li>8명 + 괴물 20마리 기준 모바일 30 FPS 이상, 서버 하트비트 55 이상.</li>
+</ul>
+<hr />
+<h2 id="14-콘텐츠-분량-mvp">14. 콘텐츠 분량 (MVP)</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>항목</th>
+<th>수량</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>스테이지(맵)</td>
+<td>3</td>
+</tr>
+<tr>
+<td>괴물</td>
+<td>5종 (배회자, 사냥개, 감시자, 그림자, 거인)</td>
+</tr>
+<tr>
+<td>추격자</td>
+<td>4종 (기본 2 + 해금 2)</td>
+</tr>
+<tr>
+<td>생존자 아이템</td>
+<td>5종</td>
+</tr>
+<tr>
+<td>환경 장치</td>
+<td>판자, 문, 숨는 곳</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="15-개발-로드맵">15. 개발 로드맵</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>단계</th>
+<th>목표</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M0 프로토타입</td>
+<td>추격 재미 확인</td>
+<td>블록 맵 1개, 생존자 이동·달리기·숨기, 추격자 공격, 배회자 AI, 잡힘 → 관전, 타이머, 솔로면 괴물만</td>
+</tr>
+<tr>
+<td>M1 한 매치 완성</td>
+<td>3 스테이지 완주</td>
+<td>스테이지 3개 연속, 추격자 교체, 괴물 3종, 발전기·출구, 아이템 3종, 결과 화면</td>
+</tr>
+<tr>
+<td>M2 MVP</td>
+<td>출시</td>
+<td>로비(같이/혼자 하기), 저장, 추격자 4종, 괴물 5종, 모바일 UI, 상점, 현지화, 정식 맵</td>
+</tr>
+<tr>
+<td>M3 라이브</td>
+<td>운영</td>
+<td>스테이지 4·5, 시즌 리더보드, 이벤트</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="16-성과-지표">16. 성과 지표</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>지표</th>
+<th>목표 (초기)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1 리텐션</td>
+<td>25% 이상</td>
+</tr>
+<tr>
+<td>D7 리텐션</td>
+<td>8% 이상</td>
+</tr>
+<tr>
+<td>평균 플레이 시간</td>
+<td>20분 이상</td>
+</tr>
+<tr>
+<td>추격자 승률</td>
+<td>40~50%</td>
+</tr>
+<tr>
+<td>매치 완주율 (3 스테이지)</td>
+<td>60% 이상</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="17-위험-요소">17. 위험 요소</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>위험</th>
+<th>대응</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>추격자가 너무 강하거나 약함</td>
+<td>스테이지별 승률 기록 → 데이터 테이블로 수치 조정</td>
+</tr>
+<tr>
+<td>관전자가 추격자 위치를 알려줌</td>
+<td>관전자 채팅 분리</td>
+</tr>
+<tr>
+<td>추격자를 하기 싫은/하고 싶은 사람</td>
+<td>"추격자 안 하기" 옵션, 덜 해본 사람 우선</td>
+</tr>
+<tr>
+<td>인원이 적으면 재미가 떨어짐</td>
+<td>인원별 괴물 수 보정, 솔로 모드</td>
+</tr>
+<tr>
+<td>숨기만 하는 플레이</td>
+<td>20초 숨소리 규칙, 제한 시간 내 목표 보상</td>
+</tr>
+<tr>
+<td>괴물 AI로 서버 렉</td>
+<td>동시 20마리 상한, AI 갱신 분산</td>
+</tr>
+<tr>
+<td>공포 수위로 연령 등급 문제</td>
+<td>피 없음, 점프스케어 최소화, 출시 전 Roblox 성숙도 설문 기준 확인</td>
+</tr>
+</tbody>
+</table></div>
+</section>
+</main>
+</div>
+<script>
+(function(){
+  var root=document.documentElement,btn=document.getElementById('theme');
+  try{var t=localStorage.getItem('gdd-theme');if(t)root.setAttribute('data-theme',t);}catch(e){}
+  btn&&btn.addEventListener('click',function(){
+    var dark=root.getAttribute('data-theme')==='dark'||(!root.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
+    var n=dark?'light':'dark';root.setAttribute('data-theme',n);try{localStorage.setItem('gdd-theme',n);}catch(e){}
+  });
+  var links=[].slice.call(document.querySelectorAll('nav.toc a'));
+  var heads=links.map(function(a){return document.getElementById(decodeURIComponent(a.hash.slice(1)));}).filter(Boolean);
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(a){a.classList.toggle('active',decodeURIComponent(a.hash.slice(1))===e.target.id);});}});},
+      {rootMargin:'0px 0px -75% 0px'});
+    heads.forEach(function(h){io.observe(h);});
+  }
+})();
+</script>
+</body>
+</html>
