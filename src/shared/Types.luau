@@ -35,6 +35,12 @@ export type UnlockKind = "Default" | "Coins"
 -- 추격자 화면에 생존자 위치를 잠깐 표시하는 이유 (GDD 4.1 감시자 경보, 6.2 발전기 소리)
 export type MarkerReason = "WatcherAlert" | "GeneratorNoise"
 
+-- 클라이언트 효과음 (Config.Assets.Sounds, SoundController)
+export type SoundKey = "ChaserAttack" | "SurvivorHit" | "SurvivorCaught" | "SurvivorHealed"
+
+-- 클라이언트 애니메이션 (Config.Assets.Animations)
+export type AnimationKey = "ChaserAttack"
+
 -- 잠깐 띄우는 알림 문구의 키 (Strings.Notices)
 export type NoticeKey =
 	"PreparationSurvivor"

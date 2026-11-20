@@ -28,7 +28,10 @@ local MapObjects = require(ReplicatedStorage.Shared.Config.MapObjects)
 local MapTags = require(ReplicatedStorage.Shared.MapTags)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Strings = require(ReplicatedStorage.Shared.Strings)
+local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
 local RoleService = require(script.Parent.RoleService)
+
+type CharacterParts = CharacterParts.CharacterParts
 
 type Spot = {
 	model: Model,
@@ -37,12 +40,6 @@ type Spot = {
 	highlight: Highlight,
 	created: { Instance }, -- clearMap에서 지울 것 (프롬프트·Attachment·Highlight)
 	occupant: Player?,
-}
-
-type CharacterParts = {
-	character: Model,
-	humanoid: Humanoid,
-	rootPart: BasePart,
 }
 
 type HiddenEntry = {
@@ -75,19 +72,6 @@ local mapConnections: { RBXScriptConnection } = {}
 local hiddenByPlayer: { [Player]: HiddenEntry } = {}
 local openHolds: { [Player]: OpenHold } = {}
 local nextHideAllowedAt: { [Player]: number } = {}
-
-local function getCharacterParts(player: Player): CharacterParts?
-	local character = player.Character
-	if not character or not character:IsDescendantOf(Workspace) then
-		return nil
-	end
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local rootPart = character:FindFirstChild("HumanoidRootPart")
-	if not humanoid or humanoid.Health <= 0 or not rootPart or not rootPart:IsA("BasePart") then
-		return nil
-	end
-	return { character = character, humanoid = humanoid, rootPart = rootPart }
-end
 
 -- PrimaryPart 앞쪽(LookVector)을 수평으로 편 방향
 local function frontDirection(body: BasePart): Vector3
@@ -260,7 +244,7 @@ local function onHideTriggered(player: Player, spot: Spot): ()
 	if os.clock() < (nextHideAllowedAt[player] or 0) then
 		return
 	end
-	local parts = getCharacterParts(player)
+	local parts = CharacterParts.get(player)
 	if not parts or not isNear(parts, spot) then
 		return
 	end
@@ -297,7 +281,7 @@ local function onOpenTriggered(chaser: Player, spot: Spot): ()
 	if MatchState.getRole(chaser) ~= "Chaser" or not HideSpotState.canOpenInPhase(MatchState.getPhase()) then
 		return
 	end
-	local parts = getCharacterParts(chaser)
+	local parts = CharacterParts.get(chaser)
 	if not parts or not isNear(parts, spot) then
 		return
 	end
@@ -402,7 +386,7 @@ local function updateBreathing(): ()
 	end
 	local chaserPositions: { Vector3 } = {}
 	for _, chaser in RoleService.getChasers() do
-		local parts = getCharacterParts(chaser)
+		local parts = CharacterParts.get(chaser)
 		if parts then
 			table.insert(chaserPositions, parts.rootPart.Position)
 		end

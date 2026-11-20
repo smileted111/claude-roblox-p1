@@ -17,13 +17,15 @@ export type ChaserDef = {
 	Unlock: Types.UnlockKind,
 	WalkSpeed: number,
 	AttackCooldown: number, -- 근접 공격 간격 (초)
-	AttackRange: number, -- 추격자 앞쪽 공격 판정 거리 (스터드)
+	AttackRange: number, -- 추격자 앞쪽 공격 판정 거리 (스터드, HumanoidRootPart 중심 사이)
+	AttackAngle: number, -- 추격자 앞쪽 공격 판정 각도 (도). 바라보는 방향을 가운데로 이 각도 안
 	Skill: SkillDef,
 }
 
 local WALK_SPEED = 20
 local ATTACK_COOLDOWN = 1.5
 local ATTACK_RANGE = 6 -- 임시
+local ATTACK_ANGLE = 120 -- 임시
 
 local Chasers: { [Types.ChaserId]: ChaserDef } = {
 	-- 사냥꾼 — 돌진: 2초간 이동 속도 +50%
@@ -32,6 +34,7 @@ local Chasers: { [Types.ChaserId]: ChaserDef } = {
 		WalkSpeed = WALK_SPEED,
 		AttackCooldown = ATTACK_COOLDOWN,
 		AttackRange = ATTACK_RANGE,
+		AttackAngle = ATTACK_ANGLE,
 		Skill = {
 			Kind = "Dash",
 			Cooldown = 20,
@@ -45,6 +48,7 @@ local Chasers: { [Types.ChaserId]: ChaserDef } = {
 		WalkSpeed = WALK_SPEED,
 		AttackCooldown = ATTACK_COOLDOWN,
 		AttackRange = ATTACK_RANGE,
+		AttackAngle = ATTACK_ANGLE,
 		Skill = {
 			Kind = "RevealFootprints",
 			Cooldown = 30,
@@ -57,6 +61,7 @@ local Chasers: { [Types.ChaserId]: ChaserDef } = {
 		WalkSpeed = WALK_SPEED,
 		AttackCooldown = ATTACK_COOLDOWN,
 		AttackRange = ATTACK_RANGE,
+		AttackAngle = ATTACK_ANGLE,
 		Skill = {
 			Kind = "Blink",
 			Cooldown = 25,
@@ -69,6 +74,7 @@ local Chasers: { [Types.ChaserId]: ChaserDef } = {
 		WalkSpeed = WALK_SPEED,
 		AttackCooldown = ATTACK_COOLDOWN,
 		AttackRange = ATTACK_RANGE,
+		AttackAngle = ATTACK_ANGLE,
 		Skill = {
 			Kind = "CallMonsters",
 			Cooldown = 35,
