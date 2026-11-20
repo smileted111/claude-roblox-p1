@@ -1,0 +1,22 @@
+# Wally 패키지 (wally install로 다시 받음)
+Packages/
+ServerPackages/
+DevPackages/
+
+# Rojo
+sourcemap.json
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+
+# Selene가 만드는 Roblox 표준 라이브러리 정의
+roblox.yml
+roblox.toml
+
+# Python (tools/)
+__pycache__/
+
+# OS·편집기
+.DS_Store
+Thumbs.db

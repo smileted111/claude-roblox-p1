@@ -1,0 +1,9 @@
+* text=auto
+
+# StyLua 설정(line_endings = "Unix")과 맞추기 위해 Windows에서도 LF로 체크아웃
+*.luau text eol=lf
+*.lua text eol=lf
+
+# Studio에서 내보낸 모델·플레이스 파일
+*.rbxm binary
+*.rbxl binary
