@@ -1,17 +1,31 @@
 --!strict
--- 클라이언트가 쓰는 애니메이션·효과음 에셋 ID (GDD 12장). 정식 에셋이 정해지면 여기만 바꾼다.
+-- 애니메이션·효과음 에셋 ID (GDD 12장). 정식 에셋이 정해지면 여기만 바꾼다.
+-- Animations·Sounds는 클라이언트가, MonsterAnimations는 서버(MonsterService)가 괴물 Animator로 재생한다.
 -- 효과음이 빈 문자열이면 아직 자리만 있는 것이다 (SoundController가 아무것도 재생하지 않음).
 
 local Types = require(script.Parent.Parent.Types)
 
+-- 괴물 애니메이션. 지금은 모든 괴물이 같이 쓴다 (R15 리그 모델)
+export type MonsterAnimations = {
+	Idle: string,
+	Walk: string,
+	Attack: string,
+}
+
 export type AssetsConfig = {
 	Animations: { [Types.AnimationKey]: string },
+	MonsterAnimations: MonsterAnimations,
 	Sounds: { [Types.SoundKey]: string },
 }
 
 local Assets: AssetsConfig = {
 	Animations = {
 		ChaserAttack = "rbxassetid://522635514", -- 임시: Roblox 기본 R15 애니메이션의 도구 휘두르기 (toolslash)
+	},
+	MonsterAnimations = {
+		Idle = "rbxassetid://507766388", -- 임시: Roblox 기본 R15 서 있기
+		Walk = "rbxassetid://507777826", -- 임시: Roblox 기본 R15 걷기
+		Attack = "rbxassetid://522635514", -- 임시: Roblox 기본 R15 도구 휘두르기 (toolslash)
 	},
 	Sounds = {
 		ChaserAttack = "", -- 자리만: 추격자 휘두르기

@@ -17,6 +17,9 @@ export type StageId = "Stage1" | "Stage2" | "Stage3" | "Stage4" | "Stage5"
 -- 괴물 (GDD 4.1): 배회자, 사냥개, 감시자, 그림자, 거인
 export type MonsterId = "Wanderer" | "Hound" | "Watcher" | "Shadow" | "Giant"
 
+-- 괴물 AI 상태 (GDD 4.4). 대기(추격 단계 밖) → 순찰 → 의심 → 추격 → 공격, 놓치면 포기한 뒤 순찰로 돌아감
+export type MonsterAIState = "Idle" | "Patrol" | "Suspicious" | "Chase" | "Attack" | "GiveUp"
+
 -- 추격자 (GDD 7.1): 사냥꾼, 추적자, 망령, 조종자
 export type ChaserId = "Hunter" | "Tracker" | "Wraith" | "Puppeteer"
 

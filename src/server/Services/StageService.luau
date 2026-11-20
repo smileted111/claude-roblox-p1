@@ -6,6 +6,7 @@
 --   준비       Config.Match.PreparationTime  맵을 Workspace.CurrentMap에 복제하고 조명을 Config.Stages[id].Lighting으로.
 --                                            생존자는 SurvivorSpawn, 추격자는 ChaserSpawn에 배치.
 --                                            ChaserGate는 닫아 둠. 숨는 곳 준비(HideService)
+--                                            괴물 생성(MonsterService). 괴물은 추격 단계부터 움직인다
 --   추격       Config.Stages[id].TimeLimit   ChaserGate를 엶
 --   결과       Config.Match.StageResultTime  결과를 출력 창에 남김. 끝나면 맵을 지우고 역할을 비우고,
 --                                            조명을 대기 장소 값(Config.Lighting.Lobby)으로 되돌림
@@ -30,6 +31,7 @@ local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
 local HideService = require(script.Parent.HideService)
+local MonsterService = require(script.Parent.MonsterService)
 local RoleService = require(script.Parent.RoleService)
 
 local MAPS_FOLDER = "Maps" -- ServerStorage.Maps
@@ -283,6 +285,7 @@ local function logResult(run: StageRun, reason: EndReason): ()
 end
 
 local function finish(): ()
+	MonsterService.clear()
 	HideService.clearMap()
 	StageService.unloadMap()
 	applyLighting(LightingConfig.Lobby, "대기 장소")
@@ -387,6 +390,7 @@ function StageService.runStage(stageId: Types.StageId): ()
 		local map = loadMap(stageId)
 		run.map = map
 		HideService.setupMap(map)
+		MonsterService.spawnForStage(map, stageId, #run.survivors, run.hadChaser)
 		setGateOpen(run, false)
 		placeParticipants(run, map)
 		local notice = Remotes.get("Notice")
