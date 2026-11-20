@@ -2,7 +2,8 @@
 -- ChaserController: 추격자 조작 — 근접 공격·열어보기 (GDD 6.1, 7장, 13.2). 스킬은 S3-3에서.
 --
 -- 공격: PC 마우스 왼쪽 클릭, 모바일 화면 탭(UI가 아닌 곳), 게임패드 R2. 추격 단계의 추격자만.
---   이 컨트롤러는 쿨다운(Config.Chasers.AttackCooldown) 동안 다시 보내지 않고, 휘두르는 애니메이션과 효과음만 낸다.
+--   이 컨트롤러는 쿨다운(Config.Chasers.AttackCooldown) 동안 다시 보내지 않고, 휘두르는 애니메이션과 효과음,
+--   HUD 쿨다운 바(UIController)만 맡는다.
 --   맞았는지, 쿨다운이 지났는지는 서버(CatchService)가 다시 판정한다 (ChaserAttack 리모트).
 -- 숨는 곳의 "열어보기" 프롬프트를 추격자에게만, 추격 단계에서만 켠다. 누르는 시간(ChaserOpenTime)과 판정은 서버(HideService).
 
@@ -20,6 +21,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
 local HideSpotWatcher = require(script.Parent.Parent.Util.HideSpotWatcher)
 local SoundController = require(script.Parent.SoundController)
+local UIController = require(script.Parent.UIController)
 
 local Attribute = MatchState.Attribute
 local localPlayer = Players.LocalPlayer
@@ -71,10 +73,12 @@ local function tryAttack(): ()
 	if not parts then
 		return
 	end
-	nextAttackAt = now + Chasers[Match.DefaultChaser].AttackCooldown
+	local cooldown = Chasers[Match.DefaultChaser].AttackCooldown
+	nextAttackAt = now + cooldown
 	if attackRemote then
 		attackRemote:FireServer()
 	end
+	UIController.startAttackCooldown(cooldown)
 	playAttackAnimation(parts.humanoid)
 	SoundController.play("ChaserAttack")
 end

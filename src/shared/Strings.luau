@@ -90,7 +90,7 @@ local Strings = {
 	-- 역할 공개 룰렛 (GDD 2.1)
 	RoleReveal = {
 		Choosing = "추격자를 정하는 중...",
-		ChaserIs = "이번 추격자는 %s 님!",
+		ChaserTitle = "이번 추격자는",
 		YouAreChaser = "당신이 추격자입니다!",
 		YouAreSurvivor = "당신은 생존자입니다!",
 		Solo = "혼자 하기: 추격자 없이 괴물만 등장합니다.",
@@ -123,6 +123,8 @@ local Strings = {
 		Item = "아이템",
 		Run = "달리기",
 		Interact = "상호작용",
+		AttackReady = "공격 가능",
+		Clock = "%d:%02d", -- 분, 초. 예: 3:45
 		PhaseClock = "%s %d:%02d", -- 단계 이름, 분, 초. 예: 추격 3:45
 	},
 
