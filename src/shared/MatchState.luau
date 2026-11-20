@@ -1,6 +1,7 @@
 --!strict
 -- 클라이언트에 공개하는 매치 상태(Attribute)의 이름과 읽기 함수를 이 파일 한 곳에서 정의한다.
--- 쓰기는 서버만 한다 (MatchService, StageService, RoleService, MovementService, HideService, server/Util/PhaseTimer).
+-- 쓰기는 서버만 한다 (MatchService, StageService, RoleService, MovementService, HideService, SpectateService,
+-- server/Util/PhaseTimer).
 --
 -- ReplicatedStorage의 Attribute (매치 전체)
 --   Phase          Types.MatchPhase    현재 단계
@@ -17,6 +18,8 @@
 --   Stamina        number?                 스태미나 (0 ~ Config.Survivor.Stamina.Max, 정수로 반올림) (MovementService)
 --   Running        boolean?                지금 달리는 중인가 (MovementService)
 --   Hidden         boolean?                숨는 곳에 숨어 있는가 (HideService). 어디에 숨었는지는 HideSpotState
+--   Spectating     boolean?                관전 화면을 보는 중 (SpectateService). 잡힘 연출이 끝난 뒤부터 스테이지가 끝날 때까지
+--   SpectateTarget number?                 관전 대상의 UserId (SpectateService). 관전 중이라도 볼 대상이 없으면 nil
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -35,6 +38,8 @@ local Attribute = table.freeze({
 	Stamina = "Stamina",
 	Running = "Running",
 	Hidden = "Hidden",
+	Spectating = "Spectating",
+	SpectateTarget = "SpectateTarget",
 })
 
 local function readString(instance: Instance, name: string): string?
@@ -100,6 +105,14 @@ end
 
 function MatchState.isHidden(player: Player): boolean
 	return player:GetAttribute(Attribute.Hidden) == true
+end
+
+function MatchState.isSpectating(player: Player): boolean
+	return player:GetAttribute(Attribute.Spectating) == true
+end
+
+function MatchState.getSpectateTargetUserId(player: Player): number?
+	return readNumber(player, Attribute.SpectateTarget)
 end
 
 return MatchState

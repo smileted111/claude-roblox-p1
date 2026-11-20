@@ -2,7 +2,7 @@
 -- CatchService: 피격·부상·잡힘 판정과 아군 치료 (GDD 2.2, 7장, 12장, 13.2)
 --
 -- 추격자 공격 (ChaserAttack 리모트, 인자 없음)
---   빈도 제한(Config.RateLimits) → 역할(추격자) → 단계(추격, CatchState.canHitInPhase)
+--   빈도 제한·관전자 거절(server/Util/RemoteHandler) → 역할(추격자) → 단계(추격, CatchState.canHitInPhase)
 --   → 쿨다운(Config.Chasers.AttackCooldown) 순서로 검사한다.
 --   판정: 추격자 HumanoidRootPart가 바라보는 쪽 AttackAngle도 안, AttackRange(+ Config.Catch.Attack.RangeSlack) 안에 있고
 --         사이에 벽이 없는 생존자 중 가장 가까운 1명. 빗나가도 쿨다운은 돈다.
@@ -17,7 +17,7 @@
 --   RoleService.setSurvivorState(Caught)로 역할이 Spectator가 되고, 모두에게 알림(Notice SurvivorCaught)을 보낸다.
 --   캐릭터를 그 자리에 고정했다가 Config.Catch.CaughtEffect.FadeInTime초 뒤(잡힌 사람 화면이 어두워진 뒤) 맵에서 지운다.
 --   화면 암전 Config.Match.CaughtEffectTime초와 효과음은 클라이언트(SurvivorController)가 자기 SurvivorState를 보고 한다.
---   관전 화면은 S1-7.
+--   암전이 끝나면 관전이 시작된다 (SpectateService).
 --
 -- 아군 치료
 --   부상 상태로 숨어 있지 않은 생존자의 HumanoidRootPart에 ProximityPrompt "치료"를 만든다
@@ -34,13 +34,12 @@ local CatchState = require(ReplicatedStorage.Shared.CatchState)
 local Chasers = require(ReplicatedStorage.Shared.Config.Chasers)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
-local RateLimits = require(ReplicatedStorage.Shared.Config.RateLimits)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
 local Types = require(ReplicatedStorage.Shared.Types)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
-local RateLimit = require(script.Parent.Parent.Util.RateLimit)
+local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 local HideService = require(script.Parent.HideService)
 local RoleService = require(script.Parent.RoleService)
 
@@ -303,11 +302,8 @@ function CatchService.Start(): ()
 		healHolds[player] = nil
 	end)
 
-	local attackLimit = RateLimit.new(RateLimits.ChaserAttack)
-	Remotes.get("ChaserAttack").OnServerEvent:Connect(function(player: Player)
-		if attackLimit.allow(player) then
-			onChaserAttack(player)
-		end
+	RemoteHandler.connect("ChaserAttack", function(player: Player)
+		onChaserAttack(player)
 	end)
 end
 

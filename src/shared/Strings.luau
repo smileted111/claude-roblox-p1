@@ -123,6 +123,7 @@ local Strings = {
 		Item = "아이템",
 		Run = "달리기",
 		Interact = "상호작용",
+		PhaseClock = "%s %d:%02d", -- 단계 이름, 분, 초. 예: 추격 3:45
 	},
 
 	-- 관전 (GDD 8장)
@@ -132,6 +133,12 @@ local Strings = {
 		Next = "다음",
 		NoTarget = "볼 수 있는 플레이어가 없습니다.",
 		ReturnToLobby = "로비로 돌아가기",
+		Joined = "%s · %s", -- 두 항목을 잇는다. 예: 생존자 · 부상, 남은 생존자 3명 · 추격 3:45
+		Hidden = "숨음",
+		KeyHint = "Q·E 또는 ←·→로 대상 바꾸기",
+		GamepadHint = "LB·RB로 대상 바꾸기",
+		ChatPrefix = "[관전]",
+		ChatNotice = "관전자 채팅입니다. 메시지는 관전자끼리만 볼 수 있습니다.",
 	},
 
 	-- 결과 (GDD 3.2, 3.4)

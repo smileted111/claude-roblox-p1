@@ -4,14 +4,12 @@
 -- 플레이어마다 MaxCalls개의 토큰을 주고, Window초 동안 MaxCalls개가 고르게 다시 찬다.
 -- 짧게 몰아서 MaxCalls번까지는 허용하고, 그 뒤로는 평균 빈도를 넘는 호출을 거절한다.
 --
+-- 리모트에는 직접 쓰지 않고 server/Util/RemoteHandler.connect를 쓴다 (빈도 제한과 관전자 거절을 함께 건다).
 -- 사용 예:
---   local attackLimit = RateLimit.new(RateLimits.ChaserAttack)
---   Remotes.get("ChaserAttack").OnServerEvent:Connect(function(player: Player)
---       if not attackLimit.allow(player) then
---           return
---       end
---       ...
---   end)
+--   local limiter = RateLimit.new(RateLimits.ChaserAttack)
+--   if not limiter.allow(player) then
+--       return
+--   end
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

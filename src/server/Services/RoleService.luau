@@ -15,10 +15,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
-local RateLimits = require(ReplicatedStorage.Shared.Config.RateLimits)
-local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Types = require(ReplicatedStorage.Shared.Types)
-local RateLimit = require(script.Parent.Parent.Util.RateLimit)
+local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 
 local Attribute = MatchState.Attribute
 
@@ -27,9 +25,10 @@ local RoleService = {}
 local random = Random.new()
 local chaserCounts: { [Player]: number } = {}
 
+-- 상태를 먼저 쓴다. Role 변경을 듣는 쪽(SpectateService: 잡혔으면 잡힘 연출 뒤에 관전 시작)이 새 상태를 읽게 하기 위해서다.
 local function setRole(player: Player, role: Types.Role?, state: Types.SurvivorState?): ()
-	player:SetAttribute(Attribute.Role, role)
 	player:SetAttribute(Attribute.SurvivorState, state)
+	player:SetAttribute(Attribute.Role, role)
 end
 
 -- 이번 매치에서 추격자를 한 횟수
@@ -138,9 +137,9 @@ function RoleService.Init(): ()
 end
 
 function RoleService.Start(): ()
-	local optOutLimit = RateLimit.new(RateLimits.SetChaserOptOut)
-	Remotes.get("SetChaserOptOut").OnServerEvent:Connect(function(player: Player, optOut: unknown)
-		if not optOutLimit.allow(player) or typeof(optOut) ~= "boolean" then
+	-- 관전자도 보낼 수 있다 (다음 스테이지부터 적용되는 설정, Remotes.isSpectatorAllowed).
+	RemoteHandler.connect("SetChaserOptOut", function(player: Player, optOut: unknown)
+		if typeof(optOut) ~= "boolean" then
 			return
 		end
 		player:SetAttribute(Attribute.ChaserOptOut, optOut)

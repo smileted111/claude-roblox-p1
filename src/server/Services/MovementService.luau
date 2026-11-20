@@ -20,10 +20,8 @@ local RunService = game:GetService("RunService")
 local Chasers = require(ReplicatedStorage.Shared.Config.Chasers)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
-local RateLimits = require(ReplicatedStorage.Shared.Config.RateLimits)
-local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
-local RateLimit = require(script.Parent.Parent.Util.RateLimit)
+local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 
 -- WalkSpeed는 float로 저장되어 14.4 같은 값이 정확히 같지 않으므로 이 차이 이상일 때만 바꾼다.
 local SPEED_EPSILON = 0.01
@@ -161,9 +159,8 @@ function MovementService.Start(): ()
 		states[player] = nil
 	end)
 
-	local runLimit = RateLimit.new(RateLimits.SetRunning)
-	Remotes.get("SetRunning").OnServerEvent:Connect(function(player: Player, wantsToRun: unknown)
-		if not runLimit.allow(player) or typeof(wantsToRun) ~= "boolean" then
+	RemoteHandler.connect("SetRunning", function(player: Player, wantsToRun: unknown)
+		if typeof(wantsToRun) ~= "boolean" then
 			return
 		end
 		local state = states[player]

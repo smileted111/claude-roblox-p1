@@ -6,7 +6,8 @@
 --
 -- 리모트는 한 번 일어나는 사건에만 쓴다. 계속 유지되는 상태(매치 단계, 남은 시간, 역할, 생존자 상태,
 -- 출구 개방 등)는 Attribute로 공개해 늦게 들어온 클라이언트도 바로 읽을 수 있게 한다.
--- 클라이언트 → 서버 리모트는 서버에서 RateLimit(Config.RateLimits)과 역할·거리·상태 검사를 먼저 한다.
+-- 클라이언트 → 서버 리모트는 서버에서 server/Util/RemoteHandler로 연결한다. 거기서 빈도 제한(Config.RateLimits)을 걸고
+-- 관전자 요청을 거절한 뒤(Remotes.isSpectatorAllowed), 각 서비스가 인자·역할·거리·상태를 검사한다.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -14,13 +15,7 @@ local RunService = game:GetService("RunService")
 local FOLDER_NAME = "Remotes"
 
 -- 서버 → 클라이언트
-export type ServerEventName =
-	"RoleReveal"
-	| "Notice"
-	| "ChaserMarker"
-	| "SpectateTarget"
-	| "StageResult"
-	| "MatchResult"
+export type ServerEventName = "RoleReveal" | "Notice" | "ChaserMarker" | "StageResult" | "MatchResult"
 
 -- 클라이언트 → 서버
 export type ClientEventName =
@@ -39,7 +34,6 @@ local SERVER_EVENTS: { ServerEventName } = {
 	"RoleReveal", -- 모두 (chaserUserId: number, candidateUserIds: {number}). 역할 공개 룰렛 시작. 솔로는 보내지 않음
 	"Notice", -- 한 명 또는 모두 (key: Types.NoticeKey, ...: string | number). Strings.Notices 문구를 잠깐 띄움
 	"ChaserMarker", -- 추격자 (position: Vector3, duration: number, reason: Types.MarkerReason). 생존자 위치 잠깐 표시
-	"SpectateTarget", -- 관전자 (targetUserId: number?). 관전 대상이 바뀜. nil이면 볼 대상 없음
 	"StageResult", -- 모두 (result). 스테이지 결과. 형식은 S2-5에서 Types에 정의
 	"MatchResult", -- 모두 (result). 최종 결과. 형식은 S2-5에서 Types에 정의
 }
@@ -49,9 +43,16 @@ local CLIENT_EVENTS: { ClientEventName } = {
 	"ChaserAttack", -- 추격자 (). 근접 공격. 판정은 서버
 	"UseSkill", -- 추격자 (lookDirection: Vector3). 고유 스킬. 망령 순간이동은 이 방향으로
 	"UseItem", -- 생존자 (slot: number, aimPosition: Vector3?). 아이템 사용. 알람시계는 던질 위치를 함께 보냄
-	"SpectateCycle", -- 관전자 (step: number). 1이면 다음, -1이면 이전 대상
+	"SpectateCycle", -- 관전자 (step: number). 1이면 다음, -1이면 이전 대상. 관전 대상 자체는 Player Attribute(MatchState)
 	"SetChaserOptOut", -- 모두 (optOut: boolean). "추격자 안 하기" 설정
 	"ReturnToLobby", -- 관전자 (). 로비로 돌아가기
+}
+
+-- 관전자(역할 Spectator)도 보낼 수 있는 클라이언트 → 서버 리모트. 나머지는 관전자가 보내면 서버가 모두 거절한다 (GDD 8장).
+local SPECTATOR_ALLOWED: { [ClientEventName]: boolean } = {
+	SpectateCycle = true,
+	SetChaserOptOut = true, -- 다음 스테이지부터 적용되는 설정
+	ReturnToLobby = true,
 }
 
 local Remotes = {}
@@ -96,6 +97,11 @@ function Remotes.setupServer(): ()
 	for _, name in CLIENT_EVENTS do
 		ensure(folder, name)
 	end
+end
+
+-- 관전자가 보내도 받아 주는 리모트인가
+function Remotes.isSpectatorAllowed(name: ClientEventName): boolean
+	return SPECTATOR_ALLOWED[name] == true
 end
 
 -- 이름으로 RemoteEvent를 찾는다. 클라이언트에서는 서버가 만들 때까지 멈춰서 기다린다.

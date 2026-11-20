@@ -9,7 +9,7 @@
 -- 치료: 부상당한 다른 생존자의 "치료" 프롬프트를 내가 치료할 수 있을 때만 켠다 (CatchState). 판정은 서버(CatchService).
 -- 내 생존자 상태가 바뀌면 효과를 낸다 (GDD 8장, 12장). 피 표현 없이 화면 효과와 효과음(자리만)으로.
 --   정상 → 부상: 화면이 잠깐 번쩍임 (Config.Catch.HitFlash)
---   잡힘: 화면 암전 Config.Match.CaughtEffectTime초 (Config.Catch.CaughtEffect). 관전 화면은 S1-7
+--   잡힘: 화면 암전 Config.Match.CaughtEffectTime초 (Config.Catch.CaughtEffect). 그 뒤 관전은 SpectateController
 
 local CollectionService = game:GetService("CollectionService")
 local ContextActionService = game:GetService("ContextActionService")
