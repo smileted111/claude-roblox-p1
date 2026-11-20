@@ -111,6 +111,12 @@ type Monster = {
 	stuckCheckAt: number,
 }
 
+-- 동작을 구현한 괴물. 나머지 종류는 배회자로 대체하고 경고를 남긴다 (사냥개·감시자 S2-3, 그림자·거인 S3-4).
+local IMPLEMENTED: { [Types.MonsterId]: boolean } = {
+	Wanderer = true,
+}
+local FALLBACK_MONSTER: Types.MonsterId = "Wanderer"
+
 local PATROL_ROUTE_ATTRIBUTE = "Route" -- PatrolPoint의 경로 이름 (CLAUDE.md 맵 규칙)
 local PATROL_ORDER_ATTRIBUTE = "Order" -- PatrolPoint의 순서
 local MOVING_SPEED = 0.1 -- Humanoid.Running 속도가 이보다 크면 걷는 중으로 본다 (멈춰 있을 때의 흔들림을 걸러냄)
@@ -986,30 +992,51 @@ function MonsterService.spawnForStage(
 	monsterFolder = folder
 
 	local templates = ServerStorage:FindFirstChild(MonsterState.ModelsFolderName)
+	local function findTemplate(kind: Types.MonsterId): Model?
+		local template = templates and templates:FindFirstChild(kind)
+		return if template and template:IsA("Model") then template else nil
+	end
 	local routeUse: { [string]: number } = {}
 	local placed = 0
-	local summary: { string } = {}
+	local made: { [Types.MonsterId]: number } = {}
+	local madeOrder: { Types.MonsterId } = {}
 	for _, group in groups do
-		local template = templates and templates:FindFirstChild(group.Monster)
-		local made = 0
-		if group.Count > 0 and not (template and template:IsA("Model")) then
+		local kind = group.Monster
+		local template = findTemplate(kind)
+		if group.Count > 0 and (not IMPLEMENTED[kind] or not template) then
+			local reason = if IMPLEMENTED[kind]
+				then `ServerStorage.{MonsterState.ModelsFolderName}.{kind} 모델이 없어`
+				else "아직 동작을 만들지 않아"
 			warn(
-				`[Monster] ServerStorage.{MonsterState.ModelsFolderName}.{group.Monster} 모델이 없어 {Strings.Monsters[group.Monster]} {group.Count}마리를 건너뜁니다`
+				`[Monster] {Strings.Monsters[kind]}({kind}) {group.Count}마리: {reason} {Strings.Monsters[FALLBACK_MONSTER]}로 대신합니다`
 			)
-		elseif template and template:IsA("Model") then
+			kind = FALLBACK_MONSTER
+			template = findTemplate(kind)
+		end
+		if group.Count > 0 and not template then
+			warn(
+				`[Monster] ServerStorage.{MonsterState.ModelsFolderName}.{kind} 모델이 없어 {Strings.Monsters[kind]} {group.Count}마리를 건너뜁니다`
+			)
+		elseif template then
 			for _ = 1, group.Count do
 				local spawnPart = spawns[placed % #spawns + 1]
 				local lap = placed // #spawns
 				local route = pickRoute(routes, routeUse, spawnPart.Position)
-				local monster = createMonster(group.Monster, template, spawnPart, lap, route, folder)
+				local monster = createMonster(kind, template, spawnPart, lap, route, folder)
 				if monster then
 					table.insert(monsters, monster)
 					placed += 1
-					made += 1
+					if not made[kind] then
+						table.insert(madeOrder, kind)
+					end
+					made[kind] = (made[kind] or 0) + 1
 				end
 			end
 		end
-		table.insert(summary, `{Strings.Monsters[group.Monster]} {made}`)
+	end
+	local summary: { string } = {}
+	for _, kind in madeOrder do
+		table.insert(summary, `{Strings.Monsters[kind]} {made[kind]}`)
 	end
 
 	-- 갱신 시작 시점을 괴물 수로 나눈다 (GDD 4.4).

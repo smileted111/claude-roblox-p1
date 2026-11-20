@@ -6,7 +6,7 @@ local MapTags = table.freeze({
 	SurvivorSpawn = "SurvivorSpawn", -- 생존자 시작 위치 (Part)
 	ChaserSpawn = "ChaserSpawn", -- 추격자 대기실 안 시작 위치 (Part)
 	ChaserGate = "ChaserGate", -- 준비 시간이 끝나면 열리는 대기실 문 (Part 또는 Model)
-	MonsterSpawn = "MonsterSpawn", -- 괴물 생성 위치
+	MonsterSpawn = "MonsterSpawn", -- 괴물 생성 위치 (Attribute Monster: 그 종류를 먼저 놓을 자리. 없어도 됨)
 	PatrolPoint = "PatrolPoint", -- 괴물 순찰 지점 (Attribute Route, Order)
 	HideSpot = "HideSpot", -- 숨는 곳 (Model, PrimaryPart 필요. PrimaryPart 앞면(LookVector)이 열린 쪽)
 	Generator = "Generator", -- 목표 장치
@@ -14,6 +14,7 @@ local MapTags = table.freeze({
 	ItemSpawn = "ItemSpawn", -- 아이템 생성 위치
 	Plank = "Plank", -- 판자
 	Door = "Door", -- 문
+	DarkZone = "DarkZone", -- 어두운 구역 (보이지 않고 부딪히지 않는 상자. 그림자 괴물이 거의 투명해짐, S3-4)
 })
 
 return MapTags

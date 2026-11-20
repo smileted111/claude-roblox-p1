@@ -7,8 +7,7 @@
 --   - 참가자가 Config.Match.MinPlayersForChaser명 이상일 때만 1명을 뽑는다. 그보다 적으면 솔로 (추격자 없음).
 --   - "추격자 안 하기"를 켜지 않은 사람이 후보. 모두 켰으면 전원이 후보.
 --   - 후보 중 추격자를 덜 해본 사람이 우선, 같으면 무작위.
---   - 추격자 횟수는 플레이어가 서버에 있는 동안 유지한다. 지금은 스테이지 1만 반복하므로 서버에 머무는 동안을
---     한 매치로 본다. S2-1에서 매치(스테이지 3개)가 시작될 때 RoleService.resetChaserCounts()를 부른다.
+--   - 추격자 횟수는 한 매치(스테이지 3개) 동안 센다. MatchService가 매치를 시작할 때 resetChaserCounts()를 부른다.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

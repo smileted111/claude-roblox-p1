@@ -41,6 +41,7 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 local HideService = require(script.Parent.HideService)
+local RecordService = require(script.Parent.RecordService)
 local RoleService = require(script.Parent.RoleService)
 
 -- 치료 프롬프트를 누르기 시작한 기록. 서버에서 누른 시간을 확인한다.
@@ -134,16 +135,19 @@ local function onChaserAttack(chaser: Player): ()
 
 	local target = findAttackTarget(parts.rootPart, def)
 	if target then
-		CatchService.hit(target, `추격자 {chaser.Name}`)
+		CatchService.hit(target, `추격자 {chaser.Name}`, false, chaser)
 	else
 		print(`[Catch] 추격자 {chaser.Name} 공격 → 빗나감`)
 	end
 end
 
 -- 잡힌 생존자를 관전자로 바꾸고, 화면이 어두워진 뒤 캐릭터를 맵에서 지운다.
-local function catch(survivor: Player, source: string): ()
+local function catch(survivor: Player, source: string, attacker: Player?): ()
 	local parts = CharacterParts.get(survivor)
 	RoleService.setSurvivorState(survivor, "Caught")
+	if attacker then
+		RecordService.addCatch(attacker)
+	end
 	Remotes.get("Notice"):FireAllClients("SurvivorCaught" :: Types.NoticeKey, survivor.DisplayName)
 	print(`[Catch] {source} → {survivor.Name} 잡힘 → 관전자`)
 
@@ -170,8 +174,9 @@ function CatchService.canBeHit(player: Player): boolean
 end
 
 -- 생존자를 한 번 때린다: 정상 → 부상, 부상 → 잡힘. instantCatch면 바로 잡힘 (거인, S3-4).
--- source는 로그용 이름. 맞힐 수 없는 상태(CatchService.canBeHit)면 false.
-function CatchService.hit(survivor: Player, source: string, instantCatch: boolean?): boolean
+-- source는 로그용 이름. attacker는 때린 추격자 (매치 기록의 잡은 수. 괴물이면 nil).
+-- 맞힐 수 없는 상태(CatchService.canBeHit)면 false.
+function CatchService.hit(survivor: Player, source: string, instantCatch: boolean?, attacker: Player?): boolean
 	if not CatchService.canBeHit(survivor) then
 		return false
 	end
@@ -183,7 +188,7 @@ function CatchService.hit(survivor: Player, source: string, instantCatch: boolea
 		RoleService.setSurvivorState(survivor, "Injured")
 		print(`[Catch] {source} → {survivor.Name} 부상`)
 	else
-		catch(survivor, source)
+		catch(survivor, source, attacker)
 	end
 	return true
 end
@@ -228,6 +233,7 @@ local function onHealTriggered(healer: Player, target: Player): ()
 		return
 	end
 	RoleService.setSurvivorState(target, "Normal")
+	RecordService.addHeal(healer)
 	print(`[Catch] {healer.Name} → {target.Name} 치료 → 정상`)
 end
 

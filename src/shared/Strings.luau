@@ -68,6 +68,7 @@ local Items: { [Types.ItemId]: string } = {
 
 local Notices: { [Types.NoticeKey]: string } = {
 	PreparationSurvivor = "흩어져서 숨을 곳을 찾으세요! 곧 추격자가 풀려납니다.",
+	PreparationSolo = "흩어져서 숨을 곳을 찾으세요! 곧 괴물이 움직입니다.",
 	PreparationChaser = "곧 대기실 문이 열립니다.",
 	ChaserReleased = "추격자가 풀려났습니다!",
 	SurvivorCaught = "%s 님이 잡혔습니다.",

@@ -1,10 +1,13 @@
 --!strict
 -- MatchService: 매치 시작·종료, 스테이지 순서 (GDD 3장, 13.2)
 --
--- 흐름: 대기 → 스테이지 한 판(StageService.runStage) → 다시 대기
+-- 흐름: 대기 → 매치(스테이지 Config.Match.StageOrder 순서대로) → 최종 결과 → 다시 대기 (GDD 3장)
 --   대기: Config.Match.MinPlayers명 이상이면 LobbyWaitTime초 뒤 시작. 그 사이 인원이 모자라면 처음부터 다시 기다린다.
---   지금은 Config.Match.StageOrder의 첫 스테이지(Stage1)만 반복한다.
---   S2-1에서 StageOrder의 스테이지 3개를 차례로 진행하고 최종 결과(MatchResult)를 넣는다.
+--   매치: 시작할 때 추격자 횟수(RoleService)와 매치 기록(RecordService)을 새로 시작하고, 스테이지마다
+--         StageService.runStage를 부른다. 추격자는 스테이지마다 새로 뽑고, 잡혔던 사람도 다음 스테이지에 생존자로 돌아온다.
+--         스테이지 사이에는 모두 대기 장소에 다시 만든다. 사람이 모두 나가거나 오류가 나면 매치를 그만두고 대기로.
+--   최종 결과: 라스트 서바이버(또는 베스트 서바이버)와 플레이어별 기록을 MatchResult 리모트로 보내고
+--         Config.Match.MatchResultTime초 동안 보여준 뒤 대기로 돌아간다.
 --
 -- 캐릭터는 서버가 직접 만든다 (Players.CharacterAutoLoads = false).
 --   스테이지 밖: 들어오거나 죽으면 대기 장소(Workspace의 SpawnLocation)에 만든다.
@@ -16,8 +19,10 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Match = require(ReplicatedStorage.Shared.Config.Match)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Types = require(ReplicatedStorage.Shared.Types)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
+local RecordService = require(script.Parent.RecordService)
 local RoleService = require(script.Parent.RoleService)
 local StageService = require(script.Parent.StageService)
 
@@ -86,27 +91,76 @@ local function waitForPlayers(): ()
 	end
 end
 
+local function spawnEveryoneInLobby(): ()
+	for _, player in Players:GetPlayers() do
+		task.spawn(spawnInLobby, player)
+	end
+end
+
+-- 스테이지 한 판. 오류가 나면 false. 처리기는 오류가 난 자리에서 불려서 traceback에 원래 위치가 남는다.
+local function runStageSafely(stageId: Types.StageId): boolean
+	local ok = xpcall(function(): ()
+		StageService.runStage(stageId)
+	end, function(message: unknown): ()
+		warn(
+			`[Match] 스테이지 진행 중 오류로 매치를 그만둡니다: {debug.traceback(tostring(message))}`
+		)
+	end)
+	if not ok then
+		StageService.cleanup()
+	end
+	return ok
+end
+
+local function logMatchResult(result: Types.MatchResult): ()
+	local lines: { string } = {}
+	for _, record in result.players do
+		table.insert(
+			lines,
+			`{record.name}[{table.concat(record.stages, "/")}] 점수 {record.score}`
+				.. (if record.lastSurvivor then " ★라스트 서바이버" else "")
+		)
+	end
+	local title = if #result.lastSurvivorUserIds > 0
+		then `라스트 서바이버 {#result.lastSurvivorUserIds}명`
+		elseif result.bestSurvivorUserId then `베스트 서바이버 {result.bestSurvivorUserId}`
+		else "칭호 없음"
+	print(`[Match] 최종 결과 · {title} · {table.concat(lines, ", ")}`)
+end
+
+local function runMatch(): ()
+	RoleService.resetChaserCounts()
+	RecordService.startMatch(Match.StageOrder)
+	print(`[Match] 매치 시작 · 스테이지 {table.concat(Match.StageOrder, " → ")}`)
+
+	for index, stageId in Match.StageOrder do
+		if #Players:GetPlayers() == 0 then
+			print("[Match] 플레이어가 모두 나가 매치를 그만둠")
+			RecordService.abortMatch()
+			return
+		end
+		print(`[Match] 스테이지 {index}/{#Match.StageOrder}`)
+		if not runStageSafely(stageId) then
+			RecordService.abortMatch()
+			return
+		end
+		-- 잡혀서 캐릭터가 없는 사람도 다음 스테이지 전에 대기 장소로 돌아온다.
+		spawnEveryoneInLobby()
+	end
+
+	local result = RecordService.finishMatch()
+	if result and #Players:GetPlayers() > 0 then
+		logMatchResult(result)
+		Remotes.get("MatchResult"):FireAllClients(result)
+		PhaseTimer.run("MatchResult", Match.MatchResultTime)
+	end
+end
+
 local function runLoop(): ()
-	-- 지금은 스테이지 1만 반복한다 (S2-1에서 StageOrder 전체로).
-	local stageId: Types.StageId = Match.StageOrder[1]
 	while true do
 		waitForPlayers()
-		-- 오류가 나도 루프는 계속 돈다. 처리기는 오류가 난 자리에서 불려서 traceback에 원래 위치가 남는다.
-		local ok = xpcall(function(): ()
-			StageService.runStage(stageId)
-		end, function(message: unknown): ()
-			warn(
-				`[Match] 스테이지 진행 중 오류로 대기로 돌아갑니다: {debug.traceback(
-					tostring(message)
-				)}`
-			)
-		end)
-		if not ok then
-			StageService.cleanup()
-		end
-		for _, player in Players:GetPlayers() do
-			task.spawn(spawnInLobby, player)
-		end
+		runMatch()
+		spawnEveryoneInLobby()
 	end
 end
 

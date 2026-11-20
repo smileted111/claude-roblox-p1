@@ -44,9 +44,60 @@ export type SoundKey = "ChaserAttack" | "SurvivorHit" | "SurvivorCaught" | "Surv
 -- 클라이언트 애니메이션 (Config.Assets.Animations)
 export type AnimationKey = "ChaserAttack"
 
+-- 한 스테이지에서 플레이어 한 명의 결과 (GDD 3.2)
+--   Survived 제한 시간이 끝날 때까지 잡히지 않음 / Escaped 출구로 탈출 / Caught 잡힘 / Chaser 그 스테이지의 추격자
+--   Left 스테이지 중에 나감 / Absent 그 스테이지에 참가하지 않음 (늦게 들어옴)
+export type StageOutcome = "Survived" | "Escaped" | "Caught" | "Chaser" | "Left" | "Absent"
+
+-- 스테이지 결과의 플레이어 한 줄 (StageResult 리모트)
+export type StagePlayerResult = {
+	userId: number,
+	name: string, -- DisplayName
+	outcome: StageOutcome,
+	catches: number, -- 추격자로 잡은 수
+	generatorProgress: number, -- 발전기 수리 기여 (발전기 1대 = 1)
+	heals: number, -- 아군 치료 횟수
+	score: number, -- 이 스테이지 점수 (Config.Score)
+}
+
+-- 스테이지 결과 (StageResult 리모트, GDD 3.1·3.2)
+export type StageResult = {
+	stageId: StageId,
+	stageIndex: number, -- 이번 매치의 몇 번째 스테이지인가 (1부터)
+	solo: boolean, -- 추격자 없이 진행
+	chaserUserId: number?, -- 처음 뽑힌 추격자
+	chaserWon: boolean, -- 추격자가 남아 있고 생존자를 모두 잡음
+	players: { StagePlayerResult },
+}
+
+-- 매치 기록의 플레이어 한 줄 (MatchResult 리모트, GDD 3.4)
+export type MatchPlayerRecord = {
+	userId: number,
+	name: string,
+	stages: { StageOutcome }, -- 스테이지 순서대로. 참가하지 않은 스테이지는 Absent
+	survivedStages: number, -- 생존 + 탈출한 스테이지 수
+	escapes: number,
+	catches: number,
+	generatorProgress: number,
+	heals: number,
+	score: number,
+	coins: number, -- 이번 매치에서 받는 코인 (Config.Rewards, S2-5)
+	lastSurvivor: boolean,
+}
+
+-- 최종 결과 (MatchResult 리모트, GDD 3.4)
+export type MatchResult = {
+	stageIds: { StageId },
+	players: { MatchPlayerRecord },
+	lastSurvivorUserIds: { number }, -- 라스트 서바이버 (모든 스테이지 생존)
+	bestSurvivorUserId: number?, -- 라스트 서바이버가 없을 때 최고 점수자 (베스트 서바이버)
+	solo: boolean, -- 모든 스테이지를 추격자 없이 진행
+}
+
 -- 잠깐 띄우는 알림 문구의 키 (Strings.Notices)
 export type NoticeKey =
 	"PreparationSurvivor"
+	| "PreparationSolo"
 	| "PreparationChaser"
 	| "ChaserReleased"
 	| "SurvivorCaught"

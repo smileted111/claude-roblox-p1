@@ -29,13 +29,16 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 | `SurvivorSpawn` | 생존자 시작 위치 (Part) |
 | `ChaserSpawn` | 추격자 대기실 안 시작 위치 |
 | `ChaserGate` | 준비 시간이 끝나면 열리는 대기실 문 |
-| `MonsterSpawn` | 괴물 생성 위치 |
+| `MonsterSpawn` | 괴물 생성 위치 (Attribute `Monster`: 그 종류를 먼저 놓을 자리, 선택. 파트 앞면이 괴물이 보는 방향) |
 | `PatrolPoint` | 괴물 순찰 지점 (Attribute `Route`: 경로 이름, `Order`: 순서) |
 | `HideSpot` | 숨는 곳 (Model, PrimaryPart 필요. PrimaryPart 앞면(LookVector)이 열린 쪽 — 프롬프트가 생기고 나온 생존자가 서는 곳) |
 | `Generator` | 목표 장치 |
 | `Exit` | 출구 (Attribute `ExitId`) |
 | `ItemSpawn` | 아이템 생성 위치 |
 | `Plank` / `Door` | 환경 장치 |
+| `DarkZone` | 어두운 구역 (투명·충돌 없음 상자. 그림자 괴물용) |
+
+- 맵 생성 스크립트: `tools/mapgen/` (Stage2·3 블록 맵을 다시 만들 때 `common.luau` 뒤에 스테이지 파일을 붙여 Studio MCP로 실행).
 
 ## 코드 규칙
 

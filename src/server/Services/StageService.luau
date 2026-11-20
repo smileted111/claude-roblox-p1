@@ -8,8 +8,8 @@
 --                                            ChaserGate는 닫아 둠. 숨는 곳 준비(HideService)
 --                                            괴물 생성(MonsterService). 괴물은 추격 단계부터 움직인다
 --   추격       Config.Stages[id].TimeLimit   ChaserGate를 엶
---   결과       Config.Match.StageResultTime  결과를 출력 창에 남김. 끝나면 맵을 지우고 역할을 비우고,
---                                            조명을 대기 장소 값(Config.Lighting.Lobby)으로 되돌림
+--   결과       Config.Match.StageResultTime  결과를 RecordService에 기록하고 StageResult 리모트로 보냄.
+--                                            끝나면 맵을 지우고 역할을 비우고, 조명을 대기 장소 값(Config.Lighting.Lobby)으로 되돌림
 --
 -- 조기 종료: 남은 생존자가 없으면 (모두 잡힘·탈출·나감) 바로 결과로 간다 (GDD 3.2, 5장).
 -- 추격자가 나가면 새로 뽑지 않고 괴물만으로 계속한다 (GDD 5장, 질문지 Q6-5).
@@ -32,6 +32,7 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
 local HideService = require(script.Parent.HideService)
 local MonsterService = require(script.Parent.MonsterService)
+local RecordService = require(script.Parent.RecordService)
 local RoleService = require(script.Parent.RoleService)
 
 local MAPS_FOLDER = "Maps" -- ServerStorage.Maps
@@ -43,6 +44,7 @@ type StageRun = {
 	stageId: Types.StageId,
 	survivors: { Player }, -- 처음 생존자로 배정된 사람 (결과 기록용)
 	chaser: Player?, -- 추격자가 나가면 nil
+	originalChaser: Player?, -- 처음 뽑힌 추격자 (결과 기록용)
 	hadChaser: boolean,
 	map: Instance?, -- 준비 단계에서 불러옴
 	gateClosedTransparency: { [BasePart]: number },
@@ -249,39 +251,53 @@ local function updateAndCheckEnd(run: StageRun): boolean
 	return survivorsLeft == 0
 end
 
-local function logResult(run: StageRun, reason: EndReason): ()
+-- 플레이어별 결과를 정해 RecordService에 기록하고 출력 창에 남긴다 (GDD 3.2).
+-- 생존자 성공: 탈출했거나 제한 시간이 끝날 때까지 잡히지 않음. 추격자 승리: 추격자가 남아 있고 성공한 생존자가 없음.
+local function recordResult(run: StageRun, reason: EndReason): Types.StageResult
 	local reasonText = if reason == "TimeUp" then "제한 시간 종료" else "남은 생존자 없음"
+	local entries: { RecordService.StageEntry } = {}
 	local lines: { string } = {}
 	local succeeded = 0
 	for _, player in run.survivors do
-		local outcome: string
+		local outcome: Types.StageOutcome
 		if not isInGame(player) then
-			outcome = "나감"
+			outcome = "Left"
 		else
 			local state = MatchState.getSurvivorState(player)
 			if state == "Escaped" then
-				outcome = "탈출"
-				succeeded += 1
+				outcome = "Escaped"
 			elseif state == "Caught" then
-				outcome = "잡힘"
+				outcome = "Caught"
 			else
-				-- 시간이 끝날 때까지 잡히지 않음 (GDD 3.2)
-				outcome = "생존"
-				succeeded += 1
+				outcome = "Survived"
 			end
 		end
+		if outcome == "Survived" or outcome == "Escaped" then
+			succeeded += 1
+		end
+		local entry: RecordService.StageEntry = { player = player, outcome = outcome }
+		table.insert(entries, entry)
 		table.insert(lines, `{player.Name}={outcome}`)
 	end
+	local original = run.originalChaser
+	if original then
+		local outcome: Types.StageOutcome = if isInGame(original) then "Chaser" else "Left"
+		local entry: RecordService.StageEntry = { player = original, outcome = outcome }
+		table.insert(entries, entry)
+		table.insert(lines, `{original.Name}={outcome}`)
+	end
 
+	local chaserWon = run.chaser ~= nil and succeeded == 0
 	local summary: string
 	if not run.hadChaser then
 		summary = `솔로 · 성공 {succeeded}/{#run.survivors}`
-	elseif run.chaser and succeeded == 0 then
+	elseif chaserWon and run.chaser then
 		summary = `추격자 {run.chaser.Name} 승리`
 	else
 		summary = `생존자 성공 {succeeded}/{#run.survivors}`
 	end
 	print(`[Stage] 종료 ({reasonText}) · {summary} · {table.concat(lines, ", ")}`)
+	return RecordService.finishStage(run.stageId, entries, original, chaserWon)
 end
 
 local function finish(): ()
@@ -330,8 +346,9 @@ function StageService.respawn(player: Player): ()
 	print(`[Stage] {player.Name} 다시 생성 ({role})`)
 end
 
--- 스테이지 한 판을 진행한다. 결과 단계까지 끝나면 맵을 지우고 돌아온다.
--- 시작할 때 서버에 있는 모든 플레이어가 참가자다.
+-- 스테이지 한 판을 진행한다. 결과 단계까지 끝나면 맵을 지우고 돌아온다 (MatchService가 스테이지마다 부름).
+-- 시작할 때 서버에 있는 모든 플레이어가 참가자다. 추격자는 스테이지마다 새로 뽑고(GDD 3.3),
+-- 잡혔던 사람도 다음 스테이지에는 생존자로 돌아온다.
 function StageService.runStage(stageId: Types.StageId): ()
 	assert(current == nil, "이미 스테이지가 진행 중입니다")
 	local stage = Stages[stageId]
@@ -343,11 +360,13 @@ function StageService.runStage(stageId: Types.StageId): ()
 		stageId = stageId,
 		survivors = RoleService.getActiveSurvivors(),
 		chaser = chaser,
+		originalChaser = chaser,
 		hadChaser = chaser ~= nil,
 		map = nil,
 		gateClosedTransparency = {},
 	}
 	current = run
+	RecordService.startStage()
 	ReplicatedStorage:SetAttribute(Attribute.StageId, stageId)
 	ReplicatedStorage:SetAttribute(Attribute.HasChaser, chaser ~= nil)
 	ReplicatedStorage:SetAttribute(Attribute.SurvivorsLeft, #run.survivors)
@@ -394,8 +413,9 @@ function StageService.runStage(stageId: Types.StageId): ()
 		setGateOpen(run, false)
 		placeParticipants(run, map)
 		local notice = Remotes.get("Notice")
+		local survivorNotice: Types.NoticeKey = if run.chaser then "PreparationSurvivor" else "PreparationSolo"
 		for _, player in RoleService.getActiveSurvivors() do
-			notice:FireClient(player, "PreparationSurvivor" :: Types.NoticeKey)
+			notice:FireClient(player, survivorNotice)
 		end
 		if run.chaser then
 			notice:FireClient(run.chaser, "PreparationChaser" :: Types.NoticeKey)
@@ -413,7 +433,8 @@ function StageService.runStage(stageId: Types.StageId): ()
 	end
 
 	-- 결과
-	logResult(run, if outcome == "TimeUp" then "TimeUp" else "NoSurvivorsLeft")
+	local result = recordResult(run, if outcome == "TimeUp" then "TimeUp" else "NoSurvivorsLeft")
+	Remotes.get("StageResult"):FireAllClients(result)
 	if #Players:GetPlayers() > 0 then
 		PhaseTimer.run("StageResult", Match.StageResultTime)
 	end
