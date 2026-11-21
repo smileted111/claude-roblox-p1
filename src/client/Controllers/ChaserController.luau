@@ -6,6 +6,7 @@
 --   HUD 쿨다운 바(UIController)만 맡는다.
 --   맞았는지, 쿨다운이 지났는지는 서버(CatchService)가 다시 판정한다 (ChaserAttack 리모트).
 -- 숨는 곳의 "열어보기" 프롬프트를 추격자에게만, 추격 단계에서만 켠다. 누르는 시간(ChaserOpenTime)과 판정은 서버(HideService).
+-- 위치 표시: ChaserMarker 리모트(발전기 소리, 감시자 경보)를 받으면 그 위치에 duration초 동안 표시 (Util/WorldMarker).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,7 +20,11 @@ local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
+local Strings = require(ReplicatedStorage.Shared.Strings)
+local Types = require(ReplicatedStorage.Shared.Types)
 local HideSpotWatcher = require(script.Parent.Parent.Util.HideSpotWatcher)
+local UiStyle = require(script.Parent.Parent.Util.UiStyle)
+local WorldMarker = require(script.Parent.Parent.Util.WorldMarker)
 local SoundController = require(script.Parent.SoundController)
 local UIController = require(script.Parent.UIController)
 
@@ -92,6 +97,23 @@ local function onInputBegan(input: InputObject, gameProcessedEvent: boolean): ()
 	end
 end
 
+local MARKER_COLORS: { [Types.MarkerReason]: Color3 } = {
+	GeneratorNoise = UiStyle.Colors.Warning,
+	WatcherAlert = UiStyle.Colors.Accent,
+}
+
+local function onChaserMarker(position: unknown, duration: unknown, reason: unknown): ()
+	if typeof(position) ~= "Vector3" or typeof(duration) ~= "number" or typeof(reason) ~= "string" then
+		return
+	end
+	local markerReason = reason :: Types.MarkerReason
+	local text = Strings.Markers[markerReason]
+	if not text or MatchState.getRole(localPlayer) ~= "Chaser" then
+		return
+	end
+	WorldMarker.show(position, duration, text, MARKER_COLORS[markerReason])
+end
+
 local function onTouchTapInWorld(_position: Vector2, processedByUI: boolean): ()
 	if not processedByUI then
 		tryAttack()
@@ -109,6 +131,7 @@ function ChaserController.Start(): ()
 	attackRemote = Remotes.get("ChaserAttack")
 	UserInputService.InputBegan:Connect(onInputBegan)
 	UserInputService.TouchTapInWorld:Connect(onTouchTapInWorld)
+	Remotes.get("ChaserMarker").OnClientEvent:Connect(onChaserMarker)
 
 	localPlayer:GetAttributeChangedSignal(Attribute.Role):Connect(refreshOpenPrompts)
 	ReplicatedStorage:GetAttributeChangedSignal(Attribute.Phase):Connect(refreshOpenPrompts)

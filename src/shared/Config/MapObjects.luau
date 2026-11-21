@@ -21,10 +21,22 @@ export type GeneratorConfig = {
 	RepairTimeSolo: number, -- 혼자 작동시키는 시간 (초)
 	RepairTimeGroup: number, -- 2명 이상이 함께 작동시키는 시간 (초)
 	NoiseMarkerDuration: number, -- 작동 소리로 추격자 화면에 위치를 표시하는 시간 (초)
+	NoiseInterval: number, -- 고치는 동안 소리(추격자 표시·사냥개 반응)를 내는 간격 (초)
+	NoiseRadius: number, -- 작동 소리가 들리는 거리 (스터드, 사냥개)
+	PromptDistance: number, -- "수리" 프롬프트가 보이는 거리 (스터드)
+	DistanceSlack: number, -- 서버 거리 검사의 여유 (스터드)
+	TickInterval: number, -- 수리 진행과 탈출을 확인하는 간격 (초)
+	ProgressPublishStep: number, -- 진행 Attribute를 이 단위로 반올림해 공개 (0~1)
+	RepairedColor: Color3, -- 다 고친 발전기 색
 }
 
 export type ExitConfig = {
 	OpenCount: number, -- 발전기를 모두 작동시키면 열리는 출구 수
+	EscapeMargin: number, -- 출구 파트 상자를 이만큼 넓힌 곳에 들어가면 탈출 (스터드)
+	LeaveDelay: number, -- 탈출한 캐릭터를 맵에서 지우기까지 (초)
+	OpenColor: Color3, -- 열린 출구 색 (Neon)
+	OpenTransparency: number, -- 열린 출구 투명도
+	MarkerMaxDistance: number, -- 열린 출구 위 "출구" 표시가 보이는 거리 (스터드)
 }
 
 export type PlankConfig = {
@@ -66,9 +78,21 @@ local MapObjects: MapObjectsConfig = {
 		RepairTimeSolo = 12,
 		RepairTimeGroup = 7, -- GDD는 "2명이면 7초". 3명 이상도 같은 값을 쓴다
 		NoiseMarkerDuration = 2, -- docs/studio-workflow.md S2-2
+		NoiseInterval = 4, -- 임시: 고치는 동안 4초마다 2초씩 위치가 드러남
+		NoiseRadius = 80, -- 임시
+		PromptDistance = 8, -- 임시
+		DistanceSlack = 4, -- 임시
+		TickInterval = 0.1, -- 임시
+		ProgressPublishStep = 0.01, -- 임시
+		RepairedColor = Color3.fromRGB(120, 230, 120), -- 임시
 	},
 	Exit = {
 		OpenCount = 1, -- 출구 2곳 중 1곳
+		EscapeMargin = 2, -- 임시
+		LeaveDelay = 0.3, -- 임시
+		OpenColor = Color3.fromRGB(90, 255, 120), -- 임시
+		OpenTransparency = 0.4, -- 임시
+		MarkerMaxDistance = 400, -- 임시: 맵 어디서든 보이게
 	},
 	Plank = {
 		ChaserStunTime = 2,

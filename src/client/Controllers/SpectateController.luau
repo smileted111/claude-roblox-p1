@@ -9,7 +9,7 @@
 -- 대상 바꾸기: 이전 Q·←·LB, 다음 E·→·RB, 화면 버튼(모바일·마우스). SpectateCycle 리모트로 요청하고 서버가 정한다.
 --   ←/→는 Roblox 기본 카메라 회전 키라 더 높은 우선순위로 묶어 가로챈다.
 -- 화면: 관전 중 / 대상 이름 / 역할·상태(숨음) / 남은 생존자 수·단계와 남은 시간 / 이전·다음 /
---   로비로 돌아가기(자리만. S3-2에서 연결). 목표 진행도는 S2-2에서 추가한다.
+--   목표 진행(발전기 n/전체 또는 출구 열림) / 로비로 돌아가기(자리만. S3-2에서 연결).
 -- 관전자 채팅: 서버가 관전자 채널(SpectateState.ChatChannelName)에 나를 넣으면 입력창 대상을 그 채널로 바꾸고
 --   안내 문구를 띄운다. 빠지면 RBXGeneral로 되돌린다. 관전자 채널 메시지 앞에는 [관전]을 붙인다.
 
@@ -161,6 +161,12 @@ local function renderMatchInfo(): ()
 		return
 	end
 	local items = { string.format(Strings.Hud.SurvivorsLeft, MatchState.getSurvivorsLeft()) }
+	local done, total = MatchState.getGenerators()
+	if MatchState.isExitOpen() then
+		table.insert(items, Strings.Hud.ExitOpen)
+	elseif total then
+		table.insert(items, string.format(Strings.Hud.Objective, done, total))
+	end
 	local timeLeft = MatchState.getTimeLeft()
 	if timeLeft then
 		local seconds = math.max(0, math.floor(timeLeft))
@@ -381,7 +387,9 @@ function SpectateController.Start(): ()
 
 	localPlayer:GetAttributeChangedSignal(Attribute.Spectating):Connect(refresh)
 	localPlayer:GetAttributeChangedSignal(Attribute.SpectateTarget):Connect(refresh)
-	for _, name in { Attribute.SurvivorsLeft, Attribute.TimeLeft, Attribute.Phase } do
+	for _, name in
+		{ Attribute.SurvivorsLeft, Attribute.TimeLeft, Attribute.Phase, Attribute.GeneratorsDone, Attribute.ExitOpen }
+	do
 		ReplicatedStorage:GetAttributeChangedSignal(name):Connect(renderMatchInfo)
 	end
 	UserInputService.LastInputTypeChanged:Connect(renderHint)

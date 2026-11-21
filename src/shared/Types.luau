@@ -38,6 +38,9 @@ export type UnlockKind = "Default" | "Coins"
 -- 추격자 화면에 생존자 위치를 잠깐 표시하는 이유 (GDD 4.1 감시자 경보, 6.2 발전기 소리)
 export type MarkerReason = "WatcherAlert" | "GeneratorNoise"
 
+-- 괴물(사냥개)이 반응하는 소리 (GDD 4.1, 6.2, 6.3). server/Util/NoiseBus
+export type NoiseKind = "Running" | "Generator" | "Alarm"
+
 -- 클라이언트 효과음 (Config.Assets.Sounds, SoundController)
 export type SoundKey = "ChaserAttack" | "SurvivorHit" | "SurvivorCaught" | "SurvivorHealed"
 

@@ -125,9 +125,19 @@ local Strings = {
 		Run = "달리기",
 		Interact = "상호작용",
 		AttackReady = "공격 가능",
+		Repairing = "수리 중 %d%%",
+		ExitOpen = "출구 열림!",
+		Exit = "출구",
+		Repaired = "작동 중",
 		Clock = "%d:%02d", -- 분, 초. 예: 3:45
 		PhaseClock = "%s %d:%02d", -- 단계 이름, 분, 초. 예: 추격 3:45
 	},
+
+	-- 추격자 화면의 위치 표시 (GDD 4.1, 6.2, 7장)
+	Markers = {
+		GeneratorNoise = "발전기 소리",
+		WatcherAlert = "감시자 경보",
+	} :: { [Types.MarkerReason]: string },
 
 	-- 관전 (GDD 8장)
 	Spectate = {

@@ -10,6 +10,9 @@
 --   StageId        Types.StageId?      진행 중인 스테이지. 대기 중에는 nil
 --   HasChaser      boolean?            이번 스테이지에 추격자가 있는가. 솔로이거나 추격자가 나가면 false
 --   SurvivorsLeft  number?             아직 잡히거나 탈출하지 않은 생존자 수
+--   GeneratorsDone  number?            다 고친 발전기 수 (ObjectiveService)
+--   GeneratorsTotal number?            이번 스테이지 발전기 수. 스테이지 밖에서는 nil
+--   ExitOpen       boolean?            출구가 열렸는가 (ObjectiveService)
 --
 -- Player의 Attribute (플레이어별)
 --   Role           Types.Role?             이번 스테이지의 역할. 대기 중에는 nil
@@ -20,6 +23,7 @@
 --   Hidden         boolean?                숨는 곳에 숨어 있는가 (HideService). 어디에 숨었는지는 HideSpotState
 --   Spectating     boolean?                관전 화면을 보는 중 (SpectateService). 잡힘 연출이 끝난 뒤부터 스테이지가 끝날 때까지
 --   SpectateTarget number?                 관전 대상의 UserId (SpectateService). 관전 중이라도 볼 대상이 없으면 nil
+--   RepairProgress number?                 지금 고치는 발전기의 진행 0~1 (ObjectiveService). 고치는 중이 아니면 nil
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -32,6 +36,9 @@ local Attribute = table.freeze({
 	StageId = "StageId",
 	HasChaser = "HasChaser",
 	SurvivorsLeft = "SurvivorsLeft",
+	GeneratorsDone = "GeneratorsDone",
+	GeneratorsTotal = "GeneratorsTotal",
+	ExitOpen = "ExitOpen",
 	Role = "Role",
 	SurvivorState = "SurvivorState",
 	ChaserOptOut = "ChaserOptOut",
@@ -40,6 +47,7 @@ local Attribute = table.freeze({
 	Hidden = "Hidden",
 	Spectating = "Spectating",
 	SpectateTarget = "SpectateTarget",
+	RepairProgress = "RepairProgress",
 })
 
 local function readString(instance: Instance, name: string): string?
@@ -81,6 +89,20 @@ end
 
 function MatchState.getSurvivorsLeft(): number
 	return readNumber(ReplicatedStorage, Attribute.SurvivorsLeft) or 0
+end
+
+-- 다 고친 발전기 수와 전체 수. 스테이지 밖이면 전체가 nil
+function MatchState.getGenerators(): (number, number?)
+	return readNumber(ReplicatedStorage, Attribute.GeneratorsDone) or 0,
+		readNumber(ReplicatedStorage, Attribute.GeneratorsTotal)
+end
+
+function MatchState.isExitOpen(): boolean
+	return ReplicatedStorage:GetAttribute(Attribute.ExitOpen) == true
+end
+
+function MatchState.getRepairProgress(player: Player): number?
+	return readNumber(player, Attribute.RepairProgress)
 end
 
 function MatchState.getRole(player: Player): Types.Role?

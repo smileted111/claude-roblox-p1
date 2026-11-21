@@ -2,17 +2,20 @@
 -- UIController: 기본 HUD·역할 공개·알림 (GDD 1.3, 2.1, 11장, 13.2). StarterGui 없이 여기서 ScreenGui를 만든다.
 --
 -- 화면 (ScreenGui "Hud", 크기는 UiStyle.addScale이 화면에 맞춰 줄인다)
---   위 가운데    스테이지 이름 / 단계(대기·역할 공개·준비·추격·결과) / 남은 시간(크게) / 남은 생존자 수.
+--   위 가운데    스테이지 이름 / 단계(대기·역할 공개·준비·추격·결과) / 남은 시간(크게) / 남은 생존자 수 /
+--               목표 진행(발전기 n/전체, 다 고치면 "출구 열림!").
 --               관전 중에는 관전 화면(SpectateController)이 같은 정보를 보여주므로 숨긴다.
 --               추격 단계 남은 시간이 Config.Ui.TimerWarningTime 이하면 시계를 강조색으로.
 --   그 아래      역할 공개 카드와 알림(Notice 리모트, Strings.Notices)을 세로로 쌓는다.
 --               알림은 Config.Ui.NoticeDuration초 뒤 사라진다
---   아래 가운데  생존자: 상태(정상/부상), 스태미나 바, 아이템 2칸(빈칸. S2-4에서 채움)
+--   아래 가운데  생존자: 상태(정상/부상), 스태미나 바, 아이템 2칸(빈칸. S2-4에서 채움).
+--               발전기를 고치는 동안 그 위에 수리 진행 바 (Player Attribute RepairProgress)
 --               추격자: 공격 쿨다운 바 (ChaserController가 공격할 때 UIController.startAttackCooldown을 부름)
 --               휴대폰에서 왼쪽 아래 이동 스틱, 오른쪽 아래 점프·달리기 버튼과 겹치지 않게 가운데에 좁게 둔다.
 --   가운데       역할 공개: RoleReveal 리모트를 받으면 후보 이름이 돌다가(Config.Ui.RoleReveal.SpinTime)
 --               추격자 이름에서 멈추고, 내 역할과 목표 한 줄(Strings.RoleGoals)을 ResultHoldTime초 보여준다.
 --               솔로는 룰렛이 없으므로 준비 단계가 시작될 때 솔로 안내와 역할·목표를 보여준다.
+-- 발전기 위 진행 바는 Util/GeneratorBillboards가 만든다.
 -- 값은 모두 서버가 정한 Attribute(MatchState)를 읽어 보여주기만 한다.
 
 local Players = game:GetService("Players")
@@ -26,6 +29,7 @@ local Strings = require(ReplicatedStorage.Shared.Strings)
 local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Ui = require(ReplicatedStorage.Shared.Config.Ui)
+local GeneratorBillboards = require(script.Parent.Parent.Util.GeneratorBillboards)
 local UiStyle = require(script.Parent.Parent.Util.UiStyle)
 
 local Colors = UiStyle.Colors
@@ -46,6 +50,7 @@ type TopView = {
 	phaseLabel: TextLabel,
 	timerLabel: TextLabel,
 	infoLabel: TextLabel,
+	objectiveLabel: TextLabel,
 }
 
 type SurvivorView = {
@@ -54,6 +59,12 @@ type SurvivorView = {
 	statusStroke: UIStroke,
 	staminaFill: Frame,
 	slots: { TextButton },
+}
+
+type RepairView = {
+	frame: Frame,
+	label: TextLabel,
+	fill: Frame,
 }
 
 type ChaserView = {
@@ -75,6 +86,7 @@ type Hud = {
 	top: TopView,
 	notices: Frame,
 	survivor: SurvivorView,
+	repair: RepairView,
 	chaser: ChaserView,
 	reveal: RevealView,
 }
@@ -108,12 +120,15 @@ local function createTop(gui: ScreenGui): TopView
 	timerLabel.Font = UiStyle.BoldFont
 	timerLabel.TextSize = 44
 	local infoLabel = UiStyle.label(frame, "Info", 4, 22)
+	local objectiveLabel = UiStyle.label(frame, "Objective", 5, 22)
+	objectiveLabel.Font = UiStyle.BoldFont
 	return {
 		frame = frame,
 		stageLabel = stageLabel,
 		phaseLabel = phaseLabel,
 		timerLabel = timerLabel,
 		infoLabel = infoLabel,
+		objectiveLabel = objectiveLabel,
 	}
 end
 
@@ -185,6 +200,21 @@ local function createSurvivor(gui: ScreenGui): SurvivorView
 	}
 end
 
+-- 생존자 HUD 바로 위: 발전기 수리 진행
+local function createRepair(gui: ScreenGui): RepairView
+	local frame = UiStyle.panel(gui, "Repair", true)
+	frame.AnchorPoint = Vector2.new(0.5, 1)
+	frame.Position = UDim2.new(0.5, 0, 1, -88)
+	frame.Size = UDim2.fromOffset(250, 52)
+	frame.Visible = false
+	UiStyle.padding(frame, 5, 12)
+	UiStyle.list(frame, Enum.FillDirection.Vertical, 4)
+	local label = UiStyle.label(frame, "Text", 1, 22)
+	label.Font = UiStyle.BoldFont
+	local _, fill = UiStyle.bar(frame, "Bar", 2, UDim2.new(1, 0, 0, 12), Colors.Accent)
+	return { frame = frame, label = label, fill = fill }
+end
+
 local function createChaser(gui: ScreenGui): ChaserView
 	local frame = UiStyle.panel(gui, "Chaser", true)
 	frame.AnchorPoint = Vector2.new(0.5, 1)
@@ -240,6 +270,7 @@ local function createHud(): Hud
 		top = createTop(gui),
 		notices = createNotices(center),
 		survivor = createSurvivor(gui),
+		repair = createRepair(gui),
 		chaser = createChaser(gui),
 		reveal = createReveal(center),
 	}
@@ -266,6 +297,17 @@ local function renderTop(): ()
 	end
 	top.stageLabel.Visible = stageId ~= nil
 	top.phaseLabel.Text = Strings.Phases[phase]
+
+	local done, total = MatchState.getGenerators()
+	local showObjective = total ~= nil and STAGE_PHASES[phase] == true
+	top.objectiveLabel.Visible = showObjective
+	if showObjective then
+		local exitOpen = MatchState.isExitOpen()
+		top.objectiveLabel.Text = if exitOpen
+			then Strings.Hud.ExitOpen
+			else string.format(Strings.Hud.Objective, done, total or 0)
+		top.objectiveLabel.TextColor3 = if exitOpen then Colors.Good else Colors.Text
+	end
 
 	if phase == "Waiting" then
 		top.timerLabel.Visible = false
@@ -315,6 +357,19 @@ local function renderSurvivor(): ()
 	survivorView.staminaFill.BackgroundColor3 = if stamina < config.MinToStartRun
 		then Colors.Warning
 		else Colors.Stamina
+end
+
+local function renderRepair(): ()
+	local view = hud
+	if not view then
+		return
+	end
+	local progress = MatchState.getRepairProgress(localPlayer)
+	view.repair.frame.Visible = progress ~= nil
+	if progress then
+		view.repair.label.Text = string.format(Strings.Hud.Repairing, math.floor(progress * 100))
+		view.repair.fill.Size = UDim2.fromScale(math.clamp(progress, 0, 1), 1)
+	end
 end
 
 -- 추격자가 공격하면 쿨다운 동안 바가 다시 차오른다.
@@ -516,9 +571,21 @@ function UIController.Init(): () end
 function UIController.Start(): ()
 	hud = createHud()
 
-	for _, name in { Attribute.TimeLeft, Attribute.StageId, Attribute.SurvivorsLeft, Attribute.HasChaser } do
+	for _, name in
+		{
+			Attribute.TimeLeft,
+			Attribute.StageId,
+			Attribute.SurvivorsLeft,
+			Attribute.HasChaser,
+			Attribute.GeneratorsDone,
+			Attribute.GeneratorsTotal,
+			Attribute.ExitOpen,
+		}
+	do
 		ReplicatedStorage:GetAttributeChangedSignal(name):Connect(renderTop)
 	end
+	localPlayer:GetAttributeChangedSignal(Attribute.RepairProgress):Connect(renderRepair)
+	GeneratorBillboards.start()
 	ReplicatedStorage:GetAttributeChangedSignal(Attribute.Phase):Connect(onPhaseChanged)
 	localPlayer:GetAttributeChangedSignal(Attribute.Spectating):Connect(renderTop)
 	for _, name in { Attribute.Role, Attribute.SurvivorState, Attribute.Stamina } do
