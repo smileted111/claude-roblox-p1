@@ -13,6 +13,9 @@
 -- 보상 지급: 스테이지가 끝나면 grantStage(코인·경험치·통계), 매치가 끝나면 grantMatch(칭호 보너스·라스트 서바이버 횟수).
 --   중간에 나가도 그때까지 받은 것은 남는다 (GDD 8장).
 -- 공개: Player Attribute Coins·Level·Xp·DataLoaded (MatchState), 추격자 안 하기는 ChaserOptOut.
+-- 개발자 상품 (S3-6, processPurchaseAsync): 처음 보는 영수증 PurchaseId면 지급하고 Receipts에 적는다. 그 기록이
+--   DataStore에 실제로 저장된 것(Profile.LastSavedData)을 확인한 뒤에만 PurchaseGranted를 돌려준다. 저장 전에
+--   서버가 꺼지면 NotProcessedYet → Roblox가 나중에 다시 보내고, 이미 적힌 영수증이면 다시 지급하지 않는다.
 -- 리더보드(누적 생존 스테이지·잡은 수, OrderedDataStore)는 자리만 있다 (Config.Data.Leaderboards.Enabled = false).
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -58,6 +61,7 @@ type Signal = { Connect: (self: any, listener: (...any) -> ()) -> any }
 
 type Profile = {
 	Data: any,
+	LastSavedData: any, -- DataStore에 마지막으로 저장된 Data (결제 확인용)
 	OnSessionEnd: Signal,
 	IsActive: (self: Profile) -> boolean,
 	Reconcile: (self: Profile) -> (),
@@ -315,21 +319,48 @@ function DataService.grantMatch(result: Types.MatchResult): ()
 	print("[Data] 매치 보상 지급")
 end
 
--- 처리한 영수증인가 (S3-6). 처리하면 rememberReceipt로 기록한다.
-function DataService.hasReceipt(player: Player, purchaseId: string): boolean
-	local data = DataService.getData(player)
-	return data ~= nil and table.find(data.Receipts, purchaseId) ~= nil
-end
+-- 개발자 상품 영수증을 처리한다 (ShopService의 ProcessReceipt에서, 멈춤). 처음 보는 purchaseId면 grant(data)로
+-- 지급하고 영수증을 적는다. 그 기록이 저장된 것을 saveTimeout초 안에 확인하면 PurchaseGranted, 아니면 NotProcessedYet.
+-- 두 번째 값은 이번에 지급했는가 (알림·로그용).
+function DataService.processPurchaseAsync(
+	player: Player,
+	purchaseId: string,
+	grant: (data: PlayerData) -> (),
+	saveTimeout: number
+): (Enum.ProductPurchaseDecision, boolean)
+	local profile = profiles[player]
+	if not profile or not profile:IsActive() then
+		return Enum.ProductPurchaseDecision.NotProcessedYet, false
+	end
+	local data = profile.Data :: PlayerData
+	local granted = false
+	if not table.find(data.Receipts, purchaseId) then
+		grant(data)
+		table.insert(data.Receipts, purchaseId)
+		while #data.Receipts > Data.MaxReceipts do
+			table.remove(data.Receipts, 1)
+		end
+		publish(player, data)
+		granted = true
+	end
 
-function DataService.rememberReceipt(player: Player, purchaseId: string): ()
-	local data = DataService.getData(player)
-	if not data then
-		return
+	local function isSaved(): boolean
+		local saved = profile.LastSavedData
+		local receipts = if typeof(saved) == "table" then saved.Receipts else nil
+		return typeof(receipts) == "table" and table.find(receipts, purchaseId) ~= nil
 	end
-	table.insert(data.Receipts, purchaseId)
-	while #data.Receipts > Data.MaxReceipts do
-		table.remove(data.Receipts, 1)
+	if not isSaved() then
+		profile:Save()
+		local deadline = os.clock() + saveTimeout
+		while not isSaved() and profile:IsActive() and os.clock() < deadline do
+			task.wait(0.2)
+		end
 	end
+	if isSaved() then
+		return Enum.ProductPurchaseDecision.PurchaseGranted, granted
+	end
+	warn(`[Data] {player.Name}: 영수증 {purchaseId} 저장을 확인하지 못해 나중에 다시 처리합니다`)
+	return Enum.ProductPurchaseDecision.NotProcessedYet, granted
 end
 
 -- 바로 저장을 요청한다 (결제 처리 등). 저장은 비동기로 이뤄진다.

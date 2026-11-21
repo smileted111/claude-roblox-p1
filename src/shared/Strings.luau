@@ -96,6 +96,8 @@ local Notices: { [Types.NoticeKey]: string } = {
 	SoloStudio = "Studio에서는 이 서버에서 혼자 하기를 시작합니다.",
 	ChaserUnlocked = "%s 해금!",
 	NotEnoughCoins = "코인이 모자랍니다.",
+	CoinsPurchased = "코인 %d개를 받았습니다!",
+	VipActivated = "VIP가 되었습니다! 이름 색상·로비 이모트·코인 +20%%",
 }
 
 local Strings = {
@@ -218,6 +220,27 @@ local Strings = {
 		Off = "끔",
 		Coins = "코인 %d",
 		Level = "Lv %d",
+		Shop = "상점",
+		Emote = "이모트",
+	},
+
+	-- 상점 (GDD 10장)
+	Shop = {
+		Title = "상점",
+		Vip = "VIP",
+		VipPerks = "채팅 이름 색상 · 로비 전용 이모트 · 버는 코인 +20%",
+		Owned = "보유 중",
+		NotReady = "준비 중",
+		Robux = "R$ %d",
+		Buy = "구매",
+		CoinPack = "코인 %d",
+		CoinsSection = "코인 구매",
+		ChasersSection = "추격자 해금",
+		AllUnlocked = "모두 해금했습니다",
+		Unlock = "%d 코인",
+		CosmeticsSection = "꾸미기",
+		CosmeticsSoon = "생존자·추격자 스킨, 잡을 때 연출 (준비 중)",
+		VipTag = "VIP",
 	},
 
 	-- 결과 (GDD 3.2, 3.4)

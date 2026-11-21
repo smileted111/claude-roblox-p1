@@ -46,7 +46,7 @@ export type NoiseKind = "Running" | "Generator" | "Alarm"
 export type SoundKey = "ChaserAttack" | "SurvivorHit" | "SurvivorCaught" | "SurvivorHealed"
 
 -- 클라이언트 애니메이션 (Config.Assets.Animations)
-export type AnimationKey = "ChaserAttack"
+export type AnimationKey = "ChaserAttack" | "VipEmote"
 
 -- 한 스테이지에서 플레이어 한 명의 결과 (GDD 3.2)
 --   Survived 제한 시간이 끝날 때까지 잡히지 않음 / Escaped 출구로 탈출 / Caught 잡힘 / Chaser 그 스테이지의 추격자
@@ -133,5 +133,7 @@ export type NoticeKey =
 	| "SoloStudio"
 	| "ChaserUnlocked"
 	| "NotEnoughCoins"
+	| "CoinsPurchased"
+	| "VipActivated"
 
 return {}

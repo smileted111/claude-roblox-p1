@@ -24,6 +24,7 @@ local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local SpectateState = require(ReplicatedStorage.Shared.SpectateState)
 local Strings = require(ReplicatedStorage.Shared.Strings)
+local ChatStyle = require(script.Parent.Parent.Util.ChatStyle)
 local UiStyle = require(script.Parent.Parent.Util.UiStyle)
 local InputController = require(script.Parent.InputController)
 
@@ -319,11 +320,13 @@ local function setupChat(): ()
 	end
 	local spectatorChannel: TextChannel = channel
 
-	spectatorChannel.OnIncomingMessage = function(message: TextChatMessage): TextChatMessageProperties
-		local properties = Instance.new("TextChatMessageProperties")
-		properties.PrefixText = `{Strings.Spectate.ChatPrefix} {message.PrefixText}`
-		return properties
-	end
+	-- 관전자 채널 메시지 앞에 [관전] (채팅 꾸미기는 Util/ChatStyle 한 곳에서)
+	ChatStyle.addPrefixer(function(message: TextChatMessage, prefix: string): string
+		if message.TextChannel == spectatorChannel then
+			return `{Strings.Spectate.ChatPrefix} {prefix}`
+		end
+		return prefix
+	end)
 
 	local inChannel = false
 	local function refreshInputTarget(): ()

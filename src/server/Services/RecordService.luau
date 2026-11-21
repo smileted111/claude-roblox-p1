@@ -13,14 +13,19 @@
 -- 코인 (Config.Rewards): 스테이지마다 참가·생존 또는 탈출·발전기·치료·잡은 수·추격자 승리로 계산하고,
 --   매치가 끝나면 라스트 서바이버·베스트 서바이버 보너스를 더한다. 추격자 없이 진행한 스테이지(솔로)의 코인과
 --   모든 스테이지가 솔로인 매치의 보너스에는 Config.Match.SoloRewardMultiplier를 곱한다 (GDD 5장).
+--   VIP(Player Attribute Vip, ShopService)는 그 위에 Config.Shop.VipCoinBonus(+20%)를 더 받는다 (GDD 10장).
+--   결과 화면에 보이는 코인이 실제로 받는 코인이다.
 --   스테이지 코인은 스테이지가 끝날 때, 칭호 보너스는 매치가 끝날 때 DataService가 지급한다
 --   (중간에 나가도 그때까지 받은 것은 남는다, GDD 8장).
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Match = require(ReplicatedStorage.Shared.Config.Match)
+local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Rewards = require(ReplicatedStorage.Shared.Config.Rewards)
 local Score = require(ReplicatedStorage.Shared.Config.Score)
+local Shop = require(ReplicatedStorage.Shared.Config.Shop)
 local Types = require(ReplicatedStorage.Shared.Types)
 
 type StageStats = {
@@ -70,7 +75,18 @@ local function stageScore(outcome: Types.StageOutcome, stats: StageStats, chaser
 	return math.round(score)
 end
 
-local function stageCoins(outcome: Types.StageOutcome, stats: StageStats, chaserWon: boolean, solo: boolean): number
+-- VIP면 코인 배율 (1 + VipCoinBonus)
+local function vipMultiplier(player: Player?): number
+	return if player and MatchState.isVip(player) then 1 + Shop.VipCoinBonus else 1
+end
+
+local function stageCoins(
+	outcome: Types.StageOutcome,
+	stats: StageStats,
+	chaserWon: boolean,
+	solo: boolean,
+	vip: number
+): number
 	if outcome == "Left" or outcome == "Absent" then
 		return 0
 	end
@@ -88,7 +104,7 @@ local function stageCoins(outcome: Types.StageOutcome, stats: StageStats, chaser
 	if solo then
 		coins *= Match.SoloRewardMultiplier
 	end
-	return math.round(coins)
+	return math.round(coins * vip)
 end
 
 local function newRecord(userId: number, name: string, stageCount: number): Types.MatchPlayerRecord
@@ -184,7 +200,7 @@ function RecordService.finishStage(
 		local player = entry.player
 		local stats = statsFor(player)
 		local score = stageScore(entry.outcome, stats, chaserWon)
-		local coins = stageCoins(entry.outcome, stats, chaserWon, chaser == nil)
+		local coins = stageCoins(entry.outcome, stats, chaserWon, chaser == nil, vipMultiplier(player))
 		table.insert(players, {
 			userId = player.UserId,
 			name = player.DisplayName,
@@ -272,10 +288,11 @@ function RecordService.finishMatch(): Types.MatchResult?
 	local solo = record.soloStages == record.stageCount
 	local multiplier = if solo then Match.SoloRewardMultiplier else 1
 	for _, matchRecord in players do
+		local vip = vipMultiplier(Players:GetPlayerByUserId(matchRecord.userId))
 		if matchRecord.lastSurvivor then
-			matchRecord.bonusCoins = math.round(Rewards.LastSurvivorBonus * multiplier)
+			matchRecord.bonusCoins = math.round(Rewards.LastSurvivorBonus * multiplier * vip)
 		elseif matchRecord.userId == best then
-			matchRecord.bonusCoins = math.round(Rewards.BestSurvivorBonus * multiplier)
+			matchRecord.bonusCoins = math.round(Rewards.BestSurvivorBonus * multiplier * vip)
 		end
 		matchRecord.coins += matchRecord.bonusCoins
 	end

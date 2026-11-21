@@ -21,6 +21,7 @@ export type AssetsConfig = {
 local Assets: AssetsConfig = {
 	Animations = {
 		ChaserAttack = "rbxassetid://522635514", -- 임시: Roblox 기본 R15 애니메이션의 도구 휘두르기 (toolslash)
+		VipEmote = "rbxassetid://507771019", -- 임시: Roblox 기본 R15 춤 (/e dance). VIP 로비 전용 이모트 (GDD 10장)
 	},
 	MonsterAnimations = {
 		Idle = "rbxassetid://507766388", -- 임시: Roblox 기본 R15 서 있기

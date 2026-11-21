@@ -37,6 +37,7 @@
 --   UnlockedChasers string?                해금한 추격자 ChaserId를 쉼표로 이은 것 (DataService에 저장)
 --   Coins, Level, Xp  number?              저장된 코인·레벨·경험치 (DataService). 데이터를 불러오기 전에는 nil
 --   DataLoaded     boolean?                저장된 데이터를 불러옴 (DataService)
+--   Vip            boolean?                게임패스 VIP를 가짐 (ShopService). 채팅 이름 색·로비 이모트·코인 +20%
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -77,6 +78,7 @@ local Attribute = table.freeze({
 	Level = "Level",
 	Xp = "Xp",
 	DataLoaded = "DataLoaded",
+	Vip = "Vip",
 })
 
 -- 아이템 칸 번호 → Attribute 이름 (칸 수는 Config.Survivor.InventorySlots)
@@ -193,6 +195,10 @@ end
 
 function MatchState.isChaserOptOut(player: Player): boolean
 	return player:GetAttribute(Attribute.ChaserOptOut) == true
+end
+
+function MatchState.isVip(player: Player): boolean
+	return player:GetAttribute(Attribute.Vip) == true
 end
 
 function MatchState.getStamina(player: Player): number?
