@@ -154,3 +154,12 @@ Studio에서는 실제 터치 입력을 낼 수 없어 마우스로 화면 버�
 - [ ] 로비 패널(왼쪽 위)이 Roblox 채팅 창과 겹쳐 보이는지 (S3-2부터 같은 자리). 겹치면 패널 위치를 정해 알려준다.
 - [ ] VIP 코인 +20%는 스테이지·칭호로 **버는** 코인에만 붙고 산 코인에는 붙지 않게 했다. 산 코인에도 붙이고 싶으면 알려준다.
 
+## S3-7 한국어·영어 현지화
+
+- [ ] **Studio에서 영어 화면 보기 (공식 방법)**: **테스트 (Test)** 탭 → **플레이어 에뮬레이터 (Player Emulator)** → **에뮬레이션 사용** 켜기 → **로캘 (Locale)** 을 `English (en-us)`로 고르고 플레이 → 로비·HUD·프롬프트·결과가 영어로 나오는지 확인 (Claude는 아래 개발용 속성으로만 시험했다). 한국어로 되돌리려면 로캘을 `한국어 (ko-kr)`로 (에뮬레이터를 끄면 Roblox 계정 언어를 따른다).
+  - 빠른 방법(개발용): 편집 모드에서 `ReplicatedStorage`에 문자열 속성 `StudioLanguage` = `en`을 추가하고 플레이. **시험 뒤 속성을 지우고 저장**한다 (Studio에서만 쓰이고 게시된 게임에는 영향 없음).
+- [ ] 영어 번역 문장과 용어가 자연스러운지 (`src/shared/Localization/en.luau`). 특히 단계 이름(Get Ready·Chase), 스테이지 이름(Abandoned School 등), 추격자 스킬 이름(Dash·Track·Blink·Call Monsters), 프롬프트(Hide·Come Out·Search·Push Over).
+- [ ] 영어에서 글자가 잘리거나 넘치는 곳이 없는지: 휴대폰 화면(버튼 안 "Coming soon"·"Choose Chaser: Puppeteer", 화면 버튼 "Smoke Bomb"·"Energy Drink"), 관전 화면, 역할 공개 카드.
+- [ ] 영어 계정(또는 에뮬레이터)에서 Roblox 채팅의 관전자 접두사가 `[Spectator]`, VIP는 `[VIP]`로 보이는지.
+- [ ] 한국어·영어가 아닌 언어(예: 일본어)로 들어오면 영어로 나온다 (의도). 다른 언어를 더하려면 `Localization/<언어>.luau`를 만들고 `Localization/init.luau`의 표·언어 목록에 더한다.
+

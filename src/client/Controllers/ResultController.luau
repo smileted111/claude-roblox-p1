@@ -28,7 +28,7 @@ local localPlayer = Players.LocalPlayer
 
 local ROW_HEIGHT = 28
 local NAME_WIDTH = 170
-local STAGE_WIDTH = 64
+local STAGE_WIDTH = 84 -- 영어 "Survived"·"Escaped"도 들어가게
 local CATCH_WIDTH = 70
 local COIN_WIDTH = 80
 local ANNOUNCE_DELAY = 0.6 -- 최종 결과 제목 뒤 이름이 튀어나오기까지 (초)

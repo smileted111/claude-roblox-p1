@@ -26,6 +26,7 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
 local PromptUtil = require(ReplicatedStorage.Shared.Util.PromptUtil)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
+local LanguageService = require(script.Parent.LanguageService)
 
 local LOBBY_FOLDER = "Lobby" -- Workspace.Lobby
 local SOLO_PROMPT_DISTANCE = 10
@@ -239,7 +240,7 @@ end
 local function checkSoloServer(player: Player): ()
 	if soloOwner then
 		if soloServer and player ~= soloOwner then
-			player:Kick(Strings.System.SoloServerFull)
+			player:Kick(LanguageService.stringsFor(player).System.SoloServerFull)
 		end
 		return
 	end

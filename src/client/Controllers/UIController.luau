@@ -40,6 +40,7 @@ local Chasers = require(ReplicatedStorage.Shared.Config.Chasers)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
 local GeneratorBillboards = require(script.Parent.Parent.Util.GeneratorBillboards)
+local WorldTextLocalizer = require(script.Parent.Parent.Util.WorldTextLocalizer)
 local InputController = require(script.Parent.InputController)
 local SurvivorController = require(script.Parent.SurvivorController)
 local UiStyle = require(script.Parent.Parent.Util.UiStyle)
@@ -184,7 +185,7 @@ local function createSurvivor(gui: ScreenGui): SurvivorView
 	-- 상태와 스태미나
 	local info = UiStyle.panel(frame, "Status", false)
 	info.LayoutOrder = 1
-	info.Size = UDim2.fromOffset(250, 64)
+	info.Size = UDim2.fromOffset(300, 64)
 	UiStyle.padding(info, 6, 12)
 	UiStyle.list(info, Enum.FillDirection.Vertical, 4)
 	local statusLabel = UiStyle.label(info, "State", 1, 26)
@@ -724,6 +725,7 @@ function UIController.Start(): ()
 	end
 	localPlayer:GetAttributeChangedSignal(Attribute.RepairProgress):Connect(renderRepair)
 	GeneratorBillboards.start()
+	WorldTextLocalizer.start()
 	ReplicatedStorage:GetAttributeChangedSignal(Attribute.Phase):Connect(onPhaseChanged)
 	localPlayer:GetAttributeChangedSignal(Attribute.Spectating):Connect(renderTop)
 	for _, name in

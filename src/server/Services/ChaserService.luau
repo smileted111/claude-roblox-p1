@@ -31,6 +31,7 @@ local Tracker = require(script.Parent.Parent.Chasers.Tracker)
 local Wraith = require(script.Parent.Parent.Chasers.Wraith)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 local DataService = require(script.Parent.DataService)
+local LanguageService = require(script.Parent.LanguageService)
 local HideService = require(script.Parent.HideService)
 local MonsterService = require(script.Parent.MonsterService)
 local MovementService = require(script.Parent.MovementService)
@@ -215,7 +216,11 @@ local function onChaserSelect(player: Player, action: unknown, chaserId: unknown
 		if DataService.spendCoins(player, def.UnlockCost, `추격자 해금 {id}`) then
 			DataService.unlockChaser(player, id)
 			DataService.setSelectedChaser(player, id)
-			notice:FireClient(player, "ChaserUnlocked" :: Types.NoticeKey, Strings.Chasers[id])
+			notice:FireClient(
+				player,
+				"ChaserUnlocked" :: Types.NoticeKey,
+				LanguageService.stringsFor(player).Chasers[id]
+			)
 			DataService.save(player)
 		else
 			notice:FireClient(player, "NotEnoughCoins" :: Types.NoticeKey)
