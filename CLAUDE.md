@@ -42,6 +42,7 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 | `LobbyTogether` / `LobbySolo` | 로비(`Workspace.Lobby`)의 같이 하기 구역 발판 / 혼자 하기 발판 |
 
 - 맵 생성 스크립트: `tools/mapgen/` (Stage2·3 블록 맵을 다시 만들 때 `common.luau` 뒤에 스테이지 파일을 붙여 Studio MCP로 실행).
+- 맵 점검 스크립트: `tools/mapcheck/audit.luau` (편집 모드 Studio MCP로 실행, 고치지 않고 문제 표만 돌려줌. 맵을 다듬은 뒤 다시 돌린다).
 
 ## 코드 규칙
 
