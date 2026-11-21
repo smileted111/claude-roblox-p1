@@ -4,6 +4,7 @@
 -- 화면에 보이는 맵 이름은 Strings.Stages, 매치에 나오는 순서는 Match.StageOrder에 있다.
 -- 조명(Lighting)은 맵을 불러올 때 StageService가 적용한다. 형식과 대기 장소 값은 Config.Lighting에 있다.
 -- 조명 값은 GDD에 수치가 없어 임시다. Stage1만 테스트 맵 화면을 보고 정했고, 나머지는 맵을 만들 때 다시 맞춘다.
+-- 2026-11-21 사용자 요청으로 모든 스테이지의 Brightness·Ambient·OutdoorAmbient를 1.2배 (20% 밝게) 했다.
 
 local Lighting = require(script.Parent.Lighting)
 local Types = require(script.Parent.Parent.Types)
@@ -37,9 +38,9 @@ local Stages: { [Types.StageId]: StageDef } = {
 		-- 달빛 밤. 형태는 보이고 그늘은 어둡게 (임시)
 		Lighting = {
 			ClockTime = 0,
-			Brightness = 1,
-			Ambient = Color3.fromRGB(70, 70, 85),
-			OutdoorAmbient = Color3.fromRGB(90, 95, 115),
+			Brightness = 1.2,
+			Ambient = Color3.fromRGB(84, 84, 102),
+			OutdoorAmbient = Color3.fromRGB(108, 114, 138),
 			ExposureCompensation = 0,
 			Atmosphere = {
 				Density = 0.35,
@@ -63,9 +64,9 @@ local Stages: { [Types.StageId]: StageDef } = {
 		-- 차가운 녹색 밤, 조금 뿌옇게 (임시)
 		Lighting = {
 			ClockTime = 0,
-			Brightness = 1,
-			Ambient = Color3.fromRGB(65, 75, 70),
-			OutdoorAmbient = Color3.fromRGB(80, 95, 90),
+			Brightness = 1.2,
+			Ambient = Color3.fromRGB(78, 90, 84),
+			OutdoorAmbient = Color3.fromRGB(96, 114, 108),
 			ExposureCompensation = 0,
 			Atmosphere = {
 				Density = 0.4,
@@ -90,9 +91,9 @@ local Stages: { [Types.StageId]: StageDef } = {
 		-- 지하라 가장 어둡게. 그림자 괴물이 숨는 어두운 구역이 있음 (임시)
 		Lighting = {
 			ClockTime = 0,
-			Brightness = 0.5,
-			Ambient = Color3.fromRGB(55, 55, 65),
-			OutdoorAmbient = Color3.fromRGB(65, 65, 80),
+			Brightness = 0.6,
+			Ambient = Color3.fromRGB(66, 66, 78),
+			OutdoorAmbient = Color3.fromRGB(78, 78, 96),
 			ExposureCompensation = 0,
 			Atmosphere = {
 				Density = 0.45,
@@ -117,9 +118,9 @@ local Stages: { [Types.StageId]: StageDef } = {
 		-- 보랏빛 밤 (임시)
 		Lighting = {
 			ClockTime = 0,
-			Brightness = 1,
-			Ambient = Color3.fromRGB(75, 65, 85),
-			OutdoorAmbient = Color3.fromRGB(95, 85, 115),
+			Brightness = 1.2,
+			Ambient = Color3.fromRGB(90, 78, 102),
+			OutdoorAmbient = Color3.fromRGB(114, 102, 138),
 			ExposureCompensation = 0,
 			Atmosphere = {
 				Density = 0.35,
@@ -144,9 +145,9 @@ local Stages: { [Types.StageId]: StageDef } = {
 		-- 누런 지하 터널 (임시)
 		Lighting = {
 			ClockTime = 0,
-			Brightness = 0.5,
-			Ambient = Color3.fromRGB(60, 60, 55),
-			OutdoorAmbient = Color3.fromRGB(70, 70, 65),
+			Brightness = 0.6,
+			Ambient = Color3.fromRGB(72, 72, 66),
+			OutdoorAmbient = Color3.fromRGB(84, 84, 78),
 			ExposureCompensation = 0,
 			Atmosphere = {
 				Density = 0.45,
