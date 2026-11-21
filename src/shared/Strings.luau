@@ -160,6 +160,14 @@ local Strings = {
 		PhaseClock = "%s %d:%02d", -- 단계 이름, 분, 초. 예: 추격 3:45
 	},
 
+	-- 조작 안내 (S3-5). 키 이름은 Config.Input.KeyNames
+	Input = {
+		KeyAction = "[%s] %s", -- 키, 동작. 예: [Shift] 달리기
+		WithKey = "%s  [%s]", -- 상태 문구, 키. 예: 공격 가능  [클릭]
+		MouseButton1 = "클릭",
+		Tap = "화면 탭",
+	},
+
 	-- 추격자 화면의 위치 표시 (GDD 4.1, 6.2, 7장)
 	Markers = {
 		GeneratorNoise = "발전기 소리",

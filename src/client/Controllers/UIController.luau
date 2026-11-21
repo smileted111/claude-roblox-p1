@@ -12,7 +12,11 @@
 --               발전기를 고치는 동안 그 위에 수리 진행 바 (Player Attribute RepairProgress)
 --               추격자: 공격 쿨다운 바 (ChaserController가 공격할 때 UIController.startAttackCooldown을 부름).
 --               판자에 맞아 기절하면 "기절!" (Player Attribute Stunned). 그 아래 고유 스킬 이름과 쿨다운 (SkillReadyAt)
---               휴대폰에서 왼쪽 아래 이동 스틱, 오른쪽 아래 점프·달리기 버튼과 겹치지 않게 가운데에 좁게 둔다.
+--               휴대폰에서 왼쪽 아래 이동 스틱, 오른쪽 아래 점프·화면 버튼(InputController)과 겹치지 않게 가운데에 좁게 둔다.
+--   키 안내 (S3-5): 지금 플랫폼(InputController.getPlatform)에 맞는 키를 붙인다. 아이템 칸 왼쪽 위(1·2 / LB·RB),
+--               생존자 상태 줄 오른쪽([Shift] 달리기 / [L3] 달리기), 추격자 공격·스킬 줄 끝([클릭]·[E] / [R2]·[Y]).
+--               휴대폰은 화면 버튼에 이름이 있어 키 안내를 숨기고, 공격만 [화면 탭]. 화면 버튼의 흐림(스태미나 부족,
+--               스킬 쿨다운)과 스킬 버튼의 남은 초도 여기서 맞춘다.
 --   가운데       역할 공개: RoleReveal 리모트를 받으면 후보 이름이 돌다가(Config.Ui.RoleReveal.SpinTime)
 --               추격자 이름에서 멈추고, 내 역할과 목표 한 줄(Strings.RoleGoals)을 ResultHoldTime초 보여준다.
 --               솔로는 룰렛이 없으므로 준비 단계가 시작될 때 솔로 안내와 역할·목표를 보여준다.
@@ -36,6 +40,7 @@ local Chasers = require(ReplicatedStorage.Shared.Config.Chasers)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
 local GeneratorBillboards = require(script.Parent.Parent.Util.GeneratorBillboards)
+local InputController = require(script.Parent.InputController)
 local SurvivorController = require(script.Parent.SurvivorController)
 local UiStyle = require(script.Parent.Parent.Util.UiStyle)
 
@@ -66,7 +71,9 @@ type SurvivorView = {
 	statusLabel: TextLabel,
 	statusStroke: UIStroke,
 	staminaFill: Frame,
+	runHint: TextLabel,
 	slots: { TextButton },
+	keyLabels: { TextLabel },
 }
 
 type RepairView = {
@@ -184,30 +191,40 @@ local function createSurvivor(gui: ScreenGui): SurvivorView
 	statusLabel.Font = UiStyle.BoldFont
 	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 	local statusStroke = UiStyle.stroke(info, Colors.Good, 0.2)
+	-- 상태 줄 오른쪽: 달리기 키 안내
+	local runHint = UiStyle.label(statusLabel, "RunHint", 0, 26)
+	runHint.Size = UDim2.fromScale(1, 1)
+	runHint.TextSize = 15
+	runHint.TextXAlignment = Enum.TextXAlignment.Right
+	runHint.TextColor3 = Colors.Subtext
 	local _, staminaFill = UiStyle.bar(info, "Stamina", 2, UDim2.new(1, 0, 0, 14), Colors.Stamina)
 
 	-- 아이템 2칸
 	local slots: { TextButton } = {}
+	local keyLabels: { TextLabel } = {}
 	for index = 1, Survivor.InventorySlots do
 		local slot = UiStyle.button(frame, `Item{index}`, 1 + index, UDim2.fromOffset(64, 64), true)
 		slot.TextSize = 16
 		slot.TextWrapped = true
 		slot.Text = "" -- 빈칸. 아이템 이름은 S2-4에서
-		local number = UiStyle.label(slot, "Key", 0, 18)
-		number.Size = UDim2.fromOffset(18, 18)
-		number.Position = UDim2.fromOffset(4, 2)
-		number.TextSize = 16
-		number.Font = UiStyle.BoldFont
-		number.TextColor3 = Colors.Accent
-		number.Text = tostring(index)
+		local key = UiStyle.label(slot, "Key", 0, 18)
+		key.Size = UDim2.fromOffset(30, 18)
+		key.Position = UDim2.fromOffset(4, 2)
+		key.TextSize = 15
+		key.TextXAlignment = Enum.TextXAlignment.Left
+		key.Font = UiStyle.BoldFont
+		key.TextColor3 = Colors.Accent
 		table.insert(slots, slot)
+		table.insert(keyLabels, key)
 	end
 	return {
 		frame = frame,
 		statusLabel = statusLabel,
 		statusStroke = statusStroke,
 		staminaFill = staminaFill,
+		runHint = runHint,
 		slots = slots,
+		keyLabels = keyLabels,
 	}
 end
 
@@ -391,6 +408,15 @@ local function renderSurvivor(): ()
 	survivorView.staminaFill.BackgroundColor3 = if stamina < config.MinToStartRun
 		then Colors.Warning
 		else Colors.Stamina
+	InputController.setTouchDimmed("Run", stamina < config.MinToStartRun)
+
+	local runKey = InputController.hint("Run")
+	survivorView.runHint.Text = if runKey then string.format(Strings.Input.KeyAction, runKey, Strings.Hud.Run) else ""
+	for slot, keyLabel in survivorView.keyLabels do
+		local key = InputController.hint(if slot == 1 then "Item1" else "Item2")
+		keyLabel.Text = key or ""
+		keyLabel.Visible = key ~= nil
+	end
 
 	local battery = localPlayer:GetAttribute(Attribute.FlashlightBattery)
 	local flashlightOn = localPlayer:GetAttribute(Attribute.FlashlightOn) == true
@@ -415,16 +441,19 @@ local function renderChaser(): ()
 		return
 	end
 	local chaserView = view.chaser
+	local text: string
 	if MatchState.isStunned(localPlayer) then
-		chaserView.attackLabel.Text = Strings.Hud.Stunned
+		text = Strings.Hud.Stunned
 		chaserView.attackLabel.TextColor3 = Colors.Warning
 	elseif os.clock() >= attackReadyAt - ATTACK_READY_SLACK then
-		chaserView.attackLabel.Text = Strings.Hud.AttackReady
+		text = Strings.Hud.AttackReady
 		chaserView.attackLabel.TextColor3 = Colors.Text
 	else
-		chaserView.attackLabel.Text = Strings.Hud.Attack
+		text = Strings.Hud.Attack
 		chaserView.attackLabel.TextColor3 = Colors.Subtext
 	end
+	local key = InputController.hint("Attack")
+	chaserView.attackLabel.Text = if key then string.format(Strings.Input.WithKey, text, key) else text
 end
 
 local function renderRepair(): ()
@@ -452,17 +481,23 @@ local function renderSkill(): ()
 	local name = Strings.Skills[def.Kind]
 	local readyAt = MatchState.getSkillReadyAt(localPlayer)
 	local remaining = if readyAt then readyAt - Workspace:GetServerTimeNow() else 0
+	local text: string
 	if remaining > 0 then
-		chaserView.skillLabel.Text = string.format(Strings.Hud.SkillCooldown, name, math.ceil(remaining))
+		text = string.format(Strings.Hud.SkillCooldown, name, math.ceil(remaining))
 		chaserView.skillLabel.TextColor3 = Colors.Subtext
 		chaserView.skillFill.Size = UDim2.fromScale(math.clamp(1 - remaining / def.Cooldown, 0, 1), 1)
 		chaserView.skillFill.BackgroundColor3 = Colors.Disabled
 	else
-		chaserView.skillLabel.Text = string.format(Strings.Hud.SkillReady, name)
+		text = string.format(Strings.Hud.SkillReady, name)
 		chaserView.skillLabel.TextColor3 = Colors.Text
 		chaserView.skillFill.Size = UDim2.fromScale(1, 1)
 		chaserView.skillFill.BackgroundColor3 = Colors.Warning
 	end
+	local key = InputController.hint("Skill")
+	chaserView.skillLabel.Text = if key then string.format(Strings.Input.WithKey, text, key) else text
+	-- 휴대폰 스킬 버튼: 쓸 수 있으면 스킬 이름, 쿨다운 중이면 남은 초와 흐림
+	InputController.setTouchLabel("Skill", if remaining > 0 then tostring(math.ceil(remaining)) else name)
+	InputController.setTouchDimmed("Skill", remaining > 0)
 end
 
 -- 다른 컨트롤러의 화면 조각(스테이지 결과 등)을 위 가운데 세로 목록에 넣는다. 역할 공개 카드는 1, 알림은 2라
@@ -705,6 +740,10 @@ function UIController.Start(): ()
 		localPlayer:GetAttributeChangedSignal(name):Connect(renderSurvivor)
 	end
 	localPlayer:GetAttributeChangedSignal(Attribute.Stunned):Connect(renderChaser)
+	InputController.onPlatformChanged(function()
+		renderSurvivor()
+		renderChaser()
+	end)
 	RunService.Heartbeat:Connect(renderSkill)
 	local view = hud
 	if view then
@@ -731,6 +770,7 @@ function UIController.Start(): ()
 
 	renderTop()
 	renderSurvivor()
+	renderChaser()
 end
 
 return UIController

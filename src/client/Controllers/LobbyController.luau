@@ -114,11 +114,11 @@ local function createChaserPanel(gui: ScreenGui): (Frame, { ChaserRow })
 		desc.TextXAlignment = Enum.TextXAlignment.Left
 		desc.TextColor3 = Colors.Subtext
 		desc.Text = skillDescription(chaserId)
-		local button = UiStyle.button(row, "Action", 3, UDim2.fromOffset(150, 48), true)
+		local button = UiStyle.button(row, "Action", 3, UDim2.fromOffset(150, UiStyle.MinButtonHeight), true)
 		button.TextSize = 16
 		table.insert(rows, { chaserId = chaserId, button = button })
 	end
-	local close = UiStyle.button(panel, "Close", 10, UDim2.fromOffset(160, 44), true)
+	local close = UiStyle.button(panel, "Close", 10, UDim2.fromOffset(160, UiStyle.MinButtonHeight), true)
 	close.Text = Strings.Lobby.Close
 	close.Activated:Connect(function()
 		panel.Visible = false
@@ -140,9 +140,9 @@ local function createView(): LobbyView
 	local profileLabel = UiStyle.label(panel, "Profile", 1, 26)
 	profileLabel.Font = UiStyle.BoldFont
 	profileLabel.TextXAlignment = Enum.TextXAlignment.Left
-	local optOutButton = UiStyle.button(panel, "ChaserOptOut", 2, UDim2.new(1, 0, 0, 44), true)
+	local optOutButton = UiStyle.button(panel, "ChaserOptOut", 2, UDim2.new(1, 0, 0, UiStyle.MinButtonHeight), true)
 	optOutButton.TextSize = 17
-	local selectButton = UiStyle.button(panel, "ChaserSelect", 3, UDim2.new(1, 0, 0, 44), true)
+	local selectButton = UiStyle.button(panel, "ChaserSelect", 3, UDim2.new(1, 0, 0, UiStyle.MinButtonHeight), true)
 	selectButton.TextSize = 17
 	local chaserPanel, chaserRows = createChaserPanel(gui)
 
@@ -166,11 +166,11 @@ local function createView(): LobbyView
 	body.TextColor3 = Colors.Subtext
 	local row = UiStyle.container(offer, "Buttons")
 	row.LayoutOrder = 3
-	row.Size = UDim2.new(1, 0, 0, 52)
+	row.Size = UDim2.new(1, 0, 0, UiStyle.MinButtonHeight)
 	UiStyle.list(row, Enum.FillDirection.Horizontal, 14)
-	local yes = UiStyle.button(row, "Yes", 1, UDim2.fromOffset(180, 52), true)
+	local yes = UiStyle.button(row, "Yes", 1, UDim2.fromOffset(180, UiStyle.MinButtonHeight), true)
 	yes.Text = Strings.Lobby.SoloYes
-	local no = UiStyle.button(row, "No", 2, UDim2.fromOffset(180, 52), true)
+	local no = UiStyle.button(row, "No", 2, UDim2.fromOffset(180, UiStyle.MinButtonHeight), true)
 	no.Text = Strings.Lobby.SoloNo
 	yes.Activated:Connect(function()
 		offer.Visible = false

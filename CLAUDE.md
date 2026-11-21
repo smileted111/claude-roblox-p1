@@ -53,6 +53,8 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 - 수치(속도, 시간, 괴물 수 등)는 코드에 직접 쓰지 않고 `src/shared/Config/`의 데이터 테이블에 둔다. 값은 GDD에 적힌 초기값을 쓴다.
 - 플레이어에게 보이는 문구는 `src/shared/Strings.luau`에 한국어로 모은다 (나중에 현지화 테이블로 옮김).
 - 피·신체 훼손 표현을 넣지 않는다 (GDD 12장).
+- 조작 입력은 `InputController.bind(동작, 함수)`로 묶는다 (키는 `src/shared/Config/Input.luau`의 `Bindings`, 휴대폰 화면 버튼도 함께). 컨트롤러에서 ContextActionService·UserInputService로 키를 직접 묶지 않는다.
+- 누르는 UI 버튼은 높이 `UiStyle.MinButtonHeight`(56) 이상으로 만든다 (휴대폰 UIScale 0.8에서 44점 이상).
 
 ## 단계 완료 절차
 

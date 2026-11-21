@@ -108,6 +108,15 @@ export type LobbyAction = "JoinQueue" | "AcceptSolo" | "DeclineSolo"
 -- 로비의 추격자 선택 요청 (ChaserSelect 리모트)
 export type ChaserSelectAction = "Select" | "Unlock"
 
+-- 조작 동작 (client InputController, Config.Input.Bindings). Item은 휴대폰 화면 버튼 전용(아이템이 있는 첫 칸을 씀)
+export type InputAction = "Run" | "Item" | "Item1" | "Item2" | "Attack" | "Skill" | "SpectatePrevious" | "SpectateNext"
+
+-- 지금 쓰는 입력 장치 (마지막 입력 종류로 정함). 화면의 키 안내와 휴대폰 버튼 표시를 바꾼다
+export type InputPlatform = "KeyboardMouse" | "Gamepad" | "Touch"
+
+-- 휴대폰 화면 버튼 (GDD 11장: 달리기, 상호작용, 아이템, 스킬)
+export type TouchButtonId = "Run" | "Interact" | "Item" | "Skill"
+
 -- 잠깐 띄우는 알림 문구의 키 (Strings.Notices)
 export type NoticeKey =
 	"PreparationSurvivor"

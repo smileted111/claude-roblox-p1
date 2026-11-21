@@ -224,7 +224,7 @@ local function showMatch(result: Types.MatchResult): ()
 		cell(line, tostring(record.coins), COIN_WIDTH, 21, Colors.Warning)
 	end
 
-	local again = UiStyle.button(panel, "PlayAgain", 100, UDim2.fromOffset(220, 48), true)
+	local again = UiStyle.button(panel, "PlayAgain", 100, UDim2.fromOffset(220, UiStyle.MinButtonHeight), true)
 	again.Text = Strings.Results.PlayAgain
 	again.Activated:Connect(function()
 		closeMatch()

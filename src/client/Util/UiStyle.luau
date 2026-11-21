@@ -2,9 +2,12 @@
 -- 화면 UI 공통 스타일과 만들기 함수 (GDD 11장, 질문지 Q10-4: 어두운 반투명 + 빨강 강조, 큰 글씨).
 -- UIController(HUD·역할 공개·알림)와 SpectateController(관전 화면)가 같이 쓴다.
 -- 크기는 Config.Ui.ReferenceSize 화면 기준의 픽셀 값으로 쓰고, bindScale이 화면 크기에 맞춰 UIScale로 줄인다.
+-- 터치 화면은 Config.Ui.TouchMinScale보다 줄이지 않는다. 누르는 버튼은 높이 MinButtonHeight(56) 이상으로 만들어
+-- 휴대폰에서도 실제 44점 이상이 되게 한다 (S3-5).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Types = require(ReplicatedStorage.Shared.Types)
@@ -35,6 +38,7 @@ local UiStyle = {
 	Colors = Colors,
 	MonsterColors = MonsterColors,
 	PanelTransparency = 0.25,
+	MinButtonHeight = 56, -- 누르는 버튼의 최소 높이 (기준 화면 픽셀). × TouchMinScale ≥ 44
 	Font = Enum.Font.GothamMedium,
 	BoldFont = Enum.Font.GothamBold,
 }
@@ -184,7 +188,8 @@ function UiStyle.bindScale(scale: UIScale): ()
 		end
 		local size = camera.ViewportSize
 		local ratio = math.min(size.X / Ui.ReferenceSize.X, size.Y / Ui.ReferenceSize.Y)
-		scale.Scale = math.clamp(ratio, Ui.MinScale, Ui.MaxScale)
+		local minScale = if UserInputService.TouchEnabled then Ui.TouchMinScale else Ui.MinScale
+		scale.Scale = math.clamp(ratio, minScale, Ui.MaxScale)
 	end
 	local function watchCamera(): ()
 		if connection then

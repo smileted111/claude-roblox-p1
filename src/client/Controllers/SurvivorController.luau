@@ -2,14 +2,15 @@
 -- SurvivorController: 생존자 조작 — 달리기·숨기·아군 치료·수리·아이템·판자·문과 피격 효과 (GDD 2.2, 4.1, 6장, 13.2).
 --
 -- 달리기: 누르고 있는 동안 달리기 의사를 서버에 보낸다 (SetRunning). 속도와 스태미나는 서버(MovementService)가 정한다.
---   PC Shift, 게임패드 L3, 모바일은 ContextActionService가 만드는 화면 버튼 (임시. S3-5에서 정식 버튼으로).
+--   PC Shift, 게임패드 L3, 휴대폰은 화면 버튼 (InputController가 묶음, 키는 Config.Input.Bindings).
 --   Shift가 Roblox 기본 시프트 락과 겹쳐서 default.project.json에서 StarterPlayer.EnableMouseLockOption을 껐다.
 -- 스태미나 바·상태 표시는 UIController(HUD)가 한다.
 -- 숨기: 숨는 곳의 "숨기"·"나오기" 프롬프트 중 내 상태에 맞는 것만 켠다. 판정은 서버(HideService).
 -- 치료: 부상당한 다른 생존자의 "치료" 프롬프트를 내가 치료할 수 있을 때만 켠다 (CatchState). 판정은 서버(CatchService).
 -- 수리: 발전기 "수리" 프롬프트를 숨지 않은 생존자에게 추격 단계에서만 켠다 (ObjectiveState). 진행은 서버(ObjectiveService).
--- 아이템: 숫자키 1·2, 게임패드 LB·RB(관전 중 대상 바꾸기와 같은 버튼이지만 관전자는 아이템이 없음), 모바일은 HUD 아이템 칸을
---   누른다(UIController가 SurvivorController.useItem을 부름). UseItem 리모트로 칸 번호만 보내고 효과는 서버(ItemService).
+-- 아이템: 숫자키 1·2, 게임패드 LB·RB(관전 중 대상 바꾸기와 같은 버튼이지만 관전자는 아이템이 없음), 휴대폰은 화면의
+--   아이템 버튼(아이템이 있는 첫 칸) 또는 HUD 아이템 칸(UIController가 SurvivorController.useItem을 부름).
+--   UseItem 리모트로 칸 번호와 던질 곳(카메라가 보는 곳)을 보내고 효과는 서버(ItemService).
 --   "줍기" 프롬프트는 숨지 않은 생존자에게 빈칸이 있을 때만 켠다.
 -- 판자 "넘어뜨리기"는 숨지 않은 생존자에게 추격 단계에서, 문 "열기·닫기"는 숨지 않은 생존자와 추격자에게 켠다 (BarrierService).
 -- 내 생존자 상태가 바뀌면 효과를 낸다 (GDD 8장, 12장). 피 표현 없이 화면 효과와 효과음(자리만)으로.
@@ -17,7 +18,6 @@
 --   잡힘: 화면 암전 Config.Match.CaughtEffectTime초 (Config.Catch.CaughtEffect). 그 뒤 관전은 SpectateController
 
 local CollectionService = game:GetService("CollectionService")
-local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -36,15 +36,12 @@ local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
 local Types = require(ReplicatedStorage.Shared.Types)
 local HideSpotWatcher = require(script.Parent.Parent.Util.HideSpotWatcher)
 local ScreenEffect = require(script.Parent.Parent.Util.ScreenEffect)
+local InputController = require(script.Parent.InputController)
 local SoundController = require(script.Parent.SoundController)
 
-local RUN_ACTION = "SurvivorRun"
 local AIM_DISTANCE = 100 -- 알람시계 조준 레이캐스트 거리 (서버가 Config.Items의 Range로 다시 줄임)
--- 아이템 칸별 입력 (칸 번호 = 목록 순서)
-local ITEM_ACTIONS: { { name: string, keys: { Enum.KeyCode } } } = {
-	{ name = "SurvivorItem1", keys = { Enum.KeyCode.One, Enum.KeyCode.ButtonL1 } },
-	{ name = "SurvivorItem2", keys = { Enum.KeyCode.Two, Enum.KeyCode.ButtonR1 } },
-}
+-- 아이템 칸별 입력 동작 (칸 번호 = 목록 순서)
+local ITEM_ACTIONS: { Types.InputAction } = { "Item1", "Item2" }
 
 local Attribute = MatchState.Attribute
 local localPlayer = Players.LocalPlayer
@@ -71,19 +68,6 @@ local function setWantsToRun(value: boolean): ()
 	end
 end
 
-local function onRunAction(
-	_actionName: string,
-	inputState: Enum.UserInputState,
-	_inputObject: InputObject
-): Enum.ContextActionResult
-	if inputState == Enum.UserInputState.Begin then
-		setWantsToRun(true)
-	elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
-		setWantsToRun(false)
-	end
-	return Enum.ContextActionResult.Sink
-end
-
 -- 카메라가 보는 곳 (알람시계를 던질 곳). 내 캐릭터는 빼고 100스터드까지 레이캐스트한다.
 local function aimPosition(): Vector3?
 	local camera = Workspace.CurrentCamera
@@ -106,22 +90,25 @@ function SurvivorController.useItem(slot: number): ()
 	end
 end
 
-local function onItemAction(
-	actionName: string,
-	inputState: Enum.UserInputState,
-	_inputObject: InputObject
-): Enum.ContextActionResult
-	if inputState == Enum.UserInputState.Begin then
-		for slot, action in ITEM_ACTIONS do
-			if action.name == actionName then
-				SurvivorController.useItem(slot)
-			end
+-- 아이템이 있는 첫 칸 (휴대폰 아이템 버튼이 쓴다)
+local function firstItemSlot(): number?
+	for slot = 1, Survivor.InventorySlots do
+		if MatchState.getItem(localPlayer, slot) then
+			return slot
 		end
 	end
-	return Enum.ContextActionResult.Sink
+	return nil
 end
 
--- 생존자일 때만 달리기(와 모바일 화면 버튼)·아이템 입력을 묶는다.
+-- 휴대폰 아이템 버튼에 쓸 아이템 이름을 붙이고, 아이템이 없으면 흐리게 한다.
+local function refreshItemButton(): ()
+	local slot = firstItemSlot()
+	local itemId = if slot then MatchState.getItem(localPlayer, slot) else nil
+	InputController.setTouchLabel("Item", if itemId then Strings.Items[itemId] else nil)
+	InputController.setTouchDimmed("Item", itemId == nil)
+end
+
+-- 생존자일 때만 달리기·아이템 입력(과 휴대폰 화면 버튼)을 묶는다.
 local function updateRunBinding(): ()
 	local shouldBind = isSurvivor()
 	if shouldBind == runBound then
@@ -129,24 +116,27 @@ local function updateRunBinding(): ()
 	end
 	runBound = shouldBind
 	if shouldBind then
-		ContextActionService:BindAction(
-			RUN_ACTION,
-			onRunAction,
-			true,
-			Enum.KeyCode.LeftShift,
-			Enum.KeyCode.RightShift,
-			Enum.KeyCode.ButtonL3
-		)
-		ContextActionService:SetTitle(RUN_ACTION, Strings.Hud.Run)
+		InputController.bind("Run", setWantsToRun)
 		for slot = 1, Survivor.InventorySlots do
-			local action = ITEM_ACTIONS[slot]
-			ContextActionService:BindAction(action.name, onItemAction, false, table.unpack(action.keys))
+			InputController.bind(ITEM_ACTIONS[slot], function(pressed: boolean)
+				if pressed then
+					SurvivorController.useItem(slot)
+				end
+			end)
 		end
+		InputController.bind("Item", function(pressed: boolean)
+			local slot = firstItemSlot()
+			if pressed and slot then
+				SurvivorController.useItem(slot)
+			end
+		end)
+		refreshItemButton()
 	else
-		ContextActionService:UnbindAction(RUN_ACTION)
+		InputController.unbind("Run")
 		for _, action in ITEM_ACTIONS do
-			ContextActionService:UnbindAction(action.name)
+			InputController.unbind(action)
 		end
+		InputController.unbind("Item")
 		setWantsToRun(false)
 	end
 end
@@ -264,8 +254,12 @@ function SurvivorController.Start(): ()
 	end
 
 	itemRemote = Remotes.get("UseItem")
-	localPlayer:GetAttributeChangedSignal(Attribute.Item1):Connect(refreshItemPrompts)
-	localPlayer:GetAttributeChangedSignal(Attribute.Item2):Connect(refreshItemPrompts)
+	for _, name in { Attribute.Item1, Attribute.Item2 } do
+		localPlayer:GetAttributeChangedSignal(name):Connect(function()
+			refreshItemPrompts()
+			refreshItemButton()
+		end)
+	end
 	for _, tag in { ItemState.PickupPromptTag, ItemState.PlankPromptTag, ItemState.DoorPromptTag } do
 		CollectionService:GetInstanceAddedSignal(tag):Connect(refreshItemPrompts)
 	end

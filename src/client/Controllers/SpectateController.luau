@@ -6,19 +6,18 @@
 --   대상 주변으로 돌리거나 확대할 수 있다. StreamingEnabled라 대상 캐릭터가 늦게 오거나 다시 생길 수 있어서
 --   관전 중에는 매 프레임 확인한다. 관전이 끝나면 내 캐릭터가 있으면 내 Humanoid로 되돌린다
 --   (없으면 캐릭터가 새로 생길 때 Roblox가 맞춘다).
--- 대상 바꾸기: 이전 Q·←·LB, 다음 E·→·RB, 화면 버튼(모바일·마우스). SpectateCycle 리모트로 요청하고 서버가 정한다.
---   ←/→는 Roblox 기본 카메라 회전 키라 더 높은 우선순위로 묶어 가로챈다.
+-- 대상 바꾸기: 이전 Q·←·LB, 다음 E·→·RB(InputController, Config.Input.Bindings), 화면 버튼(휴대폰·마우스).
+--   SpectateCycle 리모트로 요청하고 서버가 정한다. ←/→는 Roblox 기본 카메라 회전 키라 더 높은 우선순위로 묶어 가로챈다.
+--   키 안내는 플랫폼(키보드·게임패드)에 맞춰 바꾸고, 휴대폰에서는 화면 버튼만 보인다.
 -- 화면: 관전 중 / 대상 이름 / 역할·상태(숨음) / 남은 생존자 수·단계와 남은 시간 / 이전·다음 /
 --   목표 진행(발전기 n/전체 또는 출구 열림) / 로비로 돌아가기(ReturnToLobby 리모트: 매치에서 빠져 로비로).
 -- 관전자 채팅: 서버가 관전자 채널(SpectateState.ChatChannelName)에 나를 넣으면 입력창 대상을 그 채널로 바꾸고
 --   안내 문구를 띄운다. 빠지면 RBXGeneral로 되돌린다. 관전자 채널 메시지 앞에는 [관전]을 붙인다.
 
-local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TextChatService = game:GetService("TextChatService")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
@@ -26,9 +25,8 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local SpectateState = require(ReplicatedStorage.Shared.SpectateState)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local UiStyle = require(script.Parent.Parent.Util.UiStyle)
+local InputController = require(script.Parent.InputController)
 
-local PREVIOUS_ACTION = "SpectatePrevious"
-local NEXT_ACTION = "SpectateNext"
 local GENERAL_CHANNEL_NAME = "RBXGeneral" -- TextChatService 기본 채널
 
 type SpectateGui = {
@@ -93,15 +91,15 @@ local function createGui(): SpectateGui
 
 	local row = UiStyle.container(bottom, "Cycle")
 	row.LayoutOrder = 2
-	row.Size = UDim2.new(1, 0, 0, 52)
+	row.Size = UDim2.new(1, 0, 0, UiStyle.MinButtonHeight)
 	UiStyle.list(row, Enum.FillDirection.Horizontal, 12)
-	local previousButton = UiStyle.button(row, "Previous", 1, UDim2.fromOffset(150, 52), true)
+	local previousButton = UiStyle.button(row, "Previous", 1, UDim2.fromOffset(150, UiStyle.MinButtonHeight), true)
 	previousButton.Text = `◀  {Strings.Spectate.Previous}`
-	local nextButton = UiStyle.button(row, "Next", 2, UDim2.fromOffset(150, 52), true)
+	local nextButton = UiStyle.button(row, "Next", 2, UDim2.fromOffset(150, UiStyle.MinButtonHeight), true)
 	nextButton.Text = `{Strings.Spectate.Next}  ▶`
 
 	-- 매치에서 빠져 로비로 (ReturnToLobby 리모트, 그때까지 받은 보상은 남음. 혼자 하기 서버는 일반 서버로 이동)
-	local lobbyButton = UiStyle.button(bottom, "ReturnToLobby", 3, UDim2.fromOffset(240, 44), true)
+	local lobbyButton = UiStyle.button(bottom, "ReturnToLobby", 3, UDim2.fromOffset(240, UiStyle.MinButtonHeight), true)
 	lobbyButton.Text = Strings.Spectate.ReturnToLobby
 
 	gui.Parent = UiStyle.playerGui()
@@ -183,11 +181,11 @@ local function renderHint(): ()
 	if not ui then
 		return
 	end
-	local inputType = UserInputService:GetLastInputType()
+	local platform = InputController.getPlatform()
 	local hint: string? = nil
-	if inputType.Name:match("^Gamepad") then
+	if platform == "Gamepad" then
 		hint = Strings.Spectate.GamepadHint
-	elseif inputType ~= Enum.UserInputType.Touch then
+	elseif platform == "KeyboardMouse" then
 		hint = Strings.Spectate.KeyHint
 	end
 	ui.hintLabel.Text = hint or ""
@@ -211,42 +209,22 @@ local function requestCycle(step: number): ()
 	end
 end
 
-local function onCycleAction(
-	actionName: string,
-	inputState: Enum.UserInputState,
-	_inputObject: InputObject
-): Enum.ContextActionResult
-	if inputState == Enum.UserInputState.Begin then
-		requestCycle(if actionName == PREVIOUS_ACTION then -1 else 1)
-	end
-	return Enum.ContextActionResult.Sink
-end
-
 local function enterSpectate(): ()
 	local camera = Workspace.CurrentCamera
 	if camera then
 		camera.CameraType = Enum.CameraType.Custom
 	end
 	-- 기본 카메라(←/→ 회전)보다 먼저 받도록 높은 우선순위로 묶는다.
-	local priority = Enum.ContextActionPriority.High.Value
-	ContextActionService:BindActionAtPriority(
-		PREVIOUS_ACTION,
-		onCycleAction,
-		false,
-		priority,
-		Enum.KeyCode.Q,
-		Enum.KeyCode.Left,
-		Enum.KeyCode.ButtonL1
-	)
-	ContextActionService:BindActionAtPriority(
-		NEXT_ACTION,
-		onCycleAction,
-		false,
-		priority,
-		Enum.KeyCode.E,
-		Enum.KeyCode.Right,
-		Enum.KeyCode.ButtonR1
-	)
+	InputController.bind("SpectatePrevious", function(pressed: boolean)
+		if pressed then
+			requestCycle(-1)
+		end
+	end, true)
+	InputController.bind("SpectateNext", function(pressed: boolean)
+		if pressed then
+			requestCycle(1)
+		end
+	end, true)
 	if not followConnection then
 		followConnection = RunService.Heartbeat:Connect(followTarget)
 	end
@@ -259,8 +237,8 @@ local function enterSpectate(): ()
 end
 
 local function exitSpectate(): ()
-	ContextActionService:UnbindAction(PREVIOUS_ACTION)
-	ContextActionService:UnbindAction(NEXT_ACTION)
+	InputController.unbind("SpectatePrevious")
+	InputController.unbind("SpectateNext")
 	if followConnection then
 		followConnection:Disconnect()
 		followConnection = nil
@@ -398,7 +376,7 @@ function SpectateController.Start(): ()
 	do
 		ReplicatedStorage:GetAttributeChangedSignal(name):Connect(renderMatchInfo)
 	end
-	UserInputService.LastInputTypeChanged:Connect(renderHint)
+	InputController.onPlatformChanged(renderHint)
 	-- 관전 대상이 나보다 늦게 들어온 사람이면 Player 객체가 늦게 올 수 있다.
 	Players.PlayerAdded:Connect(refresh)
 

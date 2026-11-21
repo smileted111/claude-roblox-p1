@@ -13,6 +13,7 @@ export type RoleRevealConfig = {
 export type UiConfig = {
 	ReferenceSize: Vector2, -- 이 화면 크기(픽셀)에서 UIScale 1. 더 작은 화면은 비율대로 줄인다
 	MinScale: number, -- 휴대폰에서 줄이는 한계
+	TouchMinScale: number, -- 터치 화면에서 줄이는 한계. 화면 버튼(높이 56 이상)이 실제 44점 이상이 되게 한다
 	MaxScale: number,
 	RoleReveal: RoleRevealConfig,
 	NoticeDuration: number, -- 알림 문구를 띄워 두는 시간 (초)
@@ -24,6 +25,7 @@ export type UiConfig = {
 local Ui: UiConfig = {
 	ReferenceSize = Vector2.new(1100, 620), -- 임시
 	MinScale = 0.6, -- 임시
+	TouchMinScale = 0.8, -- 56 × 0.8 = 44.8 (터치 영역 최소 44)
 	MaxScale = 1, -- 임시
 	RoleReveal = {
 		SpinTime = 3, -- 임시: 역할 공개 5초 중 3초 돌고 2초 결과
