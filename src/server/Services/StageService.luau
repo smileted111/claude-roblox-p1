@@ -3,7 +3,8 @@
 --
 -- 한 스테이지: 역할 공개 → 준비 → 추격 → 결과 (MatchService가 runStage로 부름)
 --   역할 공개  Config.Match.RoleRevealTime   추격자를 뽑고 룰렛 신호(RoleReveal)를 보냄. 솔로는 생략 (GDD 3.1)
---   준비       Config.Match.PreparationTime  맵을 Workspace.CurrentMap에 복제하고 조명을 Config.Stages[id].Lighting으로.
+--   준비       Config.Match.PreparationTime  맵을 Workspace.CurrentMap에 복제한다. 매치 화면 모드가 캐주얼이면
+--                                            맵 색을 파스텔로 바꾼다 (Util/MapStyler). 조명은 클라이언트(VisualModeController)가 바꾼다.
 --                                            생존자는 SurvivorSpawn, 추격자는 전용 외형(ChaserService)으로 ChaserSpawn에 배치.
 --                                            ChaserGate는 닫아 둠. 숨는 곳(HideService)·발전기와 출구(ObjectiveService)·
 --                                            아이템(ItemService)·판자와 문(BarrierService) 준비
@@ -11,20 +12,18 @@
 --   추격       Config.Stages[id].TimeLimit   ChaserGate를 엶
 --   결과       Config.Match.StageResultTime  결과를 RecordService에 기록하고 코인·통계를 지급(DataService),
 --                                            StageResult 리모트로 보냄.
---                                            끝나면 맵을 지우고 역할을 비우고, 조명을 대기 장소 값(Config.Lighting.Lobby)으로 되돌림
+--                                            끝나면 맵을 지우고 역할을 비움
 --
 -- 참가자: MatchService가 넘겨준 매치 참가자만 역할을 받는다. 로비에 있는 다른 사람은 상관없다.
 --   신호(역할 공개·알림·결과)는 참가자에게만 보낸다. "로비로 돌아가기"로 빠진 참가자(leaveMatch)는 나간 것으로 본다.
 -- 조기 종료: 남은 생존자가 없으면 (모두 잡힘·탈출·나감) 바로 결과로 간다 (GDD 3.2, 5장).
 -- 추격자가 나가면(게임에서 나감·로비로 돌아감) 새로 뽑지 않고 괴물만으로 계속한다 (GDD 5장, 질문지 Q6-5).
 
-local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
 
-local LightingConfig = require(ReplicatedStorage.Shared.Config.Lighting)
 local MapObjects = require(ReplicatedStorage.Shared.Config.MapObjects)
 local MapTags = require(ReplicatedStorage.Shared.MapTags)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
@@ -33,6 +32,8 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
+local VisualModes = require(ReplicatedStorage.Shared.Config.VisualModes)
+local MapStyler = require(ReplicatedStorage.Shared.Util.MapStyler)
 local CharacterLoader = require(script.Parent.Parent.Util.CharacterLoader)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
 local BarrierService = require(script.Parent.BarrierService)
@@ -144,23 +145,6 @@ local function setGateOpen(run: StageRun, open: boolean): ()
 	print(`[Stage] 대기실 문 {if open then "열림" else "닫힘"}`)
 end
 
--- 조명 값을 Lighting과 그 안의 Atmosphere에 적용한다. 서버에서 바꾸면 모든 클라이언트에 복제된다.
-local function applyLighting(preset: LightingConfig.LightingPreset, label: string): ()
-	Lighting.ClockTime = preset.ClockTime
-	Lighting.Brightness = preset.Brightness
-	Lighting.Ambient = preset.Ambient
-	Lighting.OutdoorAmbient = preset.OutdoorAmbient
-	Lighting.ExposureCompensation = preset.ExposureCompensation
-
-	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere") or Instance.new("Atmosphere")
-	atmosphere.Parent = Lighting
-	atmosphere.Density = preset.Atmosphere.Density
-	atmosphere.Haze = preset.Atmosphere.Haze
-	atmosphere.Color = preset.Atmosphere.Color
-	atmosphere.Decay = preset.Atmosphere.Decay
-	print(`[Stage] 조명: {label}`)
-end
-
 local function loadMap(stageId: Types.StageId): Instance
 	StageService.unloadMap()
 	local mapName = Stages[stageId].MapFolder
@@ -181,9 +165,14 @@ local function loadMap(stageId: Types.StageId): Instance
 	if #gateParts(map) == 0 then
 		warn(`[Stage] {mapName}: {MapTags.ChaserGate} 태그가 붙은 문이 없습니다`)
 	end
+	-- 캐주얼 모드: 다른 서비스가 맵을 준비(원래 색 기억 등)하기 전에 칠한다.
+	local mode = MatchState.getMatchMode() or VisualModes.Default
+	local styled = if mode == "Casual" then MapStyler.apply(map, VisualModes.Casual.Palette, {}) else 0
 	map.Parent = Workspace
-	print(`[Stage] 맵 불러옴: ServerStorage.{MAPS_FOLDER}.{mapName} → Workspace.{CURRENT_MAP_NAME}`)
-	applyLighting(Stages[stageId].Lighting, stageId)
+	print(
+		`[Stage] 맵 불러옴: ServerStorage.{MAPS_FOLDER}.{mapName} → Workspace.{CURRENT_MAP_NAME} · 화면 모드 {mode}`
+			.. (if styled > 0 then ` (파트 {styled}개 색 바꿈)` else "")
+	)
 	return map
 end
 
@@ -339,7 +328,6 @@ local function finish(): ()
 	BarrierService.clearMap()
 	HideService.clearMap()
 	StageService.unloadMap()
-	applyLighting(LightingConfig.Lobby, "대기 장소")
 	RoleService.clearAll()
 	ReplicatedStorage:SetAttribute(Attribute.StageId, nil)
 	ReplicatedStorage:SetAttribute(Attribute.HasChaser, nil)
@@ -497,9 +485,6 @@ end
 
 function StageService.Init(): () end
 
-function StageService.Start(): ()
-	-- 플레이스에 저장된 Lighting은 Studio에서 맵을 만들 때 쓰는 값이다. 서버가 시작하면 대기 장소 조명으로 바꾼다.
-	applyLighting(LightingConfig.Lobby, "대기 장소")
-end
+function StageService.Start(): () end
 
 return StageService

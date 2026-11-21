@@ -30,6 +30,7 @@ local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Score = require(ReplicatedStorage.Shared.Config.Score)
 local Types = require(ReplicatedStorage.Shared.Types)
+local VisualModes = require(ReplicatedStorage.Shared.Config.VisualModes)
 local LanguageService = require(script.Parent.LanguageService)
 -- Wally 래퍼 모듈이 ProfileStore의 타입을 다시 내보내지 않아 여기서 쓰는 부분만 타입으로 적는다.
 local ProfileStore: any = require(ServerScriptService.ServerPackages.ProfileStore)
@@ -53,7 +54,7 @@ export type PlayerData = {
 	Cosmetics: { Owned: { [string]: boolean }, Equipped: { [string]: string } }, -- 자리 (GDD 10장 꾸미기)
 	Quests: { Daily: { [string]: number }, Weekly: { [string]: number }, DailyResetAt: number, WeeklyResetAt: number }, -- 자리
 	Stats: Stats,
-	Settings: { ChaserOptOut: boolean },
+	Settings: { ChaserOptOut: boolean, VisualMode: string }, -- VisualMode: Types.VisualMode (로비에서 고른 화면 모드)
 	Receipts: { string }, -- 처리한 개발자 상품 영수증 PurchaseId (S3-6, 최근 MaxReceipts개)
 }
 
@@ -101,7 +102,7 @@ local TEMPLATE: PlayerData = {
 		StagesPlayed = 0,
 		MatchesPlayed = 0,
 	},
-	Settings = { ChaserOptOut = false },
+	Settings = { ChaserOptOut = false, VisualMode = VisualModes.Default },
 	Receipts = {},
 }
 
@@ -139,6 +140,10 @@ local function migrate(data: PlayerData): ()
 	if not Chasers[data.SelectedChaser :: any] or not data.UnlockedChasers[data.SelectedChaser] then
 		data.SelectedChaser = Match.DefaultChaser
 	end
+	-- 화면 모드는 S3 이후에 생겼다 (Reconcile이 채움). 모르는 값이면 기본으로.
+	if not table.find(VisualModes.Modes, data.Settings.VisualMode :: any) then
+		data.Settings.VisualMode = VisualModes.Default
+	end
 end
 
 local function loadProfile(player: Player): ()
@@ -174,6 +179,7 @@ local function loadProfile(player: Player): ()
 	profiles[player] = profile
 	publish(player, data)
 	player:SetAttribute(Attribute.ChaserOptOut, if data.Settings.ChaserOptOut then true else nil)
+	player:SetAttribute(Attribute.VisualMode, data.Settings.VisualMode)
 	player:SetAttribute(Attribute.DataLoaded, true)
 	print(
 		`[Data] {player.Name} 불러옴 ({storeName}, {ProfileStore.DataStoreState}): 코인 {data.Coins}, 레벨 {data.Level}`
@@ -263,6 +269,13 @@ function DataService.setSelectedChaser(player: Player, chaserId: string): ()
 	if data then
 		data.SelectedChaser = chaserId
 		publish(player, data)
+	end
+end
+
+function DataService.setVisualMode(player: Player, mode: Types.VisualMode): ()
+	local data = DataService.getData(player)
+	if data then
+		data.Settings.VisualMode = mode
 	end
 end
 

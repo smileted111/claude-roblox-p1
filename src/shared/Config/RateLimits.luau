@@ -20,6 +20,7 @@ local RateLimits: { [Remotes.ClientEventName]: RateLimitRule } = {
 	ReturnToLobby = { MaxCalls = 1, Window = 5 },
 	LobbyRequest = { MaxCalls = 3, Window = 2 },
 	ChaserSelect = { MaxCalls = 4, Window = 2 },
+	SetVisualMode = { MaxCalls = 3, Window = 2 },
 }
 
 return RateLimits

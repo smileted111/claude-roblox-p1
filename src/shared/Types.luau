@@ -105,6 +105,9 @@ export type MatchResult = {
 -- AcceptSolo·DeclineSolo: "혼자 시작할까요?"에 대한 답
 export type LobbyAction = "JoinQueue" | "AcceptSolo" | "DeclineSolo"
 
+-- 화면 모드 (Config.VisualModes): 나이트 = 어두운 공포 분위기(기본), 캐주얼 = 밝고 귀여운 배경
+export type VisualMode = "Night" | "Casual"
+
 -- 로비의 추격자 선택 요청 (ChaserSelect 리모트)
 export type ChaserSelectAction = "Select" | "Unlock"
 
@@ -138,5 +141,6 @@ export type NoticeKey =
 	| "NotEnoughCoins"
 	| "CoinsPurchased"
 	| "VipActivated"
+	| "MatchMode"
 
 return {}

@@ -4,7 +4,8 @@
 -- 화면 (ScreenGui "Hud", 크기는 UiStyle.addScale이 화면에 맞춰 줄인다)
 -- 시야를 가리지 않게 화면 가운데(위 가운데 포함)에는 계속 떠 있는 UI를 두지 않는다 (CLAUDE.md). 잠깐 뜨는 것만 위 가운데.
 --   오른쪽 위    작은 상태 패널: 스테이지 이름 / 단계(대기·역할 공개·준비·추격·결과) / 남은 시간 / 남은 생존자 수 /
---               목표 진행(발전기 n/전체, 다 고치면 "출구 열림!"). 로비에서는 같이 하기 대기 인원.
+--               목표 진행(발전기 n/전체, 다 고치면 "출구 열림!"). 로비에서는 같이 하기 대기 인원과
+--               다음 매치 화면 모드(대기열 다수결, QueueMode·QueueCasual).
 --               관전 중(SpectateController가 같은 자리에 관전 패널)과 최종 결과 단계(ResultController)에는 숨긴다.
 --               추격 단계 남은 시간이 Config.Ui.TimerWarningTime 이하면 시계를 강조색으로.
 --               Roblox 기본 플레이어 목록(같은 자리)은 끈다. 플레이어 목록은 Roblox 메뉴(Esc)의 사람 탭에서 볼 수 있다.
@@ -372,13 +373,19 @@ local function renderTop(): ()
 			table.insert(lines, Strings.Lobby.SoloServer)
 		elseif queueCount > 0 then
 			table.insert(lines, string.format(Strings.Lobby.QueueCount, queueCount))
+			local queueMode = MatchState.getQueueMode()
+			if queueMode then
+				local casual = MatchState.getQueueCasual()
+				table.insert(lines, string.format(Strings.Lobby.NextMode, Strings.Modes[queueMode]))
+				table.insert(lines, string.format(Strings.Lobby.ModeVotes, casual, queueCount - casual))
+			end
 		end
 		if timeLeft then
 			table.insert(lines, string.format(Strings.Hud.StartsIn, timeLeft))
 		elseif queueCount == 1 then
 			table.insert(lines, Strings.Lobby.NeedMore)
 		end
-		top.infoLabel.Text = if #lines > 0 then table.concat(lines, " · ") else Strings.Hud.WaitingForPlayers
+		top.infoLabel.Text = if #lines > 0 then table.concat(lines, "\n") else Strings.Hud.WaitingForPlayers
 		return
 	end
 	top.timerLabel.Visible = timeLeft ~= nil
@@ -734,6 +741,8 @@ function UIController.Start(): ()
 			Attribute.GeneratorsTotal,
 			Attribute.ExitOpen,
 			Attribute.QueueCount,
+			Attribute.QueueCasual,
+			Attribute.QueueMode,
 			Attribute.SoloServer,
 		}
 	do

@@ -8,6 +8,8 @@
 --   해금한 종류는 [고르기], 잠긴 종류는 [n 코인 해금] → ChaserSelect 리모트 (판정·저장은 서버 ChaserService).
 -- 혼자 하기 제안 (SoloOffer 리모트): 같이 하기 구역에 혼자 오래 있으면 뜬다. 답은 LobbyRequest AcceptSolo·DeclineSolo.
 -- 상점 (S3-6): 로비 패널의 [상점] 버튼 → ShopController.toggle.
+-- 화면 모드: 로비 패널의 [모드: 나이트/캐주얼] 버튼 → SetVisualMode 리모트 (서버 LobbyService가 저장).
+--   로비 조명·색 미리보기는 VisualModeController, 매치 모드는 참가자 다수결 (Config.VisualModes).
 -- VIP 로비 전용 이모트 (GDD 10장): VIP(Player Attribute Vip)에게만 [이모트] 버튼이 보이고, 누르면 내 캐릭터가
 --   Config.Assets.Animations.VipEmote를 춘다. 다시 누르거나 움직이면 멈춘다. 매치 중에는 쓸 수 없다.
 -- 다시 하기: 결과 화면 버튼이 LobbyController.playAgain을 부르면 같이 하기 구역으로 옮겨 달라고 요청한다 (JoinQueue).
@@ -21,6 +23,7 @@ local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
+local VisualModes = require(ReplicatedStorage.Shared.Config.VisualModes)
 local UiStyle = require(script.Parent.Parent.Util.UiStyle)
 local ShopController = require(script.Parent.ShopController)
 
@@ -39,6 +42,7 @@ type LobbyView = {
 	profileLabel: TextLabel,
 	optOutButton: TextButton,
 	selectButton: TextButton,
+	modeButton: TextButton,
 	shopButton: TextButton,
 	emoteButton: TextButton,
 	chaserPanel: Frame,
@@ -155,9 +159,11 @@ local function createView(): LobbyView
 	optOutButton.TextSize = 17
 	local selectButton = UiStyle.button(panel, "ChaserSelect", 3, UDim2.new(1, 0, 0, UiStyle.MinButtonHeight), true)
 	selectButton.TextSize = 17
+	local modeButton = UiStyle.button(panel, "VisualMode", 4, UDim2.new(1, 0, 0, UiStyle.MinButtonHeight), true)
+	modeButton.TextSize = 17
 	-- 상점 · (VIP) 이모트
 	local shopRow = UiStyle.container(panel, "ShopRow")
-	shopRow.LayoutOrder = 4
+	shopRow.LayoutOrder = 5
 	shopRow.Size = UDim2.new(1, 0, 0, UiStyle.MinButtonHeight)
 	UiStyle.list(shopRow, Enum.FillDirection.Horizontal, 8)
 	local shopButton = UiStyle.button(shopRow, "Shop", 1, UDim2.fromScale(1, 1), true)
@@ -212,6 +218,7 @@ local function createView(): LobbyView
 		profileLabel = profileLabel,
 		optOutButton = optOutButton,
 		selectButton = selectButton,
+		modeButton = modeButton,
 		shopButton = shopButton,
 		emoteButton = emoteButton,
 		chaserPanel = chaserPanel,
@@ -219,6 +226,19 @@ local function createView(): LobbyView
 		offer = offer,
 		offerBody = body,
 	}
+end
+
+-- 내가 고른 화면 모드 (데이터를 불러오기 전이면 기본)
+local function currentMode(): Types.VisualMode
+	local mode = MatchState.getVisualMode(localPlayer)
+	return if mode and table.find(VisualModes.Modes, mode) then mode else VisualModes.Default
+end
+
+-- 다음 화면 모드 (Config.VisualModes.Modes 순서대로 돌아감)
+local function nextMode(): Types.VisualMode
+	local modes = VisualModes.Modes
+	local index = table.find(modes, currentMode()) or 0
+	return modes[index % #modes + 1]
 end
 
 local function render(): ()
@@ -246,6 +266,10 @@ local function render(): ()
 	local optOut = MatchState.isChaserOptOut(localPlayer)
 	ui.optOutButton.Text = `{Strings.Lobby.ChaserOptOut}: {if optOut then Strings.Lobby.On else Strings.Lobby.Off}`
 	ui.optOutButton.TextColor3 = if optOut then Colors.Warning else Colors.Text
+
+	local mode = currentMode()
+	ui.modeButton.Text = string.format(Strings.Lobby.ModeButton, Strings.Modes[mode])
+	ui.modeButton.TextColor3 = if mode == "Casual" then Colors.Warning else Colors.Text
 
 	local selected: Types.ChaserId = MatchState.getSelectedChaser(localPlayer) or "Hunter"
 	ui.selectButton.Text = `{Strings.Lobby.ChaserSelect}: {Strings.Chasers[selected]}`
@@ -334,6 +358,10 @@ function LobbyController.Start(): ()
 		ui.chaserPanel.Visible = not ui.chaserPanel.Visible
 	end)
 	ui.shopButton.Activated:Connect(ShopController.toggle)
+	local modeRemote = Remotes.get("SetVisualMode")
+	ui.modeButton.Activated:Connect(function()
+		modeRemote:FireServer(nextMode())
+	end)
 	ui.emoteButton.Activated:Connect(toggleEmote)
 	localPlayer:GetAttributeChangedSignal(Attribute.Role):Connect(stopEmote)
 	for _, row in ui.chaserRows do
@@ -359,6 +387,7 @@ function LobbyController.Start(): ()
 			Attribute.SelectedChaser,
 			Attribute.UnlockedChasers,
 			Attribute.Vip,
+			Attribute.VisualMode,
 		}
 	do
 		localPlayer:GetAttributeChangedSignal(name):Connect(render)

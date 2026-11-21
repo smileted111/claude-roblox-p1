@@ -97,6 +97,12 @@ local En: Ko.Text = {
 		NotEnoughCoins = "Not enough Coins.",
 		CoinsPurchased = "You received %d Coins!",
 		VipActivated = "You're now VIP! Name color · lobby emote · Coins +20%%",
+		MatchMode = "This match is in %s mode.",
+	},
+
+	Modes = {
+		Night = "Night",
+		Casual = "Casual",
 	},
 
 	RoleReveal = {
@@ -200,6 +206,9 @@ local En: Ko.Text = {
 		Level = "Lv %d",
 		Shop = "Shop",
 		Emote = "Emote",
+		ModeButton = "Mode: %s",
+		NextMode = "Next match: %s",
+		ModeVotes = "Casual %d · Night %d",
 		TogetherHint = "Wait for other players on the green pad",
 		SoloHint = "Press [Play Solo] on the blue pad to start right away",
 	},

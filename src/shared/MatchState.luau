@@ -14,6 +14,9 @@
 --   GeneratorsTotal number?            이번 스테이지 발전기 수. 스테이지 밖에서는 nil
 --   ExitOpen       boolean?            출구가 열렸는가 (ObjectiveService)
 --   QueueCount     number?             같이 하기 대기 인원 (LobbyService)
+--   QueueCasual    number?             그중 캐주얼 모드를 고른 인원 (LobbyService)
+--   QueueMode      Types.VisualMode?   지금 대기열로 시작하면 정해질 화면 모드 (LobbyService, 다수결)
+--   MatchMode      Types.VisualMode?   진행 중인 매치의 화면 모드 (MatchService). 매치 밖에서는 nil
 --   SoloServer     boolean?            혼자 하기 서버인가 (LobbyService)
 --   MatchRunning   boolean?            매치 진행 중 (MatchService). 참가자가 아니면 로비에서 기다린다
 --
@@ -38,6 +41,7 @@
 --   Coins, Level, Xp  number?              저장된 코인·레벨·경험치 (DataService). 데이터를 불러오기 전에는 nil
 --   DataLoaded     boolean?                저장된 데이터를 불러옴 (DataService)
 --   Vip            boolean?                게임패스 VIP를 가짐 (ShopService). 채팅 이름 색·로비 이모트·코인 +20%
+--   VisualMode     Types.VisualMode?       로비에서 고른 화면 모드 (DataService에 저장, LobbyService가 바꿈)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -79,6 +83,10 @@ local Attribute = table.freeze({
 	Xp = "Xp",
 	DataLoaded = "DataLoaded",
 	Vip = "Vip",
+	QueueCasual = "QueueCasual",
+	QueueMode = "QueueMode",
+	MatchMode = "MatchMode",
+	VisualMode = "VisualMode",
 })
 
 -- 아이템 칸 번호 → Attribute 이름 (칸 수는 Config.Survivor.InventorySlots)
@@ -137,6 +145,22 @@ end
 
 function MatchState.getQueueCount(): number
 	return readNumber(ReplicatedStorage, Attribute.QueueCount) or 0
+end
+
+function MatchState.getQueueCasual(): number
+	return readNumber(ReplicatedStorage, Attribute.QueueCasual) or 0
+end
+
+function MatchState.getQueueMode(): Types.VisualMode?
+	return readString(ReplicatedStorage, Attribute.QueueMode) :: Types.VisualMode?
+end
+
+function MatchState.getMatchMode(): Types.VisualMode?
+	return readString(ReplicatedStorage, Attribute.MatchMode) :: Types.VisualMode?
+end
+
+function MatchState.getVisualMode(player: Player): Types.VisualMode?
+	return readString(player, Attribute.VisualMode) :: Types.VisualMode?
 end
 
 function MatchState.isSoloServer(): boolean

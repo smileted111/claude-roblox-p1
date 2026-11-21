@@ -99,6 +99,13 @@ local Notices: { [Types.NoticeKey]: string } = {
 	NotEnoughCoins = "코인이 모자랍니다.",
 	CoinsPurchased = "코인 %d개를 받았습니다!",
 	VipActivated = "VIP가 되었습니다! 이름 색상·로비 이모트·코인 +20%%",
+	MatchMode = "이번 매치는 %s 모드입니다.",
+}
+
+-- 화면 모드 이름 (Config.VisualModes)
+local Modes: { [Types.VisualMode]: string } = {
+	Night = "나이트",
+	Casual = "캐주얼",
 }
 
 local Ko = {
@@ -113,6 +120,7 @@ local Ko = {
 	SkillDescriptions = SkillDescriptions,
 	Items = Items,
 	Notices = Notices,
+	Modes = Modes,
 
 	-- 역할 공개 룰렛 (GDD 2.1)
 	RoleReveal = {
@@ -223,6 +231,9 @@ local Ko = {
 		Level = "Lv %d",
 		Shop = "상점",
 		Emote = "이모트",
+		ModeButton = "모드: %s",
+		NextMode = "다음 매치: %s",
+		ModeVotes = "캐주얼 %d · 나이트 %d",
 		-- 로비 표지판 (Studio에서 만든 Workspace.Lobby의 SurfaceGui. 이 원문과 같아야 번역된다)
 		TogetherHint = "초록 발판 위에서 다른 플레이어를 기다려요",
 		SoloHint = "파란 발판 위에서 [혼자 하기]를 누르면 바로 시작",

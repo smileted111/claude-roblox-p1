@@ -13,6 +13,8 @@
 --         "로비로 돌아가기"(ReturnToLobby 리모트): 참가자에서 빠져 로비로 간다. 그때까지 받은 보상은 남는다 (GDD 8장).
 --         혼자 하기 서버에서는 일반 서버로 보낸다.
 --   매치 중에 들어온 사람은 로비에서 다음 매치를 기다린다 (Notice MatchInProgress).
+--   화면 모드: 매치를 시작할 때 참가자 다수결로 정해(LobbyService.decideMode) MatchMode로 공개하고 알린다.
+--         매치 동안 바뀌지 않는다. 스테이지 맵 색(StageService)과 조명(클라이언트 VisualModeController)이 따른다.
 --   최종 결과: 라스트 서바이버(또는 베스트 서바이버)와 기록을 참가자에게 MatchResult 리모트로 보내고
 --         MatchResultTime초 보여준 뒤 대기로 돌아간다. 칭호 보너스 지급은 DataService.
 -- 공개: ReplicatedStorage Attribute MatchRunning (MatchState)
@@ -33,6 +35,7 @@ local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 local AchievementService = require(script.Parent.AchievementService)
 local DataService = require(script.Parent.DataService)
+local LanguageService = require(script.Parent.LanguageService)
 local LobbyService = require(script.Parent.LobbyService)
 local RecordService = require(script.Parent.RecordService)
 local RoleService = require(script.Parent.RoleService)
@@ -106,25 +109,25 @@ local function waitForParticipants(): { Player }
 	while true do
 		local studioSolo = LobbyService.takeStudioSoloRequest()
 		if studioSolo then
-			LobbyService.publishQueueCount(0)
+			LobbyService.publishQueue({})
 			return { studioSolo }
 		end
 
 		local solo = LobbyService.isSoloServer()
 		local needed = if solo then Match.MinPlayers else Match.MinTogetherPlayers
 		local queue = LobbyService.getQueue()
-		LobbyService.publishQueueCount(#queue)
+		LobbyService.publishQueue(queue)
 		if #queue >= needed then
 			local delay = if solo then Match.SoloStartDelay else Match.LobbyWaitTime
 			print(`[Match] 같이 하기 {#queue}명 · {delay}초 뒤 매치 시작`)
 			local outcome = PhaseTimer.run("Waiting", delay, function(): boolean
 				local current = LobbyService.getQueue()
-				LobbyService.publishQueueCount(#current)
+				LobbyService.publishQueue(current)
 				return #current < needed
 			end)
 			local final = LobbyService.getQueue()
 			if outcome == "TimeUp" and #final >= needed then
-				LobbyService.publishQueueCount(0)
+				LobbyService.publishQueue({})
 				return final
 			end
 			print("[Match] 인원이 모자라 대기를 다시 시작")
@@ -238,6 +241,13 @@ local function runMatch(players: { Player }): ()
 		table.insert(names, player.Name)
 	end
 	ReplicatedStorage:SetAttribute(Attribute.MatchRunning, true)
+	local mode, casualVotes, nightVotes = LobbyService.decideMode(players)
+	ReplicatedStorage:SetAttribute(Attribute.MatchMode, mode)
+	local notice = Remotes.get("Notice")
+	for _, player in players do
+		notice:FireClient(player, "MatchMode" :: Types.NoticeKey, LanguageService.stringsFor(player).Modes[mode])
+	end
+	print(`[Match] 화면 모드: {mode} (캐주얼 {casualVotes} · 나이트 {nightVotes})`)
 	RoleService.resetChaserCounts()
 	RecordService.startMatch(Match.StageOrder)
 	print(
@@ -249,6 +259,7 @@ local function runMatch(players: { Player }): ()
 	playStages()
 	table.clear(participants)
 	ReplicatedStorage:SetAttribute(Attribute.MatchRunning, nil)
+	ReplicatedStorage:SetAttribute(Attribute.MatchMode, nil)
 end
 
 -- 참가자가 매치에서 빠져 로비로 간다 (관전 화면의 "로비로 돌아가기").

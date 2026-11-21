@@ -9,7 +9,10 @@
 --     TeleportData {Solo = true}와 함께 보낸다. 그 서버는 혼자 하기 서버다 (중간 합류 불가: 두 번째 사람은 내보냄).
 --   Studio에서는 다른 서버로 보낼 수 없어서, 이 서버에서 그 사람 혼자 매치를 시작한다 (takeStudioSoloRequest).
 -- 혼자 하기 서버에서 "로비로 돌아가기"를 누르면 일반 서버로 보낸다 (teleportToPublic).
--- 공개: ReplicatedStorage Attribute QueueCount(같이 하기 대기 인원), SoloServer(혼자 하기 서버인가).
+-- 화면 모드 (Config.VisualModes): 로비 패널의 [모드] 버튼(SetVisualMode 리모트)으로 고르고 저장한다 (Player Attribute VisualMode).
+--   매치를 시작할 때 MatchService가 decideMode로 정한다: 참가자 다수결, 같으면 Default. 혼자 하기는 본인 선택.
+-- 공개: ReplicatedStorage Attribute QueueCount(같이 하기 대기 인원), QueueCasual·QueueMode(대기열의 캐주얼 인원과
+--   지금 시작하면 정해질 모드), SoloServer(혼자 하기 서버인가).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,9 +26,11 @@ local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
+local VisualModes = require(ReplicatedStorage.Shared.Config.VisualModes)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
 local PromptUtil = require(ReplicatedStorage.Shared.Util.PromptUtil)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
+local DataService = require(script.Parent.DataService)
 local LanguageService = require(script.Parent.LanguageService)
 
 local LOBBY_FOLDER = "Lobby" -- Workspace.Lobby
@@ -171,10 +176,56 @@ function LobbyService.getQueue(): { Player }
 	return queue
 end
 
-function LobbyService.publishQueueCount(count: number): ()
-	if MatchState.getQueueCount() ~= count then
-		ReplicatedStorage:SetAttribute(MatchState.Attribute.QueueCount, count)
+-- 이 사람이 고른 화면 모드 (데이터를 불러오기 전이면 기본)
+local function preferredMode(player: Player): Types.VisualMode
+	local mode = MatchState.getVisualMode(player)
+	return if mode and table.find(VisualModes.Modes, mode) then mode else VisualModes.Default
+end
+
+-- 참가자들의 화면 모드: 다수결, 같으면 기본. 캐주얼·나이트 표 수도 돌려준다.
+function LobbyService.decideMode(players: { Player }): (Types.VisualMode, number, number)
+	local casual = 0
+	for _, player in players do
+		if preferredMode(player) == "Casual" then
+			casual += 1
+		end
 	end
+	local night = #players - casual
+	local mode: Types.VisualMode = if casual > night
+		then "Casual"
+		elseif night > casual then "Night"
+		else VisualModes.Default
+	return mode, casual, night
+end
+
+-- 같이 하기 대기 인원, 그중 캐주얼을 고른 인원, 지금 시작하면 정해질 모드를 공개한다.
+function LobbyService.publishQueue(queue: { Player }): ()
+	local Attribute = MatchState.Attribute
+	local count = #queue
+	local mode, casual = LobbyService.decideMode(queue)
+	if MatchState.getQueueCount() ~= count then
+		ReplicatedStorage:SetAttribute(Attribute.QueueCount, count)
+	end
+	if MatchState.getQueueCasual() ~= casual then
+		ReplicatedStorage:SetAttribute(Attribute.QueueCasual, casual)
+	end
+	local shownMode: Types.VisualMode? = if count > 0 then mode else nil
+	if MatchState.getQueueMode() ~= shownMode then
+		ReplicatedStorage:SetAttribute(Attribute.QueueMode, shownMode)
+	end
+end
+
+local function onSetVisualMode(player: Player, mode: unknown): ()
+	if typeof(mode) ~= "string" or not table.find(VisualModes.Modes, mode :: Types.VisualMode) then
+		return
+	end
+	if MatchState.getRole(player) ~= nil or preferredMode(player) == mode then
+		return
+	end
+	local visualMode = mode :: Types.VisualMode
+	player:SetAttribute(MatchState.Attribute.VisualMode, visualMode)
+	DataService.setVisualMode(player, visualMode)
+	print(`[Lobby] {player.Name} 화면 모드: {visualMode}`)
 end
 
 -- 같이 하기 구역에 혼자 오래 있는 사람에게 혼자 하기를 제안한다 (GDD 5장).
@@ -291,6 +342,7 @@ function LobbyService.Start(): ()
 		notice(player, "SoloTeleportFailed")
 	end)
 	RemoteHandler.connect("LobbyRequest", onLobbyRequest)
+	RemoteHandler.connect("SetVisualMode", onSetVisualMode)
 end
 
 return LobbyService

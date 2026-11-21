@@ -1,7 +1,8 @@
 --!strict
 -- 조명 값 (GDD 12장: 어둡지만 형태는 잘 보이게, 손전등과 비상등이 주요 광원).
--- Lighting은 서버 하나에 하나뿐이라 StageService가 대기 장소 ↔ 스테이지를 오갈 때 값을 바꾼다.
--- 스테이지별 값은 Config.Stages의 Lighting에 있고, 여기에는 형식과 대기 장소 값만 둔다.
+-- 조명은 클라이언트(VisualModeController)가 플레이어가 있는 곳과 화면 모드에 따라 바꾼다. 서버는 Lighting을 바꾸지 않는다.
+-- 나이트 모드: 스테이지별 값은 Config.Stages의 Lighting, 대기 장소(로비) 값은 여기의 Lobby.
+-- 캐주얼 모드의 값은 Config.VisualModes에 있다. 여기에는 형식과 나이트 모드 로비 값만 둔다.
 -- GDD에 수치가 없어 모두 임시 값이다. Studio 플레이테스트 화면을 보고 정했다.
 
 export type AtmosphereValues = {
@@ -11,6 +12,13 @@ export type AtmosphereValues = {
 	Decay: Color3, -- 해에서 먼 쪽 대기 색
 }
 
+export type ColorCorrectionValues = {
+	Brightness: number, -- -1~1
+	Contrast: number, -- -1~1
+	Saturation: number, -- -1~1. 클수록 색이 진함
+	TintColor: Color3,
+}
+
 export type LightingPreset = {
 	ClockTime: number, -- 0~24. 0이면 자정
 	Brightness: number, -- 해·달 빛의 세기
@@ -18,10 +26,11 @@ export type LightingPreset = {
 	OutdoorAmbient: Color3, -- 하늘이 보이는 곳의 기본 밝기
 	ExposureCompensation: number, -- 화면 전체 노출 (-3~3)
 	Atmosphere: AtmosphereValues, -- Lighting 안 Atmosphere에 적용
+	ColorCorrection: ColorCorrectionValues?, -- 화면 색 보정. 없으면 끈다
 }
 
 export type LightingConfig = {
-	Lobby: LightingPreset, -- 대기 장소 (스테이지 밖)
+	Lobby: LightingPreset, -- 나이트 모드의 대기 장소 (스테이지 밖)
 }
 
 local Lighting: LightingConfig = {

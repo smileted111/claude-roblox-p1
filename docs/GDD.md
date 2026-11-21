@@ -295,6 +295,7 @@
 
 - **아트**: 로우폴리 캐주얼 호러. 어둡지만 형태는 잘 보이게 하고, 괴물은 실루엣과 발광하는 눈으로 표현.
 - **조명**: Future 조명, 손전등과 비상등이 주요 광원.
+- **화면 모드** (2026-11-21 추가): **나이트**(기본, 위의 어두운 공포 분위기)와 **캐주얼**(밝은 낮 조명 + 파스텔 색 맵, 밝고 귀여운 배경)을 로비에서 고른다. 매치 모드는 참가자 다수결(같으면 나이트), 혼자 하기는 본인 선택. 게임 규칙·괴물·보상은 같고, 한 매치 안에서는 모두 같은 모드라 밝기 유불리가 없다.
 - **사운드**: 추격자·괴물이 가까워지면 심장 박동 효과음이 커짐. 괴물마다 고유 소리. Roblox 라이선스 오디오로 시작.
 - **표현 수위**: 피·신체 훼손 없음. 잡힐 때는 화면 암전 + 효과음으로 처리.
 
@@ -321,13 +322,13 @@ src/
       MonsterService    -- 괴물 생성·AI 공통 (종류별 동작은 Monsters/<Name>)
       ChaserService     -- 추격자 종류·스킬(Chasers/<Name>)·외형, 로비의 추격자 선택·해금
       CatchService      -- 피격·부상·잡힘 판정
-      MovementService   -- 이동 속도·스태미나
+      MovementService   -- 이동 속도·스태미나, 이동 거리 검사
       HideService       -- 숨는 곳
       BarrierService    -- 판자·문
       SpectateService   -- 관전 상태·대상 관리
       ItemService       -- 아이템 배치·사용
       RecordService     -- 스테이지·매치 기록, 라스트 서바이버
-      LobbyService      -- 같이 하기 대기열, 혼자 하기
+      LobbyService      -- 같이 하기 대기열, 혼자 하기, 화면 모드 고르기·결정
       DataService       -- 저장 (ProfileStore)
       ShopService       -- 게임패스·상품
       AchievementService -- 배지
@@ -337,7 +338,7 @@ src/
     Controllers/
       InputController, UIController, CameraController,
       SpectateController, SoundController, ChaserController, SurvivorController,
-      LobbyController, ResultController, ShopController
+      LobbyController, ResultController, ShopController, VisualModeController(화면 모드 조명)
 ```
 - 처음 목록 밖 모듈은 한 서비스가 너무 커지지 않게 나눈 것이다 (2026-11-21 출시 점검 D9에서 표에 반영).
 
