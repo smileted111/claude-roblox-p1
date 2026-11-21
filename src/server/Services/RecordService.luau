@@ -10,9 +10,15 @@
 --   한 번도 잡히지 않았고, 생존자로 한 번 이상 살아남은 사람. 추격자였던 스테이지는 실패로 치지 않는다
 --   (추격자는 스테이지마다 바뀌므로 3명 이상이면 모두 한 번은 추격자가 되기 때문).
 -- 라스트 서바이버가 없으면 점수가 가장 높은 사람이 베스트 서바이버 (같으면 생존 스테이지가 많은 사람, 그다음 UserId순).
+-- 코인 (Config.Rewards): 스테이지마다 참가·생존 또는 탈출·발전기·치료·잡은 수·추격자 승리로 계산하고,
+--   매치가 끝나면 라스트 서바이버·베스트 서바이버 보너스를 더한다. 추격자 없이 진행한 스테이지(솔로)의 코인과
+--   모든 스테이지가 솔로인 매치의 보너스에는 Config.Match.SoloRewardMultiplier를 곱한다 (GDD 5장).
+--   지금은 계산해서 결과 화면에 보여주기만 한다. 실제 지급·저장은 S3-1.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Match = require(ReplicatedStorage.Shared.Config.Match)
+local Rewards = require(ReplicatedStorage.Shared.Config.Rewards)
 local Score = require(ReplicatedStorage.Shared.Config.Score)
 local Types = require(ReplicatedStorage.Shared.Types)
 
@@ -63,6 +69,27 @@ local function stageScore(outcome: Types.StageOutcome, stats: StageStats, chaser
 	return math.round(score)
 end
 
+local function stageCoins(outcome: Types.StageOutcome, stats: StageStats, chaserWon: boolean, solo: boolean): number
+	if outcome == "Left" or outcome == "Absent" then
+		return 0
+	end
+	local coins = Rewards.Participation
+		+ stats.generatorProgress * Rewards.GeneratorRepaired
+		+ stats.heals * Rewards.Heal
+		+ stats.catches * Rewards.Catch
+	if outcome == "Survived" then
+		coins += Rewards.Survived
+	elseif outcome == "Escaped" then
+		coins += Rewards.Escaped
+	elseif outcome == "Chaser" and chaserWon then
+		coins += Rewards.ChaserWin
+	end
+	if solo then
+		coins *= Match.SoloRewardMultiplier
+	end
+	return math.round(coins)
+end
+
 local function newRecord(userId: number, name: string, stageCount: number): Types.MatchPlayerRecord
 	local stages: { Types.StageOutcome } = {}
 	for index = 1, stageCount do
@@ -77,6 +104,7 @@ local function newRecord(userId: number, name: string, stageCount: number): Type
 		catches = 0,
 		generatorProgress = 0,
 		heals = 0,
+		chaserWins = 0,
 		score = 0,
 		coins = 0,
 		lastSurvivor = false,
@@ -154,6 +182,7 @@ function RecordService.finishStage(
 		local player = entry.player
 		local stats = statsFor(player)
 		local score = stageScore(entry.outcome, stats, chaserWon)
+		local coins = stageCoins(entry.outcome, stats, chaserWon, chaser == nil)
 		table.insert(players, {
 			userId = player.UserId,
 			name = player.DisplayName,
@@ -162,6 +191,7 @@ function RecordService.finishStage(
 			generatorProgress = math.round(stats.generatorProgress * 100) / 100,
 			heals = stats.heals,
 			score = score,
+			coins = coins,
 		})
 
 		if record then
@@ -181,6 +211,10 @@ function RecordService.finishStage(
 			matchRecord.generatorProgress += stats.generatorProgress
 			matchRecord.heals += stats.heals
 			matchRecord.score += score
+			matchRecord.coins += coins
+			if entry.outcome == "Chaser" and chaserWon then
+				matchRecord.chaserWins += 1
+			end
 		end
 	end
 	table.sort(players, function(a: Types.StagePlayerResult, b: Types.StagePlayerResult): boolean
@@ -199,7 +233,6 @@ function RecordService.finishStage(
 end
 
 -- 매치를 끝내고 최종 결과를 돌려준다. 끝난 스테이지가 없으면 nil.
--- 코인(Rewards)은 S2-5에서 채운다.
 function RecordService.finishMatch(): Types.MatchResult?
 	local record = current
 	current = nil
@@ -233,12 +266,22 @@ function RecordService.finishMatch(): Types.MatchResult?
 	if #lastSurvivorUserIds == 0 and players[1] and players[1].score > 0 then
 		best = players[1].userId
 	end
+	-- 칭호 보너스 코인
+	local solo = record.soloStages == record.stageCount
+	local multiplier = if solo then Match.SoloRewardMultiplier else 1
+	for _, matchRecord in players do
+		if matchRecord.lastSurvivor then
+			matchRecord.coins += math.round(Rewards.LastSurvivorBonus * multiplier)
+		elseif matchRecord.userId == best then
+			matchRecord.coins += math.round(Rewards.BestSurvivorBonus * multiplier)
+		end
+	end
 	return {
 		stageIds = table.move(record.stageIds, 1, record.stageCount, 1, {}),
 		players = players,
 		lastSurvivorUserIds = lastSurvivorUserIds,
 		bestSurvivorUserId = best,
-		solo = record.soloStages == record.stageCount,
+		solo = solo,
 	}
 end
 

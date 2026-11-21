@@ -164,7 +164,27 @@ local Strings = {
 		LastSurvivor = "라스트 서바이버",
 		BestSurvivor = "베스트 서바이버",
 		PlayAgain = "다시 하기",
+		SoloSuccess = "살아남았습니다!",
+		SoloFail = "잡혔습니다...",
+		NoTitle = "이번 매치에는 끝까지 살아남은 사람이 없습니다.",
+		Coins = "+%d 코인",
+		ChaserCatches = "%d명 잡음",
+		ColumnName = "이름",
+		ColumnStage = "S%d",
+		ColumnCatches = "잡은 수",
+		ColumnCoins = "코인",
+		CoinsNote = "코인은 아직 저장되지 않습니다 (임시).",
 	},
+
+	-- 스테이지 결과의 플레이어별 결과 (Types.StageOutcome)
+	Outcomes = {
+		Survived = "생존",
+		Escaped = "탈출",
+		Caught = "잡힘",
+		Chaser = "추격자",
+		Left = "나감",
+		Absent = "-",
+	} :: { [Types.StageOutcome]: string },
 }
 
 return Strings

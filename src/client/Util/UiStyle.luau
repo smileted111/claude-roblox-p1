@@ -86,8 +86,8 @@ function UiStyle.list(parent: GuiObject, direction: Enum.FillDirection, spacing:
 	return layout
 end
 
--- 어두운 반투명 패널. accent면 빨간 테두리를 두른다.
-function UiStyle.panel(parent: Instance, name: string, accent: boolean): Frame
+-- 어두운 반투명 패널. accent면 빨간 테두리를 두른다. parent가 nil이면 나중에 붙인다.
+function UiStyle.panel(parent: Instance?, name: string, accent: boolean): Frame
 	local frame = Instance.new("Frame")
 	frame.Name = name
 	frame.BackgroundColor3 = Colors.Panel

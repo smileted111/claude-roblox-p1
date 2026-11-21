@@ -62,6 +62,7 @@ export type StagePlayerResult = {
 	generatorProgress: number, -- 발전기 수리 기여 (발전기 1대 = 1)
 	heals: number, -- 아군 치료 횟수
 	score: number, -- 이 스테이지 점수 (Config.Score)
+	coins: number, -- 이 스테이지에서 받는 코인 (Config.Rewards, 솔로면 배율 적용)
 }
 
 -- 스테이지 결과 (StageResult 리모트, GDD 3.1·3.2)
@@ -84,8 +85,9 @@ export type MatchPlayerRecord = {
 	catches: number,
 	generatorProgress: number,
 	heals: number,
+	chaserWins: number, -- 추격자로 이긴 스테이지 수
 	score: number,
-	coins: number, -- 이번 매치에서 받는 코인 (Config.Rewards, S2-5)
+	coins: number, -- 이번 매치에서 받는 코인 (스테이지 코인 합 + 칭호 보너스, Config.Rewards)
 	lastSurvivor: boolean,
 }
 

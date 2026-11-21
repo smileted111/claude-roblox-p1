@@ -4,7 +4,7 @@
 -- 화면 (ScreenGui "Hud", 크기는 UiStyle.addScale이 화면에 맞춰 줄인다)
 --   위 가운데    스테이지 이름 / 단계(대기·역할 공개·준비·추격·결과) / 남은 시간(크게) / 남은 생존자 수 /
 --               목표 진행(발전기 n/전체, 다 고치면 "출구 열림!").
---               관전 중에는 관전 화면(SpectateController)이 같은 정보를 보여주므로 숨긴다.
+--               관전 중(SpectateController)과 최종 결과 단계(ResultController)에는 숨긴다.
 --               추격 단계 남은 시간이 Config.Ui.TimerWarningTime 이하면 시계를 강조색으로.
 --   그 아래      역할 공개 카드와 알림(Notice 리모트, Strings.Notices)을 세로로 쌓는다.
 --               알림은 Config.Ui.NoticeDuration초 뒤 사라진다
@@ -87,6 +87,7 @@ type RevealView = {
 
 type Hud = {
 	gui: ScreenGui,
+	center: Frame,
 	top: TopView,
 	notices: Frame,
 	survivor: SurvivorView,
@@ -271,6 +272,7 @@ local function createHud(): Hud
 	local center = createCenter(gui)
 	local view: Hud = {
 		gui = gui,
+		center = center,
 		top = createTop(gui),
 		notices = createNotices(center),
 		survivor = createSurvivor(gui),
@@ -294,7 +296,8 @@ local function renderTop(): ()
 	local phase = MatchState.getPhase()
 	local stageId = MatchState.getStageId()
 	local timeLeft = MatchState.getTimeLeft()
-	top.frame.Visible = not MatchState.isSpectating(localPlayer)
+	-- 관전 중에는 관전 화면이, 최종 결과 단계에는 결과 화면(ResultController)이 같은 정보를 보여준다.
+	top.frame.Visible = not MatchState.isSpectating(localPlayer) and phase ~= "MatchResult"
 
 	if stageId then
 		top.stageLabel.Text = string.format(Strings.Hud.StageTitle, Stages[stageId].Number, Strings.Stages[stageId])
@@ -400,6 +403,16 @@ local function renderRepair(): ()
 	if progress then
 		view.repair.label.Text = string.format(Strings.Hud.Repairing, math.floor(progress * 100))
 		view.repair.fill.Size = UDim2.fromScale(math.clamp(progress, 0, 1), 1)
+	end
+end
+
+-- 다른 컨트롤러의 화면 조각(스테이지 결과 등)을 위 가운데 세로 목록에 넣는다. 역할 공개 카드는 1, 알림은 2라
+-- order가 그보다 작으면 위에 놓인다. 목록에 함께 있으면 알림과 겹치지 않는다. Start 이후에 부른다.
+function UIController.mountCenter(frame: GuiObject, order: number): ()
+	local view = hud
+	if view then
+		frame.LayoutOrder = order
+		frame.Parent = view.center
 	end
 end
 
