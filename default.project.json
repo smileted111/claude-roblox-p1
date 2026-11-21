@@ -2,6 +2,12 @@
   "name": "last-survival",
   "tree": {
     "$className": "DataModel",
+    "ReplicatedFirst": {
+      "$ignoreUnknownInstances": true,
+      "Loading": {
+        "$path": "src/first"
+      }
+    },
     "ReplicatedStorage": {
       "$ignoreUnknownInstances": true,
       "Shared": {

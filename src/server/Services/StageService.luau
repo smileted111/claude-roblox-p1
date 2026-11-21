@@ -3,6 +3,10 @@
 --
 -- 한 스테이지: 역할 공개 → 준비 → 추격 → 결과 (MatchService가 runStage로 부름)
 --   역할 공개  Config.Match.RoleRevealTime   추격자를 뽑고 룰렛 신호(RoleReveal)를 보냄. 솔로는 생략 (GDD 3.1)
+--   (로딩)                                   맵을 불러와 참가자를 옮기는 동안 Loading = "Stage" (참가자 화면에 로딩 화면,
+--                                            client LoadingController). 모두 옮기면(최대 Config.Loading.PlacementTimeout초) 끈다.
+--                                            스테이지가 끝나 맵을 지울 때 Loading = "Lobby"를 켜고 MatchService가 로비에
+--                                            다시 만든 뒤 끈다.
 --   준비       Config.Match.PreparationTime  맵을 Workspace.CurrentMap에 복제한다. 매치 화면 모드가 캐주얼이면
 --                                            맵 색을 파스텔로 바꾼다 (Util/MapStyler). 조명은 클라이언트(VisualModeController)가 바꾼다.
 --                                            카메라 높이 제한(바닥 윗면 + Config.Camera.StageCeilingHeight)을 CameraCeiling으로 공개.
@@ -28,6 +32,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
 
 local Camera = require(ReplicatedStorage.Shared.Config.Camera)
+local Loading = require(ReplicatedStorage.Shared.Config.Loading)
 local MapObjects = require(ReplicatedStorage.Shared.Config.MapObjects)
 local MapTags = require(ReplicatedStorage.Shared.MapTags)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
@@ -245,21 +250,35 @@ end
 
 -- 생존자는 서로 다른 SurvivorSpawn에 (자리가 모자라면 돌아가며), 추격자는 ChaserSpawn에 놓는다.
 -- LoadCharacterAsync가 멈출 수 있어서 플레이어마다 따로 실행한다.
+-- 모두 옮길 때까지(최대 Config.Loading.PlacementTimeout초) 기다린다 (로딩 화면을 그동안 띄움).
 local function placeParticipants(run: StageRun, map: Instance): ()
+	local pending = 0
+	local function place(player: Player, spawnPart: BasePart): ()
+		pending += 1
+		task.spawn(function()
+			placeAt(player, spawnPart)
+			pending -= 1
+		end)
+	end
 	local survivorSpawns = shuffled(taggedParts(map, MapTags.SurvivorSpawn))
 	local survivors = RoleService.getActiveSurvivors()
 	for index, player in survivors do
-		task.spawn(placeAt, player, survivorSpawns[(index - 1) % #survivorSpawns + 1])
+		place(player, survivorSpawns[(index - 1) % #survivorSpawns + 1])
 	end
 
 	local chaser = run.chaser
 	local chaserSpawn = spawnFor(map, "Chaser")
 	if chaser and chaserSpawn then
-		task.spawn(placeAt, chaser, chaserSpawn)
+		place(chaser, chaserSpawn)
+	end
+	local deadline = os.clock() + Loading.PlacementTimeout
+	while pending > 0 and os.clock() < deadline do
+		task.wait()
 	end
 	print(
 		`[Stage] 배치: 생존자 {#survivors}명 → {MapTags.SurvivorSpawn}`
 			.. (if chaser then `, 추격자 {chaser.Name} → {MapTags.ChaserSpawn}` else "")
+			.. (if pending > 0 then ` (시간 안에 못 옮긴 사람 {pending}명)` else "")
 	)
 end
 
@@ -332,6 +351,8 @@ local function recordResult(run: StageRun, reason: EndReason): Types.StageResult
 end
 
 local function finish(): ()
+	-- 맵을 지우고 로비에 다시 만들 때까지 참가자 화면에 로딩 화면 (MatchService가 다 만든 뒤 끈다).
+	ReplicatedStorage:SetAttribute(Attribute.Loading, "Lobby" :: Types.LoadingKind)
 	MonsterService.clear()
 	ObjectiveService.clearMap()
 	ItemService.clearMap()
@@ -392,10 +413,11 @@ end
 
 -- 스테이지 한 판을 진행한다. 결과 단계까지 끝나면 맵을 지우고 돌아온다 (MatchService가 스테이지마다 부름).
 -- participants만 역할을 받는다. 추격자는 스테이지마다 새로 뽑고(GDD 3.3), 잡혔던 사람도 다음 스테이지에는 생존자로 돌아온다.
-function StageService.runStage(stageId: Types.StageId, participants: { Player }): ()
+-- chaserWishers: 투표 창에서 "추격자 희망"을 켠 참가자 (있으면 그중 무작위로 추격자, RoleService.pickChaser).
+function StageService.runStage(stageId: Types.StageId, participants: { Player }, chaserWishers: { Player }?): ()
 	assert(current == nil, "이미 스테이지가 진행 중입니다")
 	local stage = Stages[stageId]
-	local chaser, candidates = RoleService.pickChaser(participants)
+	local chaser, candidates = RoleService.pickChaser(participants, chaserWishers)
 	RoleService.assignRoles(participants, chaser)
 
 	local run: StageRun = {
@@ -452,6 +474,7 @@ function StageService.runStage(stageId: Types.StageId, participants: { Player })
 
 	-- 준비: 생존자는 흩어지고 추격자는 대기실에 갇혀 있음
 	if outcome == "TimeUp" then
+		ReplicatedStorage:SetAttribute(Attribute.Loading, "Stage" :: Types.LoadingKind)
 		local map = loadMap(stageId)
 		run.map = map
 		HideService.setupMap(map)
@@ -461,6 +484,7 @@ function StageService.runStage(stageId: Types.StageId, participants: { Player })
 		MonsterService.spawnForStage(map, stageId, #run.survivors, run.hadChaser)
 		setGateOpen(run, false)
 		placeParticipants(run, map)
+		ReplicatedStorage:SetAttribute(Attribute.Loading, nil)
 		local notice = Remotes.get("Notice")
 		local survivorNotice: Types.NoticeKey = if run.chaser then "PreparationSurvivor" else "PreparationSolo"
 		for _, player in RoleService.getActiveSurvivors() do

@@ -42,9 +42,25 @@ end
 
 -- 참가자 중 추격자 1명을 뽑고 횟수를 1 올린다. 솔로면 nil.
 -- 두 번째 값은 후보 목록이다 (역할 공개 룰렛에 보여줌).
-function RoleService.pickChaser(participants: { Player }): (Player?, { Player })
+-- wishers: 투표 창에서 "추격자 희망"을 켠 참가자 (VoteService, 2026-11-21 사용자 요청). 한 명이라도 있으면 그중 무작위로
+--   뽑는다 ("추격자 안 하기"·횟수 규칙보다 먼저). 없으면 GDD 2.1 규칙: "추격자 안 하기"를 끄지 않은 사람 중 덜 해본 사람.
+function RoleService.pickChaser(participants: { Player }, wishers: { Player }?): (Player?, { Player })
 	if #participants < Match.MinPlayersForChaser then
 		return nil, {}
+	end
+
+	local wanting: { Player } = {}
+	for _, player in wishers or {} do
+		if table.find(participants, player) and player.Parent == Players then
+			table.insert(wanting, player)
+		end
+	end
+	if #wanting > 0 then
+		local chaser = wanting[random:NextInteger(1, #wanting)]
+		chaserCounts[chaser] = RoleService.getChaserCount(chaser) + 1
+		print(`[Role] 추격자 희망 {#wanting}명 중 무작위 → {chaser.Name}`)
+		-- 룰렛은 희망자가 둘 이상이면 희망자끼리, 한 명이면 모두를 돌린다.
+		return chaser, if #wanting >= 2 then wanting else table.clone(participants)
 	end
 
 	local candidates: { Player } = {}

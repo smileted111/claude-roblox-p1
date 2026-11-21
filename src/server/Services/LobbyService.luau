@@ -10,8 +10,7 @@
 --   Studio에서는 다른 서버로 보낼 수 없어서, 이 서버에서 그 사람 혼자 매치를 시작한다 (takeStudioSoloRequest).
 -- 혼자 하기 서버에서 "로비로 돌아가기"를 누르면 일반 서버로 보낸다 (teleportToPublic).
 -- 화면 모드 (Config.VisualModes): 로비 패널의 [모드] 버튼(SetVisualMode 리모트)으로 고르고 저장한다 (Player Attribute VisualMode).
---   로비 조명 미리보기에 쓰고, 매치 모드는 매치 시작 투표(VoteService)로 정한다. 투표가 같거나 아무도 투표하지 않으면
---   VoteService가 decideMode(참가자가 고른 모드 다수결, 같으면 Default)를 쓴다.
+--   로비 조명 미리보기(VisualModeController)에만 쓴다. 매치 모드는 매치 시작 투표(VoteService)로 정한다.
 -- 매치 참가자(Player Attribute InMatch)는 스테이지 사이에 로비에 있어도 대기열·혼자 하기에 들어가지 않는다.
 -- 공개: ReplicatedStorage Attribute QueueCount(같이 하기 대기 인원), SoloServer(혼자 하기 서버인가).
 
@@ -183,22 +182,6 @@ end
 local function preferredMode(player: Player): Types.VisualMode
 	local mode = MatchState.getVisualMode(player)
 	return if mode and table.find(VisualModes.Modes, mode) then mode else VisualModes.Default
-end
-
--- 참가자들의 화면 모드: 다수결, 같으면 기본. 캐주얼·나이트 표 수도 돌려준다.
-function LobbyService.decideMode(players: { Player }): (Types.VisualMode, number, number)
-	local casual = 0
-	for _, player in players do
-		if preferredMode(player) == "Casual" then
-			casual += 1
-		end
-	end
-	local night = #players - casual
-	local mode: Types.VisualMode = if casual > night
-		then "Casual"
-		elseif night > casual then "Night"
-		else VisualModes.Default
-	return mode, casual, night
 end
 
 -- 같이 하기 대기 인원을 공개한다.

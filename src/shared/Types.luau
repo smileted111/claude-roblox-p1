@@ -108,8 +108,11 @@ export type LobbyAction = "JoinQueue" | "AcceptSolo" | "DeclineSolo"
 -- 화면 모드 (Config.VisualModes): 나이트 = 어두운 공포 분위기(기본), 캐주얼 = 밝고 귀여운 배경
 export type VisualMode = "Night" | "Casual"
 
--- 투표 종류 (CastVote 리모트, VoteService): 맵 또는 화면 모드
-export type VoteKind = "Map" | "Mode"
+-- 서버가 공개하는 로딩 단계 (MatchState Loading, client LoadingController): 스테이지 맵을 불러와 옮기는 중 / 로비로 돌아가는 중
+export type LoadingKind = "Stage" | "Lobby"
+
+-- 투표 종류 (CastVote 리모트, VoteService): 맵, 화면 모드, 추격자 희망 (켜고 끄기)
+export type VoteKind = "Map" | "Mode" | "Chaser"
 
 -- 로비의 추격자 선택 요청 (ChaserSelect 리모트)
 export type ChaserSelectAction = "Select" | "Unlock"

@@ -17,6 +17,7 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 | `src/shared` | `ReplicatedStorage.Shared` |
 | `src/server` | `ServerScriptService.Server` |
 | `src/client` | `StarterPlayer.StarterPlayerScripts.Client` |
+| `src/first` | `ReplicatedFirst.Loading` (처음 들어올 때 로딩 화면 LocalScript + 로딩 화면 모듈. 공용 모듈보다 먼저 돌아 다른 모듈을 require하지 않음) |
 | `Packages` (Wally) | `ReplicatedStorage.Packages` |
 | `ServerPackages` (Wally 서버 전용, 예: ProfileStore) | `ServerScriptService.ServerPackages` |
 

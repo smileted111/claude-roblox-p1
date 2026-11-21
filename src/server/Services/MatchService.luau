@@ -8,7 +8,8 @@
 --         Studio에서 혼자 하기를 고르면 이 서버에서 그 사람 혼자 매치를 시작한다 (예약 서버로 보낼 수 없어서).
 --   대기 (혼자 하기 서버): 들어온 사람 혼자 SoloStartDelay초 뒤 시작한다. 매치가 끝나면 다시 시작한다.
 --   매치: 참가자만 진행한다 (Player Attribute InMatch). 시작할 때 추격자 횟수(RoleService)와 매치 기록(RecordService)을
---         새로 시작하고, 스테이지마다 맵 투표(VoteService, Config.Match.VoteTime초) 뒤 StageService.runStage(맵, 참가자)를 부른다.
+--         새로 시작하고, 스테이지마다 맵 투표(VoteService, Config.Match.VoteTime초) 뒤 StageService.runStage(맵, 참가자,
+--         추격자 희망자)를 부른다 (투표 창의 "추격자 희망"을 켠 사람이 있으면 그중 무작위로 추격자).
 --         투표할 수 있는 맵은 Config.Match.MapPool 중 이번 매치에서 아직 플레이하지 않은 것 (2026-11-21 사용자 요청).
 --         추격자는 스테이지마다 새로 뽑고, 잡혔던 사람도 다음 스테이지에 돌아온다.
 --         스테이지 사이에는 참가자를 로비에 다시 만든다. 참가자가 모두 빠지거나 오류가 나면 매치를 그만두고 대기로.
@@ -173,9 +174,9 @@ local function activeParticipants(): { Player }
 end
 
 -- 스테이지 한 판. 오류가 나면 false. 처리기는 오류가 난 자리에서 불려서 traceback에 원래 위치가 남는다.
-local function runStageSafely(stageId: Types.StageId, players: { Player }): boolean
+local function runStageSafely(stageId: Types.StageId, players: { Player }, chaserWishers: { Player }): boolean
 	local ok = xpcall(function(): ()
-		StageService.runStage(stageId, players)
+		StageService.runStage(stageId, players, chaserWishers)
 	end, function(message: unknown): ()
 		warn(
 			`[Match] 스테이지 진행 중 오류로 매치를 그만둡니다: {debug.traceback(tostring(message))}`
@@ -212,7 +213,8 @@ local function leaveParticipants(): ()
 end
 
 -- 맵(첫 스테이지는 화면 모드도)을 투표로 정한다. 첫 스테이지면 화면 모드를 공개하고 알린다.
-local function voteStage(index: number, active: { Player }, played: { Types.StageId }): Types.StageId?
+-- 고를 맵이 남지 않았으면 nil.
+local function voteStage(index: number, active: { Player }, played: { Types.StageId }): VoteService.Result?
 	local available: { Types.StageId } = {}
 	for _, stageId in Match.MapPool do
 		if not table.find(played, stageId) then
@@ -223,7 +225,8 @@ local function voteStage(index: number, active: { Player }, played: { Types.Stag
 		return nil
 	end
 	local withMode = index == 1
-	local stageId, mode = VoteService.run(active, available, played, withMode)
+	local result = VoteService.run(active, available, played, withMode)
+	local stageId, mode = result.stageId, result.mode
 	local notice = Remotes.get("Notice")
 	local voters = activeParticipants()
 	if withMode then
@@ -240,7 +243,7 @@ local function voteStage(index: number, active: { Player }, played: { Types.Stag
 	for _, player in voters do
 		notice:FireClient(player, "NextMap" :: Types.NoticeKey, LanguageService.stringsFor(player).Stages[stageId])
 	end
-	return stageId
+	return result
 end
 
 local function playStages(): ()
@@ -252,11 +255,12 @@ local function playStages(): ()
 			RecordService.abortMatch()
 			return
 		end
-		local stageId = voteStage(index, active, played)
-		if not stageId then
+		local vote = voteStage(index, active, played)
+		if not vote then
 			print("[Match] 투표할 맵이 남지 않아 스테이지를 더 하지 않음")
 			break
 		end
+		local stageId = vote.stageId
 		active = activeParticipants()
 		if #active == 0 then
 			print("[Match] 참가자가 모두 빠져 매치를 그만둠")
@@ -266,12 +270,13 @@ local function playStages(): ()
 		table.insert(played, stageId)
 		ReplicatedStorage:SetAttribute(Attribute.StageIndex, index)
 		print(`[Match] 스테이지 {index}/{Match.StagesPerMatch} · {stageId} · 참가자 {#active}명`)
-		if not runStageSafely(stageId, active) then
+		if not runStageSafely(stageId, active, vote.chaserWishers) then
 			RecordService.abortMatch()
 			return
 		end
-		-- 잡혀서 캐릭터가 없는 사람도 다음 스테이지 전에 로비로 돌아온다.
+		-- 잡혀서 캐릭터가 없는 사람도 다음 스테이지 전에 로비로 돌아온다. 그동안 켜 둔 로딩 화면(StageService)을 끈다.
 		respawnAllInLobby(activeParticipants())
+		ReplicatedStorage:SetAttribute(Attribute.Loading, nil)
 	end
 	ReplicatedStorage:SetAttribute(Attribute.StageIndex, nil)
 
@@ -313,6 +318,7 @@ local function runMatch(players: { Player }): ()
 	)
 	playStages()
 	leaveParticipants()
+	ReplicatedStorage:SetAttribute(Attribute.Loading, nil)
 	ReplicatedStorage:SetAttribute(Attribute.StageIndex, nil)
 	ReplicatedStorage:SetAttribute(Attribute.MatchRunning, nil)
 	ReplicatedStorage:SetAttribute(Attribute.MatchMode, nil)

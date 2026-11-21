@@ -4,7 +4,10 @@
 -- 투표 단계(Phase Voting) 동안 서버의 모든 플레이어에게 가운데 창을 띄운다 (Config.Match.VoteTime초 동안만 뜨는 창이라
 --   화면 가운데 규칙의 "잠깐 뜨는 것"에 해당하고, 투표는 로비에서 해서 시야를 가릴 위험이 없다).
 --   참가자(Player Attribute Voter)는 눌러서 투표하고(CastVote 리모트, 다시 누르면 바꿈), 그 밖의 사람은 현황만 본다.
---   제목 · 남은 시간 / "투표 n/m명" / 화면 모드 칸(첫 스테이지만, VoteModeCounts가 있을 때) / 맵 칸(Config.Match.MapPool 순서).
+--   제목 · 남은 시간 · "투표 n/m명" / 화면 모드 칸(첫 스테이지만, VoteModeCounts가 있을 때) / 맵 칸(Config.Match.MapPool 순서) /
+--   추격자 희망 줄(참가자가 Config.Match.MinPlayersForChaser명 이상일 때): 누르면 켜고 다시 누르면 끈다(CastVote "Chaser").
+--   켠 사람 수·얼굴이 보이고, 켠 사람 중 한 명이 이번 스테이지 추격자가 된다 (서버 RoleService.pickChaser).
+--   휴대폰(UIScale 0.8)에서도 첫 투표가 화면 높이에 들어가게 줄 높이를 줄였다.
 -- 실시간 현황: 칸마다 표 수, 참가자 수 대비 채워지는 막대(트윈), 그 칸을 고른 참가자 얼굴(최대 MAX_AVATARS, 넘으면 +n),
 --   가장 많은 표를 받은 칸은 금색 테두리와 ★. 내가 고른 칸은 초록 테두리. 플레이한 맵(VotePlayed)은 흐리게 "(플레이함)".
 --   표 수는 서버 집계(VoteMapCounts·VoteModeCounts), 누가 골랐는지는 각 플레이어의 Attribute VoteMap·VoteMode(모두에게 복제).
@@ -29,7 +32,9 @@ local localPlayer = Players.LocalPlayer
 
 local PANEL_WIDTH = 580
 local OPTION_WIDTH = 266
-local OPTION_HEIGHT = 64 -- MinButtonHeight(56) 이상
+local OPTION_HEIGHT = 58 -- MinButtonHeight(56) 이상
+local GRID_GAP = 8
+local CHASER_COLOR = Color3.fromRGB(235, 90, 90)
 local AVATAR_SIZE = 22
 local MAX_AVATARS = 5
 local BAR_TWEEN = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -52,12 +57,13 @@ type VoteView = {
 	gui: ScreenGui,
 	panel: Frame,
 	title: TextLabel,
-	voted: TextLabel,
 	hint: TextLabel,
 	modeLabel: TextLabel,
 	modeRow: Frame,
 	modeOptions: { VoteOption },
 	mapOptions: { VoteOption },
+	chaserRow: Frame,
+	chaserOption: VoteOption,
 }
 
 local VoteController = {}
@@ -117,7 +123,7 @@ local function makeOption(
 	fill.Parent = button
 
 	local nameLabel = UiStyle.label(button, "Name", 0, 26)
-	nameLabel.Position = UDim2.fromOffset(12, 6)
+	nameLabel.Position = UDim2.fromOffset(12, 4)
 	nameLabel.Size = UDim2.new(1, -90, 0, 26)
 	nameLabel.TextSize = 19
 	nameLabel.Font = UiStyle.BoldFont
@@ -126,7 +132,7 @@ local function makeOption(
 
 	local countLabel = UiStyle.label(button, "Count", 0, 26)
 	countLabel.AnchorPoint = Vector2.new(1, 0)
-	countLabel.Position = UDim2.new(1, -12, 0, 6)
+	countLabel.Position = UDim2.new(1, -12, 0, 4)
 	countLabel.Size = UDim2.fromOffset(80, 26)
 	countLabel.TextSize = 18
 	countLabel.Font = UiStyle.BoldFont
@@ -134,7 +140,7 @@ local function makeOption(
 	countLabel.ZIndex = 2
 
 	local avatars = UiStyle.container(button, "Avatars")
-	avatars.Position = UDim2.fromOffset(12, 34)
+	avatars.Position = UDim2.fromOffset(12, 31)
 	avatars.Size = UDim2.new(1, -24, 0, AVATAR_SIZE)
 	avatars.ZIndex = 2
 	local layout = UiStyle.list(avatars, Enum.FillDirection.Horizontal, 4)
@@ -159,7 +165,7 @@ local function makeOption(
 end
 
 local function sectionLabel(parent: Instance, name: string, order: number, text: string): TextLabel
-	local label = UiStyle.label(parent, name, order, 22)
+	local label = UiStyle.label(parent, name, order, 18)
 	label.Font = UiStyle.BoldFont
 	label.TextColor3 = Colors.Subtext
 	label.TextXAlignment = Enum.TextXAlignment.Left
@@ -167,14 +173,14 @@ local function sectionLabel(parent: Instance, name: string, order: number, text:
 	return label
 end
 
-local function optionGrid(parent: Instance, name: string, order: number): Frame
+local function optionGrid(parent: Instance, name: string, order: number, cellWidth: number?): Frame
 	local grid = UiStyle.container(parent, name)
 	grid.LayoutOrder = order
 	grid.Size = UDim2.fromScale(1, 0)
 	grid.AutomaticSize = Enum.AutomaticSize.Y
 	local layout = Instance.new("UIGridLayout")
-	layout.CellSize = UDim2.fromOffset(OPTION_WIDTH, OPTION_HEIGHT)
-	layout.CellPadding = UDim2.fromOffset(12, 10)
+	layout.CellSize = UDim2.fromOffset(cellWidth or OPTION_WIDTH, OPTION_HEIGHT)
+	layout.CellPadding = UDim2.fromOffset(12, GRID_GAP)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = grid
@@ -191,14 +197,12 @@ local function createView(castVote: RemoteEvent): VoteView
 	panel.AutomaticSize = Enum.AutomaticSize.Y
 	panel.Visible = false
 	UiStyle.padding(panel, 12, 18)
-	UiStyle.list(panel, Enum.FillDirection.Vertical, 6)
+	UiStyle.list(panel, Enum.FillDirection.Vertical, 5)
 
-	local title = UiStyle.label(panel, "Title", 1, 32)
+	local title = UiStyle.label(panel, "Title", 1, 30)
 	title.Font = UiStyle.BoldFont
 	title.TextColor3 = Colors.Accent
-	local voted = UiStyle.label(panel, "Voted", 2, 22)
-	voted.Font = UiStyle.BoldFont
-	voted.TextColor3 = GOLD
+	title.RichText = true
 	local hint = UiStyle.label(panel, "Hint", 3, 18)
 	hint.TextSize = 14
 	hint.TextColor3 = Colors.Subtext
@@ -220,17 +224,21 @@ local function createView(castVote: RemoteEvent): VoteView
 		table.insert(mapOptions, makeOption(mapGrid, stageId, "Map", index, castVote))
 	end
 
+	local chaserRow = optionGrid(panel, "Chaser", 8, OPTION_WIDTH * 2 + 12)
+	local chaserOption = makeOption(chaserRow, "Toggle", "Chaser", 1, castVote)
+
 	gui.Parent = UiStyle.playerGui()
 	return {
 		gui = gui,
 		panel = panel,
 		title = title,
-		voted = voted,
 		hint = hint,
 		modeLabel = modeLabel,
 		modeRow = modeRow,
 		modeOptions = modeOptions,
 		mapOptions = mapOptions,
+		chaserRow = chaserRow,
+		chaserOption = chaserOption,
 	}
 end
 
@@ -373,6 +381,9 @@ local function tagText(player: Player, withMode: boolean): string
 	if withMode and mode then
 		table.insert(parts, Strings.Modes[mode])
 	end
+	if MatchState.wantsChaser(player) then
+		table.insert(parts, Strings.Vote.TagChaser)
+	end
 	return if #parts > 0 then table.concat(parts, " · ") else Strings.Vote.Choosing
 end
 
@@ -453,14 +464,16 @@ local function draw(): ()
 		return
 	end
 	local isVoter = MatchState.isVoter(localPlayer)
-	ui.title.Text = `{Strings.Vote.Title} · {string.format(Strings.Vote.TimeLeft, MatchState.getTimeLeft() or 0)}`
 	local votedCount = 0
 	for _, player in list do
 		if MatchState.getVoteMap(player) then
 			votedCount += 1
 		end
 	end
-	ui.voted.Text = string.format(Strings.Vote.Voted, votedCount, #list)
+	-- 한 줄: 투표 · n초 남음 · 투표 n/m명 (마지막은 금색)
+	local timeText = string.format(Strings.Vote.TimeLeft, MatchState.getTimeLeft() or 0)
+	local votedText = string.format(Strings.Vote.Voted, votedCount, #list)
+	ui.title.Text = `{Strings.Vote.Title} · {timeText} · <font color="#{GOLD:ToHex()}">{votedText}</font>`
 	ui.hint.Text = if isVoter then Strings.Vote.Hint else Strings.Vote.Watching
 
 	ui.modeLabel.Visible = modeCounts ~= nil
@@ -480,12 +493,42 @@ local function draw(): ()
 			return Strings.Stages[key :: Types.StageId]
 		end
 	)
+
+	-- 추격자 희망 (추격자가 있는 인원일 때만)
+	local withChaser = #list >= Match.MinPlayersForChaser
+	ui.chaserRow.Visible = withChaser
+	if withChaser then
+		local wishers: { Player } = {}
+		for _, player in list do
+			if MatchState.wantsChaser(player) then
+				table.insert(wishers, player)
+			end
+		end
+		local mine = MatchState.wantsChaser(localPlayer)
+		local option = ui.chaserOption
+		drawOption(option, Strings.Vote.WantChaser, #wishers, #list, wishers, {
+			enabled = true,
+			chosen = mine,
+			leader = false,
+			interactive = isVoter,
+		})
+		local check = if mine then "✔ " else ""
+		local hintColor = Colors.Subtext:ToHex()
+		option.nameLabel.RichText = true
+		option.nameLabel.Text =
+			`{check}{Strings.Vote.WantChaser}  <font size="13" color="#{hintColor}">{Strings.Vote.WantChaserHint}</font>`
+		option.countLabel.Text = string.format(Strings.Vote.Wishers, #wishers)
+		option.fill.BackgroundColor3 = CHASER_COLOR
+		if not mine then
+			option.stroke.Color = CHASER_COLOR
+		end
+	end
 end
 
 --------------------------------------------------------------------------------
 
 local function watchPlayer(player: Player): ()
-	for _, name in { Attribute.Voter, Attribute.VoteMap, Attribute.VoteMode } do
+	for _, name in { Attribute.Voter, Attribute.VoteMap, Attribute.VoteMode, Attribute.WantsChaser } do
 		player:GetAttributeChangedSignal(name):Connect(render)
 	end
 	player.CharacterAdded:Connect(function()

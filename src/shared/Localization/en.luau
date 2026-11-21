@@ -243,6 +243,27 @@ local En: Ko.Text = {
 		Hint = "The most-voted choice wins. Tap again to change your vote.",
 		Watching = "Players are voting for the next map.",
 		Choosing = "Choosing...",
+		WantChaser = "I want to be the Chaser",
+		WantChaserHint = "One volunteer becomes the Chaser",
+		Wishers = "%d",
+		TagChaser = "Wants Chaser",
+	},
+
+	Loading = {
+		Title = "Last Survival",
+		Joining = "Loading the game",
+		Stage = "Loading %s",
+		Lobby = "Returning to the lobby",
+		Teleport = "Moving to a solo server",
+		Tips = {
+			"Running makes noise, and Hounds come running.",
+			"Monsters can't find you in a closet. Stay too long and they'll hear you breathing!",
+			"Repairing generators earns Coins little by little.",
+			"Push over a plank to stun the Chaser for a moment.",
+			"Shine a flashlight on a Shadow to freeze it briefly.",
+			"Hold next to an injured friend to heal them.",
+			'Turn on "I want to be the Chaser" in the vote window to volunteer as Chaser.',
+		},
 	},
 
 	Signs = {

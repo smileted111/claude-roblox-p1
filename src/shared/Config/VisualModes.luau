@@ -2,7 +2,7 @@
 -- 화면 모드 (2026-11-21 사용자 요청): 나이트(기본, GDD 12장의 어두운 공포 분위기)와 캐주얼(밝고 귀여운 배경).
 -- 게임 규칙·괴물·보상은 같고 조명과 맵 색만 다르다.
 -- 고르기: 로비 패널의 [모드] 버튼 (Player Attribute VisualMode, DataService에 저장).
--- 매치 모드: 같이 하기는 대기열 다수결(같으면 Default), 혼자 하기는 본인 선택 (LobbyService.decideMode).
+-- 매치 모드: 매치 시작 투표(VoteService)에서 가장 많은 표, 같으면 그중 무작위. 로비 버튼의 모드는 로비 미리보기에만 쓴다.
 --   같은 매치 참가자는 모두 같은 모드라 밝기로 생기는 유불리가 없다.
 -- 조명은 client/Controllers/VisualModeController, 스테이지 맵 색은 StageService가 맵을 불러올 때 (shared/Util/MapStyler).
 -- 값은 모두 임시다 (화면을 보고 조정).

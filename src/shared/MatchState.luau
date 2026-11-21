@@ -10,6 +10,8 @@
 --   StageId        Types.StageId?      진행 중인 스테이지(맵). 대기 중에는 nil
 --   StageIndex     number?             이번 매치의 몇 번째 스테이지인가 (1부터, MatchService). 매치 밖에서는 nil
 --   CameraCeiling  number?             스테이지 안 카메라 최대 높이 (월드 Y, StageService, Config.Camera). 맵이 없으면 nil
+--   Loading        Types.LoadingKind?  Stage: 맵을 불러와 참가자를 옮기는 중 (StageService), Lobby: 스테이지를 끝내고 로비에
+--                                      다시 만드는 중 (StageService가 켜고 MatchService가 끔). 참가자 화면에 로딩 화면
 --   HasChaser      boolean?            이번 스테이지에 추격자가 있는가. 솔로이거나 추격자가 나가면 false
 --   SurvivorsLeft  number?             아직 잡히거나 탈출하지 않은 생존자 수
 --   GeneratorsDone  number?            다 고친 발전기 수 (ObjectiveService)
@@ -45,12 +47,12 @@
 --   Coins, Level, Xp  number?              저장된 코인·레벨·경험치 (DataService). 데이터를 불러오기 전에는 nil
 --   DataLoaded     boolean?                저장된 데이터를 불러옴 (DataService)
 --   Vip            boolean?                게임패스 VIP를 가짐 (ShopService). 채팅 이름 색·로비 이모트·코인 +20%
---   VisualMode     Types.VisualMode?       로비에서 고른 화면 모드 (DataService에 저장, LobbyService가 바꿈).
---                                          로비 조명 미리보기, 모드 투표가 같거나 아무도 투표하지 않았을 때 쓴다
+--   VisualMode     Types.VisualMode?       로비에서 고른 화면 모드 (DataService에 저장, LobbyService가 바꿈). 로비 조명 미리보기
 --   InMatch        boolean?                매치 참가자 (MatchService). 스테이지 사이 로비에 있을 때도 켜져 있다
 --   Voter          boolean?                지금 투표에 참여할 수 있음 (VoteService)
 --   VoteMap        Types.StageId?          내가 투표한 맵 (VoteService)
 --   VoteMode       Types.VisualMode?       내가 투표한 화면 모드 (VoteService)
+--   WantsChaser    boolean?                투표 창에서 추격자 희망을 켬 (VoteService). 켠 사람 중 무작위로 이번 스테이지 추격자
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -96,6 +98,7 @@ local Attribute = table.freeze({
 	VisualMode = "VisualMode",
 	StageIndex = "StageIndex",
 	CameraCeiling = "CameraCeiling",
+	Loading = "Loading",
 	VoteMaps = "VoteMaps",
 	VotePlayed = "VotePlayed",
 	VoteMapCounts = "VoteMapCounts",
@@ -104,6 +107,7 @@ local Attribute = table.freeze({
 	Voter = "Voter",
 	VoteMap = "VoteMap",
 	VoteMode = "VoteMode",
+	WantsChaser = "WantsChaser",
 })
 
 -- 아이템 칸 번호 → Attribute 이름 (칸 수는 Config.Survivor.InventorySlots)
@@ -170,6 +174,10 @@ end
 
 function MatchState.getCameraCeiling(): number?
 	return readNumber(ReplicatedStorage, Attribute.CameraCeiling)
+end
+
+function MatchState.getLoading(): Types.LoadingKind?
+	return readString(ReplicatedStorage, Attribute.Loading) :: Types.LoadingKind?
 end
 
 -- 쉼표로 이은 목록 (VoteMaps·VotePlayed) → 배열
@@ -243,6 +251,10 @@ end
 
 function MatchState.getVoteMode(player: Player): Types.VisualMode?
 	return readString(player, Attribute.VoteMode) :: Types.VisualMode?
+end
+
+function MatchState.wantsChaser(player: Player): boolean
+	return player:GetAttribute(Attribute.WantsChaser) == true
 end
 
 function MatchState.getMatchMode(): Types.VisualMode?
