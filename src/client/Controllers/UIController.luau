@@ -392,9 +392,16 @@ local function renderSurvivor(): ()
 		then Colors.Warning
 		else Colors.Stamina
 
+	local battery = localPlayer:GetAttribute(Attribute.FlashlightBattery)
+	local flashlightOn = localPlayer:GetAttribute(Attribute.FlashlightOn) == true
 	for slot, button in survivorView.slots do
 		local itemId = MatchState.getItem(localPlayer, slot)
-		button.Text = if itemId then Strings.Items[itemId] else ""
+		local text = if itemId then Strings.Items[itemId] else ""
+		if itemId == "Flashlight" and typeof(battery) == "number" then
+			text = string.format(Strings.Hud.Battery, text, math.floor(battery * 100))
+		end
+		button.Text = text
+		button.BackgroundTransparency = if itemId == "Flashlight" and flashlightOn then 0 else UiStyle.PanelTransparency
 		local stroke = button:FindFirstChildOfClass("UIStroke")
 		if stroke then
 			stroke.Color = if itemId then Items[itemId].Color else Colors.Accent
@@ -684,7 +691,17 @@ function UIController.Start(): ()
 	GeneratorBillboards.start()
 	ReplicatedStorage:GetAttributeChangedSignal(Attribute.Phase):Connect(onPhaseChanged)
 	localPlayer:GetAttributeChangedSignal(Attribute.Spectating):Connect(renderTop)
-	for _, name in { Attribute.Role, Attribute.SurvivorState, Attribute.Stamina, Attribute.Item1, Attribute.Item2 } do
+	for _, name in
+		{
+			Attribute.Role,
+			Attribute.SurvivorState,
+			Attribute.Stamina,
+			Attribute.Item1,
+			Attribute.Item2,
+			Attribute.FlashlightOn,
+			Attribute.FlashlightBattery,
+		}
+	do
 		localPlayer:GetAttributeChangedSignal(name):Connect(renderSurvivor)
 	end
 	localPlayer:GetAttributeChangedSignal(Attribute.Stunned):Connect(renderChaser)

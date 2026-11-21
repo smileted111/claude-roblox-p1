@@ -150,6 +150,7 @@ local Strings = {
 		AttackReady = "공격 가능",
 		Repairing = "수리 중 %d%%",
 		Stunned = "기절!",
+		Battery = "%s %d%%", -- 아이템 이름, 남은 배터리
 		SkillReady = "%s 준비",
 		SkillCooldown = "%s %d초",
 		ExitOpen = "출구 열림!",

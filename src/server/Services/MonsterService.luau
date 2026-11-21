@@ -1,7 +1,9 @@
 --!strict
 -- MonsterService: 괴물 생성·AI의 공통 부분 (GDD 4.1, 4.3, 4.4, 7장, 13.2)
--- 종류별 동작은 server/Monsters/<Name>.luau (MonsterTypes.Behavior)에 있다: 배회자·사냥개·감시자.
--- 그림자·거인은 S3-4에서 추가한다. 동작이 없는 종류는 배회자로 대신하고 경고를 남긴다.
+-- 종류별 동작은 server/Monsters/<Name>.luau (MonsterTypes.Behavior)에 있다: 배회자·사냥개·감시자·그림자·거인.
+-- 동작이나 모델이 없는 종류는 배회자로 대신하고 경고를 남긴다.
+-- 손전등(ItemService)이 비추면 freezeInBeam으로 그림자를 멈춘다. 알람시계 소리는 사냥개(onNoise) 밖의 움직이는 괴물도
+-- 순찰·포기 중이면 Config.MonsterAI.AlarmLureTime초 동안 찾아오게 한다 (GDD 6.3).
 --
 -- 생성 (StageService가 준비 단계에서 맵을 불러온 뒤 spawnForStage, 스테이지가 끝나면 clear를 부름)
 --   종류별 수 = 반올림(Config.Stages의 수 × Config.MonsterScaling의 인원 배율). 그 구간의 MinPerType보다 적으면 올림.
@@ -55,11 +57,14 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
+local Giant = require(script.Parent.Parent.Monsters.Giant)
 local Hound = require(script.Parent.Parent.Monsters.Hound)
 local MonsterTypes = require(script.Parent.Parent.Monsters.MonsterTypes)
+local Shadow = require(script.Parent.Parent.Monsters.Shadow)
 local Wanderer = require(script.Parent.Parent.Monsters.Wanderer)
 local Watcher = require(script.Parent.Parent.Monsters.Watcher)
 local NoiseBus = require(script.Parent.Parent.Util.NoiseBus)
+local BarrierService = require(script.Parent.BarrierService)
 local CatchService = require(script.Parent.CatchService)
 local HideService = require(script.Parent.HideService)
 local ItemService = require(script.Parent.ItemService)
@@ -76,6 +81,8 @@ local BEHAVIORS: { [Types.MonsterId]: MonsterTypes.Behavior } = {
 	Wanderer = Wanderer,
 	Hound = Hound,
 	Watcher = Watcher,
+	Shadow = Shadow,
+	Giant = Giant,
 }
 local FALLBACK_MONSTER: Types.MonsterId = "Wanderer"
 
@@ -104,6 +111,7 @@ local monsters: { Monster } = {}
 local monsterFolder: Folder? = nil
 local heartbeatConnection: RBXScriptConnection? = nil
 local serial = 0
+local darkZones: { BasePart } = {} -- 지금 맵의 DarkZone 상자
 local api: MonsterTypes.Api
 
 -- 시야 검사: 캐릭터와 괴물은 빼고, 충돌하는 파트만 시야를 가리는 것으로 본다 (열린 대기실 문, 바닥 표시 등은 통과).
@@ -768,6 +776,32 @@ api = {
 	findNearbyTarget = findNearbyTarget,
 	tryStartAttack = tryStartAttack,
 	markForChasers = markForChasers,
+	isInDarkZone = function(position: Vector3): boolean
+		for _, zone in darkZones do
+			local localPosition = zone.CFrame:PointToObjectSpace(position)
+			local half = zone.Size / 2
+			if
+				math.abs(localPosition.X) <= half.X
+				and math.abs(localPosition.Y) <= half.Y
+				and math.abs(localPosition.Z) <= half.Z
+			then
+				return true
+			end
+		end
+		return false
+	end,
+	isHidden = function(player: Player): boolean
+		return HideService.isHidden(player)
+	end,
+	hiddenSpotPosition = function(player: Player): Vector3?
+		return HideService.getHiddenSpotPosition(player)
+	end,
+	breakHideSpot = function(player: Player, source: string): boolean
+		return HideService.breakSpotOf(player, source)
+	end,
+	breakBarriers = function(position: Vector3, radius: number, source: string): number
+		return BarrierService.breakNear(position, radius, source)
+	end,
 }
 
 local function tick(monster: Monster, now: number, dt: number, active: boolean, targets: { Target }): ()
@@ -795,7 +829,7 @@ local function defaultSummon(monster: Monster, position: Vector3, now: number, s
 	monster.lastSeenAt = now + seconds - Config.LoseSightTime
 	monster.suspicion = 0
 	stopMoving(monster)
-	setState(monster, "Suspicious", `{source}이 부름`)
+	setState(monster, "Suspicious", `부름: {source}`)
 end
 
 -- position에 가까운 움직이는 괴물 count마리를 seconds초 동안 position으로 부른다 (조종자 스킬, GDD 7.1). 부른 수를 돌려준다.
@@ -835,13 +869,52 @@ local function onNoise(noise: NoiseBus.Noise): ()
 	local now = os.clock()
 	for _, monster in monsters do
 		local listener = monster.behavior.onNoise
+		local distance = (monster.rootPart.Position - noise.position).Magnitude
 		if listener and monster.alive and hasSense(monster, "Sound") then
-			local range = math.min(monster.def.HearingRange, noise.radius)
-			if (monster.rootPart.Position - noise.position).Magnitude <= range then
+			if distance <= math.min(monster.def.HearingRange, noise.radius) then
 				listener(monster, noise, now, api)
+			end
+		elseif noise.kind == "Alarm" and monster.alive and monster.def.WalkSpeed > 0 and distance <= noise.radius then
+			-- 알람시계: 소리를 듣지 못하는 괴물도 순찰·포기 중이면 확인하러 온다 (GDD 6.3 "괴물을 유인")
+			if monster.state == "Patrol" or monster.state == "GiveUp" then
+				defaultSummon(monster, noise.position, now, Config.AlarmLureTime, "알람시계 소리")
 			end
 		end
 	end
+end
+
+-- 손전등 빛 (ItemService): origin에서 direction으로 range·angle(전체 각도) 원뿔 안에 있고 벽에 가리지 않은
+-- 손전등에 멈추는 괴물(FlashlightFreezeTime, 그림자)을 멈춘다. 멈춘 수를 돌려준다.
+-- 각도는 시야 판정처럼 수평으로만 잰다 (바로 앞까지 다가온 괴물이 아래로 기운 빛 밖으로 빠지지 않게).
+function MonsterService.freezeInBeam(origin: Vector3, direction: Vector3, range: number, angle: number): number
+	local flatDirection = Vector3.new(direction.X, 0, direction.Z)
+	if #monsters == 0 or flatDirection.Magnitude < 1e-3 then
+		return 0
+	end
+	local look = flatDirection.Unit
+	local minDot = math.cos(math.rad(angle / 2))
+	local now = os.clock()
+	local frozen = 0
+	refreshSightFilter()
+	for _, monster in monsters do
+		local freezeTime = monster.def.FlashlightFreezeTime
+		if freezeTime and monster.alive then
+			local offset = monster.rootPart.Position - origin
+			local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+			local distance = offset.Magnitude
+			local facing = flatOffset.Magnitude < 1e-3 or flatOffset.Unit:Dot(look) >= minDot
+			if distance <= range and facing then
+				if Workspace:Raycast(origin, offset, sightParams) == nil then
+					if now >= monster.frozenUntil then
+						print(`[Monster] {monster.name} 손전등에 멈춤 ({freezeTime}초)`)
+					end
+					monster.frozenUntil = now + freezeTime
+					frozen += 1
+				end
+			end
+		end
+	end
+	return frozen
 end
 
 --------------------------------------------------------------------------------
@@ -1006,6 +1079,8 @@ local function createMonster(
 
 	local now = os.clock()
 	local agent = Config.Agent
+	local agentRadius = def.AgentRadius or agent.Radius
+	local agentHeight = def.AgentHeight or agent.Height
 	local monster: Monster = {
 		name = `{Strings.Monsters[kind]}#{serial}`,
 		kind = kind,
@@ -1016,8 +1091,8 @@ local function createMonster(
 		rootPart = rootPart,
 		eye = head,
 		path = PathfindingService:CreatePath({
-			AgentRadius = agent.Radius,
-			AgentHeight = agent.Height,
+			AgentRadius = agentRadius,
+			AgentHeight = agentHeight,
 			AgentCanJump = agent.CanJump,
 			AgentCanClimb = false,
 		}),
@@ -1055,6 +1130,7 @@ local function createMonster(
 		noiseGoal = nil,
 		dashUntil = 0,
 		alertedAt = {},
+		frozenUntil = 0,
 	}
 	connectHumanoid(monster)
 	return monster
@@ -1075,6 +1151,7 @@ function MonsterService.clear(): ()
 		monsterFolder:Destroy()
 		monsterFolder = nil
 	end
+	table.clear(darkZones)
 	if count > 0 then
 		print(`[Monster] 괴물 {count}마리 제거`)
 	end
@@ -1109,6 +1186,7 @@ function MonsterService.spawnForStage(
 	folder.Name = MonsterState.FolderName
 	folder.Parent = Workspace
 	monsterFolder = folder
+	darkZones = taggedParts(map, MapTags.DarkZone)
 
 	local templates = ServerStorage:FindFirstChild(MonsterState.ModelsFolderName)
 	local function findTemplate(kind: Types.MonsterId): Model?
@@ -1182,6 +1260,8 @@ function MonsterService.Init(): () end
 
 function MonsterService.Start(): ()
 	NoiseBus.subscribe(onNoise)
+	-- ItemService는 MonsterService를 require하지 않는다 (MonsterService가 ItemService를 씀). 손전등 빛을 여기로 받는다.
+	ItemService.setBeamHandler(MonsterService.freezeInBeam)
 end
 
 return MonsterService

@@ -23,6 +23,8 @@ export type MonsterDef = {
 	AlertEyeColor: Color3?, -- 경보 중 눈 색 (감시자)
 	FlashlightFreezeTime: number?, -- 손전등 빛을 받으면 멈추는 시간 (초, GDD 6.3 손전등과 같은 값)
 	DarkTransparency: number?, -- 어두운 곳에서의 투명도 (1이면 완전히 안 보임)
+	AgentRadius: number?, -- 길찾기 반지름. 없으면 Config.MonsterAI.Agent (큰 괴물)
+	AgentHeight: number?, -- 길찾기 높이. 없으면 Config.MonsterAI.Agent
 }
 
 -- 시야 단계: GDD는 "짧음 / (보통) / 넓음"으로만 적었다.
@@ -108,6 +110,8 @@ local Monsters: { [Types.MonsterId]: MonsterDef } = {
 		CatchesInstantly = true,
 		BreaksBarriers = true,
 		BreaksHideSpots = true,
+		AgentRadius = 2.5, -- 임시: 모델 키 약 8.8
+		AgentHeight = 9.5, -- 임시
 	},
 }
 

@@ -6,6 +6,7 @@
 --   OccupantUserId  number?   숨어 있는 생존자의 UserId. 비어 있으면 nil (한 곳에 한 명)
 --   Breathing       boolean?  숨소리 상태. 한 곳에 Config.MapObjects.HideSpot.BreathAfter초 이상 숨어 있음
 --   Revealed        boolean?  숨소리 상태에서 추격자가 BreathRevealRadius 안에 와서 강조 표시(Highlight) 중
+--   Broken          boolean?  거인이 부숨. 더 숨을 수 없다 (프롬프트도 지움)
 --
 -- ProximityPrompt: PrimaryPart 앞면 바로 앞의 Attachment(PromptAttachmentName) 아래에 서버가 만든다.
 -- 서버에서는 모두 켜 두고, 클라이언트가 자기 역할·상태에 맞는 것만 로컬에서 켠다.
@@ -19,6 +20,7 @@ local Attribute = table.freeze({
 	OccupantUserId = "OccupantUserId",
 	Breathing = "Breathing",
 	Revealed = "Revealed",
+	Broken = "Broken",
 })
 
 local Prompt = table.freeze({

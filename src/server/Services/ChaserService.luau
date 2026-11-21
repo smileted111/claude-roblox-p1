@@ -179,7 +179,7 @@ function ChaserService.loadCharacter(player: Player): Model?
 	local humanoid = template and template:FindFirstChildOfClass("Humanoid")
 	local description = humanoid and humanoid:FindFirstChildOfClass("HumanoidDescription")
 	if description then
-		player:LoadCharacterWithHumanoidDescription(description:Clone())
+		player:LoadCharacterWithHumanoidDescriptionAsync(description:Clone())
 	else
 		warn(
 			`[Chaser] ServerStorage.{MODELS_FOLDER}.{chaserType}의 HumanoidDescription이 없어 아바타로 불러옵니다`

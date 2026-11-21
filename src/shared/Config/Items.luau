@@ -11,6 +11,7 @@ export type ItemDef = {
 	Duration: number?, -- 효과 지속 시간 (초)
 	Radius: number?, -- 효과 반경 (스터드)
 	Range: number?, -- 빛이 닿거나 던질 수 있는 거리 (스터드)
+	Angle: number?, -- 손전등 빛 원뿔의 전체 각도 (도)
 	Battery: number?, -- 켜 둘 수 있는 총 시간 (초)
 	StaminaRestoreFraction: number?, -- 회복하는 스태미나 비율 (1이면 가득)
 }
@@ -18,9 +19,10 @@ export type ItemDef = {
 local Items: { [Types.ItemId]: ItemDef } = {
 	-- 손전등: 그림자를 멈춤 (멈추는 시간은 Monsters.Shadow.FlashlightFreezeTime)
 	Flashlight = {
-		SpawnWeight = 0, -- S3-4에서 추가
+		SpawnWeight = 2, -- 임시
 		Color = Color3.fromRGB(255, 240, 150), -- 임시
 		Range = 40, -- 임시
+		Angle = 30, -- 임시
 		Battery = 30, -- 임시
 	},
 	-- 붕대: 부상 → 정상. 수치 없음
@@ -37,7 +39,7 @@ local Items: { [Types.ItemId]: ItemDef } = {
 	},
 	-- 알람시계: 던진 곳에 소리를 내서 괴물을 유인
 	AlarmClock = {
-		SpawnWeight = 0, -- S3-4에서 추가
+		SpawnWeight = 2, -- 임시
 		Color = Color3.fromRGB(255, 200, 60), -- 임시
 		Range = 40, -- 임시: 던지는 거리
 		Radius = 60, -- 임시: 소리가 들리는 거리

@@ -29,6 +29,8 @@
 --   RepairProgress number?                 지금 고치는 발전기의 진행 0~1 (ObjectiveService). 고치는 중이 아니면 nil
 --   Item1, Item2   Types.ItemId?           아이템 칸 (ItemService). 비면 nil
 --   Stunned        boolean?                기절 중 (판자에 맞은 추격자, MovementService). 움직이지도 공격하지도 못함
+--   FlashlightOn   boolean?                손전등을 켬 (ItemService)
+--   FlashlightBattery number?              손전등 남은 배터리 0~1 (ItemService). 손전등이 없으면 nil
 --   ChaserType     Types.ChaserId?         이번 스테이지 추격자 종류 (ChaserService). 추격자일 때만
 --   SkillReadyAt   number?                 추격자 스킬을 다시 쓸 수 있는 서버 시각 (GetServerTimeNow 기준, ChaserService)
 --   SelectedChaser Types.ChaserId?         로비에서 고른 추격자 (DataService에 저장)
@@ -65,6 +67,8 @@ local Attribute = table.freeze({
 	Item1 = "Item1",
 	Item2 = "Item2",
 	Stunned = "Stunned",
+	FlashlightOn = "FlashlightOn",
+	FlashlightBattery = "FlashlightBattery",
 	ChaserType = "ChaserType",
 	SkillReadyAt = "SkillReadyAt",
 	SelectedChaser = "SelectedChaser",

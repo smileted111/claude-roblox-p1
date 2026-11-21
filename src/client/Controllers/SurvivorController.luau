@@ -19,6 +19,7 @@
 local CollectionService = game:GetService("CollectionService")
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Catch = require(ReplicatedStorage.Shared.Config.Catch)
@@ -38,6 +39,7 @@ local ScreenEffect = require(script.Parent.Parent.Util.ScreenEffect)
 local SoundController = require(script.Parent.SoundController)
 
 local RUN_ACTION = "SurvivorRun"
+local AIM_DISTANCE = 100 -- 알람시계 조준 레이캐스트 거리 (서버가 Config.Items의 Range로 다시 줄임)
 -- 아이템 칸별 입력 (칸 번호 = 목록 순서)
 local ITEM_ACTIONS: { { name: string, keys: { Enum.KeyCode } } } = {
 	{ name = "SurvivorItem1", keys = { Enum.KeyCode.One, Enum.KeyCode.ButtonL1 } },
@@ -82,10 +84,25 @@ local function onRunAction(
 	return Enum.ContextActionResult.Sink
 end
 
--- 아이템 칸 slot의 아이템을 쓴다 (숫자키·게임패드·HUD 칸 버튼). 판정과 효과는 서버.
+-- 카메라가 보는 곳 (알람시계를 던질 곳). 내 캐릭터는 빼고 100스터드까지 레이캐스트한다.
+local function aimPosition(): Vector3?
+	local camera = Workspace.CurrentCamera
+	if not camera then
+		return nil
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = if localPlayer.Character then { localPlayer.Character } else {}
+	local origin = camera.CFrame.Position
+	local direction = camera.CFrame.LookVector * AIM_DISTANCE
+	local hit = Workspace:Raycast(origin, direction, params)
+	return if hit then hit.Position else origin + direction
+end
+
+-- 아이템 칸 slot의 아이템을 쓴다 (숫자키·게임패드·HUD 칸 버튼). 판정과 효과는 서버. 던질 곳(카메라가 보는 곳)도 보낸다.
 function SurvivorController.useItem(slot: number): ()
 	if isSurvivor() and MatchState.getItem(localPlayer, slot) and itemRemote then
-		itemRemote:FireServer(slot)
+		itemRemote:FireServer(slot, aimPosition())
 	end
 end
 

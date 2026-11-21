@@ -316,6 +316,30 @@ function BarrierService.setupMap(map: Instance): ()
 	print(`[Barrier] 판자 {#planks}개, 문 {#doors}개 준비`)
 end
 
+-- position 반경 radius 안의 넘어진 판자와 닫힌 문을 부순다 (거인, GDD 4.1). 부순 수를 돌려준다.
+-- 부순 판자는 사라지고, 부순 문은 문짝이 사라져 계속 열린 채가 된다.
+function BarrierService.breakNear(position: Vector3, radius: number, source: string): number
+	local broken = 0
+	for _, plank in planks do
+		if plank.fallen and plank.board.Parent and (plank.board.Position - position).Magnitude <= radius then
+			plank.board:Destroy()
+			broken += 1
+			print(`[Barrier] {source}이 판자를 부숨: {plank.model.Name}`)
+		end
+	end
+	for _, door in doors do
+		if not door.open and door.panel.Parent and (door.panel.Position - position).Magnitude <= radius then
+			door.prompt:Destroy()
+			door.panel:Destroy()
+			door.open = true
+			door.model:SetAttribute(Attribute.Open, true)
+			broken += 1
+			print(`[Barrier] {source}이 문을 부숨: {door.model.Name}`)
+		end
+	end
+	return broken
+end
+
 function BarrierService.clearMap(): ()
 	for _, connection in connections do
 		connection:Disconnect()

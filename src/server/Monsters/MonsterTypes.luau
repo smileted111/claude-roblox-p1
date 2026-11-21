@@ -76,6 +76,8 @@ export type Monster = {
 	dashUntil: number,
 	-- 경보 (감시자): 생존자별 마지막 경보 시각
 	alertedAt: { [Player]: number },
+	-- 손전등에 멈춤 (그림자): 이때까지 움직이지 않는다
+	frozenUntil: number,
 }
 
 -- 동작 모듈이 쓰는 공통 함수 (MonsterService가 채움)
@@ -103,6 +105,14 @@ export type Api = {
 	tryStartAttack: (monster: Monster, target: Target, now: number) -> boolean,
 	-- 추격자 화면에 위치 표시 (ChaserMarker)
 	markForChasers: (position: Vector3, duration: number, reason: Types.MarkerReason) -> (),
+	-- 어두운 구역(DarkZone) 안인가 (그림자)
+	isInDarkZone: (position: Vector3) -> boolean,
+	-- 숨어 있는 생존자와 그 숨는 곳 위치·부수기 (거인)
+	isHidden: (player: Player) -> boolean,
+	hiddenSpotPosition: (player: Player) -> Vector3?,
+	breakHideSpot: (player: Player, source: string) -> boolean,
+	-- position 반경 안의 넘어진 판자·닫힌 문을 부숨 (거인). 부순 수
+	breakBarriers: (position: Vector3, radius: number, source: string) -> number,
 }
 
 export type Behavior = {

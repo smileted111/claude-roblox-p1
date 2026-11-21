@@ -15,6 +15,7 @@ export type HideSpotConfig = {
 	CheckInterval: number, -- 숨소리·강조 표시를 확인하는 간격 (초)
 	RevealColor: Color3, -- 강조 표시 색
 	RevealFillTransparency: number, -- 강조 표시 채우기 투명도 (0~1)
+	BrokenColor: Color3, -- 거인이 부순 숨는 곳의 색 (더 숨을 수 없음)
 }
 
 export type GeneratorConfig = {
@@ -95,6 +96,7 @@ local MapObjects: MapObjectsConfig = {
 		CheckInterval = 0.2, -- 임시
 		RevealColor = Color3.fromRGB(255, 80, 60), -- 임시
 		RevealFillTransparency = 0.6, -- 임시
+		BrokenColor = Color3.fromRGB(40, 35, 30), -- 임시
 	},
 	Generator = {
 		RepairTimeSolo = 12,

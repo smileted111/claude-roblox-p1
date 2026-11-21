@@ -27,6 +27,9 @@ export type MonsterAIConfig = {
 	SpawnSpacing: number, -- 한 MonsterSpawn에 두 마리 이상 나올 때 옆으로 띄우는 거리 (스터드)
 	AnimationFadeTime: number, -- 애니메이션을 바꿀 때 섞는 시간 (초)
 	WalkAnimationSpeed: number, -- 걷기 애니메이션을 1배속으로 틀 때의 이동 속도 (스터드/초)
+	BreakBarrierRadius: number, -- 거인이 앞쪽 이 반경 안의 넘어진 판자·닫힌 문을 부숨 (스터드)
+	BreakHideSpotReach: number, -- 거인이 숨는 곳에 이만큼 가까이 가면 부숨 (스터드, 수평 거리)
+	AlarmLureTime: number, -- 알람시계 소리를 들은 괴물(사냥개 밖)이 그 자리를 찾아가는 시간 (초)
 }
 
 local MonsterAI: MonsterAIConfig = {
@@ -51,6 +54,9 @@ local MonsterAI: MonsterAIConfig = {
 	SpawnSpacing = 4, -- 임시
 	AnimationFadeTime = 0.2, -- 임시
 	WalkAnimationSpeed = 16, -- 임시: Roblox 기본 R15 걷기 애니메이션 기준
+	BreakBarrierRadius = 7, -- 임시
+	BreakHideSpotReach = 6, -- 임시
+	AlarmLureTime = 8, -- 임시
 }
 
 return MonsterAI

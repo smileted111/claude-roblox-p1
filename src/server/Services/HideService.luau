@@ -41,6 +41,7 @@ type Spot = {
 	highlight: Highlight,
 	created: { Instance }, -- clearMap에서 지울 것 (프롬프트·Attachment·Highlight)
 	occupant: Player?,
+	broken: boolean, -- 거인이 부숨 (더 숨을 수 없음)
 }
 
 type HiddenEntry = {
@@ -236,7 +237,7 @@ local function hide(player: Player, spot: Spot, parts: CharacterParts): ()
 end
 
 local function onHideTriggered(player: Player, spot: Spot): ()
-	if hiddenByPlayer[player] or spot.occupant then
+	if hiddenByPlayer[player] or spot.occupant or spot.broken then
 		return
 	end
 	if MatchState.getRole(player) ~= "Survivor" or not HideSpotState.canHideInPhase(MatchState.getPhase()) then
@@ -337,6 +338,7 @@ local function addSpot(model: Model, body: BasePart): ()
 		highlight = highlight,
 		created = { attachment, highlight },
 		occupant = nil,
+		broken = false,
 	}
 
 	local hidePrompt = createPrompt(attachment, HideSpotState.Prompt.Hide, Strings.Prompts.Hide, 0, true)
@@ -418,9 +420,36 @@ function HideService.isHidden(player: Player): boolean
 	return hiddenByPlayer[player] ~= nil
 end
 
--- 숨은 곳에서 밖으로 내보낸다 (숨는 곳을 부수는 거인 등, S3-4). 숨어 있지 않으면 아무것도 하지 않는다.
+-- 숨은 곳에서 밖으로 내보낸다. 숨어 있지 않으면 아무것도 하지 않는다.
 function HideService.forceOut(player: Player, reason: string): ()
 	release(player, reason)
+end
+
+-- player가 숨어 있는 숨는 곳의 위치 (거인이 찾아감). 숨어 있지 않으면 nil.
+function HideService.getHiddenSpotPosition(player: Player): Vector3?
+	local entry = hiddenByPlayer[player]
+	return if entry then entry.spot.body.Position else nil
+end
+
+-- player가 숨은 숨는 곳을 부수고 꺼낸다 (거인, GDD 4.4). 부순 곳은 프롬프트를 지우고 어둡게 해 다시 숨을 수 없다.
+function HideService.breakSpotOf(player: Player, source: string): boolean
+	local entry = hiddenByPlayer[player]
+	if not entry then
+		return false
+	end
+	local spot = entry.spot
+	release(player, `{source}이 숨는 곳을 부숨`)
+	spot.broken = true
+	spot.promptAttachment:Destroy()
+	spot.model:SetAttribute(SpotAttribute.Broken, true)
+	for _, descendant in spot.model:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Color = Config.BrokenColor
+		end
+	end
+	nextHideAllowedAt[player] = os.clock() + Config.FoundHideCooldown
+	print(`[Hide] {source}이 {spot.model.Name}을 부숨 → {player.Name} 밖으로`)
+	return true
 end
 
 -- 불러온 맵의 숨는 곳에 프롬프트와 강조 표시를 만든다.
