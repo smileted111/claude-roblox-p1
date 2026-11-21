@@ -7,6 +7,8 @@
 --   윗면에 "수리" 프롬프트(HoldDuration 0)를 만들고, 누르고 있는 동안(Triggered ~ TriggerEnded) 고친다.
 --   진행은 서버가 관리하고 손을 떼도 그대로 남는다. 혼자 Config.MapObjects.Generator.RepairTimeSolo초,
 --   2명 이상이면 RepairTimeGroup초에 다 고친다. 기여(진행을 고친 사람 수로 나눔)는 RecordService에 기록한다.
+--   수리 코인: 기여가 Config.Rewards.RepairCoinStep(10%) 쌓일 때마다 RepairCoins(1)를 바로 계정에 더한다
+--   (DataService.addCoins, 저장됨). 남은 몫은 스테이지가 끝나면 버린다.
 --   TickInterval마다 고치는 사람을 다시 검사한다: 추격 단계, 숨지 않은 생존자, 거리, 고치기 시작한 뒤 상태가
 --   바뀌지 않음(맞으면 끊김). 하나라도 어긋나면 그 사람은 손을 다시 눌러야 한다.
 --   고치는 동안 NoiseInterval초마다 소리를 낸다: 추격자 화면에 위치 표시(ChaserMarker, NoiseMarkerDuration초)와
@@ -22,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local MapObjects = require(ReplicatedStorage.Shared.Config.MapObjects)
+local Rewards = require(ReplicatedStorage.Shared.Config.Rewards)
 local MapTags = require(ReplicatedStorage.Shared.MapTags)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local ObjectiveState = require(ReplicatedStorage.Shared.ObjectiveState)
@@ -32,6 +35,7 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
 local PromptUtil = require(ReplicatedStorage.Shared.Util.PromptUtil)
 local NoiseBus = require(script.Parent.Parent.Util.NoiseBus)
+local DataService = require(script.Parent.DataService)
 local RecordService = require(script.Parent.RecordService)
 local RoleService = require(script.Parent.RoleService)
 
@@ -58,6 +62,19 @@ local GeneratorConfig = MapObjects.Generator
 local ExitConfig = MapObjects.Exit
 
 local ObjectiveService = {}
+
+local repairCredit: { [Player]: number } = {} -- 아직 코인으로 바꾸지 않은 수리 기여 (발전기 1대 = 1)
+
+-- 수리 기여를 쌓고, RepairCoinStep만큼 쌓일 때마다 코인을 준다.
+local function addRepairCredit(player: Player, amount: number): ()
+	local credit = (repairCredit[player] or 0) + amount
+	local steps = math.floor(credit / Rewards.RepairCoinStep + 1e-6)
+	if steps > 0 then
+		credit -= steps * Rewards.RepairCoinStep
+		DataService.addCoins(player, steps * Rewards.RepairCoins, "발전기 수리")
+	end
+	repairCredit[player] = math.max(credit, 0)
+end
 
 local random = Random.new()
 local generators: { Generator } = {}
@@ -278,6 +295,7 @@ local function step(dt: number): ()
 				local source: Player? = nil
 				for player in generator.repairers do
 					RecordService.addGeneratorProgress(player, added / count)
+					addRepairCredit(player, added / count)
 					source = source or player
 				end
 				if now >= generator.nextNoiseAt and source then
@@ -399,6 +417,7 @@ end
 
 -- 수리를 멈추고 프롬프트를 지운다. 맵을 지우기 전에 부른다.
 function ObjectiveService.clearMap(): ()
+	table.clear(repairCredit)
 	if heartbeat then
 		heartbeat:Disconnect()
 		heartbeat = nil
@@ -425,7 +444,10 @@ end
 function ObjectiveService.Init(): () end
 
 function ObjectiveService.Start(): ()
-	Players.PlayerRemoving:Connect(stopRepair)
+	Players.PlayerRemoving:Connect(function(player: Player)
+		stopRepair(player)
+		repairCredit[player] = nil
+	end)
 end
 
 return ObjectiveService

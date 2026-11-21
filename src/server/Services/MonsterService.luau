@@ -9,6 +9,7 @@
 --   종류별 수 = 반올림(Config.Stages의 수 × Config.MonsterScaling의 인원 배율). 그 구간의 MinPerType보다 적으면 올림.
 --   모두 합쳐 MonsterScaling.MaxActive를 넘지 않게 종류를 돌아가며 한 마리씩 채운다 (computeCounts).
 --   ServerStorage.MonsterModels.<MonsterId>를 복제해 Workspace.Monsters에 둔다 (MonsterState).
+--   넣기 전에 매치 화면 모드에 맞춰 꾸민다: 캐주얼은 귀엽게, 나이트는 공포 소품 (Util/MonsterLooks, Config.MonsterLooks).
 --   MonsterSpawn 자리: Attribute Monster가 그 종류인 자리 → 종류 지정이 없는 자리 → 가장 덜 쓴 자리 순서로 고른다.
 --   한 자리에 둘 이상이면 옆으로 띄운다. 괴물은 자리 파트가 보는 방향을 본다 (감시자).
 --   순찰 경로(PatrolPoint의 Route·Order)는 움직이는 괴물에게만, 괴물이 적은 경로부터 배정하고 가장 가까운 지점부터 돈다.
@@ -23,6 +24,8 @@
 --   의심  마지막으로 본 곳으로 다가간다. SuspicionTime초 동안 보면 추격. 가 봐도 없으면 포기
 --   추격  대상에게 다가간다. 보이고 가까우면 곧장, 아니면 길찾기. AttackRange 안이면 공격
 --   공격  멈춰서 대상을 보고 AttackWindup초 뒤 판정. 맞으면 CatchService.hit (정상 → 부상 → 잡힘). 끝나면 추격
+--         잡았으면 덮치듯 뛰어오르며 공격 동작을 한 번 더 하고 Config.Catch.CaughtEffect.MonsterPause초 동안 그 자리에 선다
+--         (잡힌 사람의 카메라 연출이 이 괴물을 비춘다)
 --   포기  대상이 LoseSightTime초 동안 안 보이거나 마지막으로 본 곳에 없으면 GiveUpTime초 서 있다가 순찰
 --   순찰할 때는 PatrolSpeed(있으면), 나머지 상태에서는 WalkSpeed로 걷는다.
 --
@@ -51,6 +54,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
 
 local Assets = require(ReplicatedStorage.Shared.Config.Assets)
+local Catch = require(ReplicatedStorage.Shared.Config.Catch)
 local MapTags = require(ReplicatedStorage.Shared.MapTags)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local MonsterAI = require(ReplicatedStorage.Shared.Config.MonsterAI)
@@ -62,6 +66,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
 local Types = require(ReplicatedStorage.Shared.Types)
+local VisualModes = require(ReplicatedStorage.Shared.Config.VisualModes)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
 local Giant = require(script.Parent.Parent.Monsters.Giant)
 local Hound = require(script.Parent.Parent.Monsters.Hound)
@@ -69,6 +74,7 @@ local MonsterTypes = require(script.Parent.Parent.Monsters.MonsterTypes)
 local Shadow = require(script.Parent.Parent.Monsters.Shadow)
 local Wanderer = require(script.Parent.Parent.Monsters.Wanderer)
 local Watcher = require(script.Parent.Parent.Monsters.Watcher)
+local MonsterLooks = require(script.Parent.Parent.Util.MonsterLooks)
 local NoiseBus = require(script.Parent.Parent.Util.NoiseBus)
 local BarrierService = require(script.Parent.BarrierService)
 local CatchService = require(script.Parent.CatchService)
@@ -755,8 +761,24 @@ local function tickAttack(monster: Monster, now: number, targets: { Target }): (
 		and (target.rootPart.Position - monster.rootPart.Position).Magnitude <= monster.def.AttackRange
 		and hasLineOfSight(monster, target)
 	if target and inReach then
-		if not CatchService.hit(target.player, `괴물 {monster.name}`, monster.def.CatchesInstantly) then
+		if
+			not CatchService.hit(
+				target.player,
+				`괴물 {monster.name}`,
+				monster.def.CatchesInstantly,
+				nil,
+				monster.model
+			)
+		then
 			print(`[Monster] {monster.name} 공격 → {target.player.Name} 맞힐 수 없음 (무적 시간 등)`)
+		elseif MatchState.getSurvivorState(target.player) == "Caught" then
+			-- 잡힘 연출: 덮치듯 뛰어오르고 공격 동작을 한 번 더 한 뒤 잠깐 그 자리에 선다.
+			face(monster, target.rootPart.Position)
+			stopMoving(monster)
+			monster.humanoid.Jump = true
+			monster.animations.attack:Play(Config.AnimationFadeTime)
+			monster.catchPauseUntil = now + Catch.CaughtEffect.MonsterPause
+			monster.target = nil
 		end
 	else
 		print(`[Monster] {monster.name} 공격 → 빗나감`)
@@ -822,6 +844,9 @@ api = {
 }
 
 local function tick(monster: Monster, now: number, dt: number, active: boolean, targets: { Target }): ()
+	if active and now < monster.catchPauseUntil then
+		return
+	end
 	if not active then
 		if monster.state ~= "Idle" then
 			monster.target = nil
@@ -1118,6 +1143,7 @@ local function createMonster(
 	local standHeight = spawnPart.Size.Y / 2 + humanoid.HipHeight + rootPart.Size.Y / 2
 	model:PivotTo(spawnPart.CFrame * CFrame.new(lap * Config.SpawnSpacing, standHeight, 0))
 	model.Name = `{kind}{serial}`
+	MonsterLooks.apply(model, kind, MatchState.getMatchMode() or VisualModes.Default)
 	model:SetAttribute(Attribute.MonsterId, kind)
 	model:SetAttribute(Attribute.State, "Idle")
 	-- 추격자 화면의 괴물 위치 아이콘이 멀리서도 보이게 추격자에게는 항상 스트리밍한다.
@@ -1185,6 +1211,7 @@ local function createMonster(
 		dashUntil = 0,
 		alertedAt = {},
 		frozenUntil = 0,
+		catchPauseUntil = 0,
 	}
 	connectHumanoid(monster)
 	return monster

@@ -14,9 +14,22 @@ export type HealConfig = {
 	HoldSlack: number, -- 서버가 누른 시간을 검사할 때의 여유 (초)
 }
 
+-- 잡힘 연출 (2026-11-21 사용자 요청으로 더 생동감 있게): 잡히는 순간 화면 번쩍임·흔들림, 잡힌 사람 카메라가
+-- 잡은 괴물(추격자)의 얼굴로 돌며 당겨지고(CinematicTime), 그 뒤 FadeInTime 동안 암전. 그 사이 캐릭터는 뒤로 밀려 넘어지고
+-- (모두에게 보임), 잡은 괴물은 덮치듯 뛰어오르고 MonsterPause 동안 그 자리에 선다.
+-- 전체(CinematicTime + FadeInTime)는 Config.Match.CaughtEffectTime(관전 시작)보다 짧아야 한다.
 export type CaughtEffectConfig = {
-	FadeInTime: number, -- 화면이 어두워지는 시간 (초). 서버는 이만큼 뒤에 캐릭터를 맵에서 지운다
+	CinematicTime: number, -- 잡힌 사람 카메라가 잡은 쪽을 비추는 시간 (초)
+	FadeInTime: number, -- 연출 뒤 화면이 어두워지는 시간 (초). 서버는 CinematicTime + FadeInTime 뒤에 캐릭터를 지운다
 	FadeOutTime: number, -- 잡힘 연출이 끝나고 화면이 다시 밝아지는 시간 (초)
+	KnockdownTime: number, -- 캐릭터가 뒤로 넘어지는 시간 (초)
+	KnockbackDistance: number, -- 넘어지며 밀려나는 거리 (스터드)
+	ShakeStrength: number, -- 카메라 흔들림 세기 (스터드, 점점 줄어듦)
+	ZoomFieldOfView: number, -- 클로즈업 끝의 시야각 (도). 기본 70에서 좁혀 당겨 보이게
+	CameraDistance: number, -- 클로즈업 카메라와 잡은 쪽 머리 사이 거리 (괴물 머리 크기 비율을 곱함)
+	CameraAngle: number, -- 잡은 쪽 정면에서 옆으로 돈 각도 (도). 뒤로 넘어지는 내 캐릭터가 카메라를 가리지 않게
+	ImpactFlashColor: Color3, -- 잡히는 순간 번쩍임 색 (피를 떠올리게 하는 빨강은 쓰지 않는다)
+	MonsterPause: number, -- 잡은 괴물이 덮친 뒤 그 자리에 서 있는 시간 (초). 연출(CinematicTime + FadeInTime)보다 길게
 }
 
 export type HitFlashConfig = {
@@ -43,8 +56,17 @@ local Catch: CatchConfig = {
 		HoldSlack = 0.25, -- 임시
 	},
 	CaughtEffect = {
+		CinematicTime = 1.35, -- 임시
 		FadeInTime = 0.3, -- 임시
 		FadeOutTime = 0.5, -- 임시
+		KnockdownTime = 0.45, -- 임시
+		KnockbackDistance = 3, -- 임시
+		ShakeStrength = 0.5, -- 임시
+		ZoomFieldOfView = 42, -- 임시
+		CameraDistance = 5, -- 임시
+		CameraAngle = 55, -- 임시
+		ImpactFlashColor = Color3.fromRGB(255, 255, 255), -- 임시
+		MonsterPause = 1.8, -- 임시: 연출(1.35 + 0.3)보다 길게. 그 전에 돌아서면 카메라가 괴물 뒤통수를 비춤
 	},
 	HitFlash = {
 		Color = Color3.fromRGB(235, 235, 245), -- 임시

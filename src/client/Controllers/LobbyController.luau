@@ -9,7 +9,8 @@
 -- 혼자 하기 제안 (SoloOffer 리모트): 같이 하기 구역에 혼자 오래 있으면 뜬다. 답은 LobbyRequest AcceptSolo·DeclineSolo.
 -- 상점 (S3-6): 로비 패널의 [상점] 버튼 → ShopController.toggle.
 -- 화면 모드: 로비 패널의 [모드: 나이트/캐주얼] 버튼 → SetVisualMode 리모트 (서버 LobbyService가 저장).
---   로비 조명·색 미리보기는 VisualModeController, 매치 모드는 참가자 다수결 (Config.VisualModes).
+--   로비 조명·색 미리보기는 VisualModeController. 매치 모드는 매치 시작 투표(VoteController)로 정하고,
+--   투표가 같거나 아무도 투표하지 않으면 참가자가 여기서 고른 모드 다수결 (Config.VisualModes).
 -- VIP 로비 전용 이모트 (GDD 10장): VIP(Player Attribute Vip)에게만 [이모트] 버튼이 보이고, 누르면 내 캐릭터가
 --   Config.Assets.Animations.VipEmote를 춘다. 다시 누르거나 움직이면 멈춘다. 매치 중에는 쓸 수 없다.
 -- 다시 하기: 결과 화면 버튼이 LobbyController.playAgain을 부르면 같이 하기 구역으로 옮겨 달라고 요청한다 (JoinQueue).

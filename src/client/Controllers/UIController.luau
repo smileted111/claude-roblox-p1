@@ -4,15 +4,17 @@
 -- 화면 (ScreenGui "Hud", 크기는 UiStyle.addScale이 화면에 맞춰 줄인다)
 -- 시야를 가리지 않게 화면 가운데(위 가운데 포함)에는 계속 떠 있는 UI를 두지 않는다 (CLAUDE.md). 잠깐 뜨는 것만 위 가운데.
 --   오른쪽 위    작은 상태 패널: 스테이지 이름 / 단계(대기·역할 공개·준비·추격·결과) / 남은 시간 / 남은 생존자 수 /
---               목표 진행(발전기 n/전체, 다 고치면 "출구 열림!"). 로비에서는 같이 하기 대기 인원과
---               다음 매치 화면 모드(대기열 다수결, QueueMode·QueueCasual).
+--               목표 진행(발전기 n/전체, 다 고치면 "출구 열림!"). 로비에서는 같이 하기 대기 인원.
+--               스테이지 이름은 "스테이지 (매치 안 순서) · 맵 이름" (맵은 투표로 정함, StageIndex).
+--               투표 단계에는 단계(투표)와 남은 시간만. 투표 창은 VoteController.
 --               관전 중(SpectateController가 같은 자리에 관전 패널)과 최종 결과 단계(ResultController)에는 숨긴다.
 --               추격 단계 남은 시간이 Config.Ui.TimerWarningTime 이하면 시계를 강조색으로.
 --               Roblox 기본 플레이어 목록(같은 자리)은 끈다. 플레이어 목록은 Roblox 메뉴(Esc)의 사람 탭에서 볼 수 있다.
 --   위 가운데    잠깐 뜨는 것만: 역할 공개 카드와 알림(Notice 리모트, Strings.Notices)을 세로로 쌓는다.
 --               알림은 Config.Ui.NoticeDuration초 뒤 사라진다
 --   아래 가운데  생존자: 상태(정상/부상), 스태미나 바, 아이템 2칸(이름·색. 누르면 사용, 숫자키 1·2는 SurvivorController).
---               발전기를 고치는 동안 그 위에 수리 진행 바 (Player Attribute RepairProgress)
+--               발전기를 고치는 동안 그 위에 수리 진행 바 (Player Attribute RepairProgress).
+--               스테이지 중 코인이 늘면(수리 10%마다 1코인 등, Player Attribute Coins) 그 위로 금색 "+n 코인"이 떠오른다
 --               추격자: 공격 쿨다운 바 (ChaserController가 공격할 때 UIController.startAttackCooldown을 부름).
 --               판자에 맞아 기절하면 "기절!" (Player Attribute Stunned). 그 아래 고유 스킬 이름과 쿨다운 (SkillReadyAt)
 --               휴대폰에서 왼쪽 아래 이동 스틱, 오른쪽 아래 점프·화면 버튼(InputController)과 겹치지 않게 가운데에 좁게 둔다.
@@ -121,6 +123,9 @@ local revealToken = 0 -- 올릴 때마다 진행 중인 역할 공개 연출을 
 local noticeSerial = 0
 local attackTween: Tween? = nil
 local attackReadyAt = 0 -- os.clock
+local lastCoins: number? = nil
+local COIN_POPUP_TIME = 0.9 -- "+n 코인"이 떠올라 사라지는 시간 (초)
+local COIN_COLOR = Color3.fromRGB(255, 205, 80)
 
 --------------------------------------------------------------------------------
 -- 화면 만들기
@@ -347,7 +352,8 @@ local function renderTop(): ()
 	top.frame.Visible = not MatchState.isSpectating(localPlayer) and phase ~= "MatchResult"
 
 	if stageId then
-		top.stageLabel.Text = string.format(Strings.Hud.StageTitle, Stages[stageId].Number, Strings.Stages[stageId])
+		local index = MatchState.getStageIndex() or Stages[stageId].Number
+		top.stageLabel.Text = string.format(Strings.Hud.StageTitle, index, Strings.Stages[stageId])
 	end
 	top.stageLabel.Visible = stageId ~= nil
 	top.phaseLabel.Text = Strings.Phases[phase]
@@ -373,12 +379,6 @@ local function renderTop(): ()
 			table.insert(lines, Strings.Lobby.SoloServer)
 		elseif queueCount > 0 then
 			table.insert(lines, string.format(Strings.Lobby.QueueCount, queueCount))
-			local queueMode = MatchState.getQueueMode()
-			if queueMode then
-				local casual = MatchState.getQueueCasual()
-				table.insert(lines, string.format(Strings.Lobby.NextMode, Strings.Modes[queueMode]))
-				table.insert(lines, string.format(Strings.Lobby.ModeVotes, casual, queueCount - casual))
-			end
 		end
 		if timeLeft then
 			table.insert(lines, string.format(Strings.Hud.StartsIn, timeLeft))
@@ -476,6 +476,39 @@ local function renderChaser(): ()
 	chaserView.attackLabel.Text = if key then string.format(Strings.Input.WithKey, text, key) else text
 	-- 휴대폰 공격 버튼: 기절·쿨다운 중이면 흐리게
 	InputController.setTouchDimmed("Attack", text ~= Strings.Hud.AttackReady)
+end
+
+-- 스테이지 중 코인이 늘면 수리 바 위로 "+n 코인"을 띄운다.
+local function onCoinsChanged(): ()
+	local coins = MatchState.getCoins(localPlayer)
+	local previous = lastCoins
+	lastCoins = coins
+	local view = hud
+	if not view or not coins or not previous or coins <= previous or MatchState.getRole(localPlayer) == nil then
+		return
+	end
+	local label = Instance.new("TextLabel")
+	label.Name = "CoinPopup"
+	label.AnchorPoint = Vector2.new(0.5, 1)
+	label.Position = UDim2.new(0.5, 0, 1, -146)
+	label.Size = UDim2.fromOffset(160, 30)
+	label.BackgroundTransparency = 1
+	label.Font = UiStyle.BoldFont
+	label.TextSize = 26
+	label.TextColor3 = COIN_COLOR
+	label.TextStrokeTransparency = 0.4
+	label.Text = string.format(Strings.Hud.CoinGain, coins - previous)
+	label.Parent = view.gui
+	local tween =
+		TweenService:Create(label, TweenInfo.new(COIN_POPUP_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = UDim2.new(0.5, 0, 1, -186),
+			TextTransparency = 1,
+			TextStrokeTransparency = 1,
+		})
+	tween.Completed:Once(function()
+		label:Destroy()
+	end)
+	tween:Play()
 end
 
 local function renderRepair(): ()
@@ -741,14 +774,15 @@ function UIController.Start(): ()
 			Attribute.GeneratorsTotal,
 			Attribute.ExitOpen,
 			Attribute.QueueCount,
-			Attribute.QueueCasual,
-			Attribute.QueueMode,
+			Attribute.StageIndex,
 			Attribute.SoloServer,
 		}
 	do
 		ReplicatedStorage:GetAttributeChangedSignal(name):Connect(renderTop)
 	end
 	localPlayer:GetAttributeChangedSignal(Attribute.RepairProgress):Connect(renderRepair)
+	lastCoins = MatchState.getCoins(localPlayer)
+	localPlayer:GetAttributeChangedSignal(Attribute.Coins):Connect(onCoinsChanged)
 	GeneratorBillboards.start()
 	WorldTextLocalizer.start()
 	ReplicatedStorage:GetAttributeChangedSignal(Attribute.Phase):Connect(onPhaseChanged)

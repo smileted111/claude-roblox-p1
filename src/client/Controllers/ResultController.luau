@@ -16,7 +16,6 @@ local TweenService = game:GetService("TweenService")
 
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
-local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
 local UiStyle = require(script.Parent.Parent.Util.UiStyle)
@@ -70,8 +69,9 @@ local function row(parent: Instance, order: number, highlight: boolean): Frame
 	return frame
 end
 
-local function stageName(stageId: Types.StageId): string
-	return string.format(Strings.Hud.StageTitle, Stages[stageId].Number, Strings.Stages[stageId])
+-- "스테이지 (매치 안 순서) · 맵 이름" (맵은 투표로 정해 순서가 매치마다 다르다)
+local function stageName(stageIndex: number, stageId: Types.StageId): string
+	return string.format(Strings.Hud.StageTitle, stageIndex, Strings.Stages[stageId])
 end
 
 --------------------------------------------------------------------------------
@@ -109,7 +109,7 @@ local function showStage(result: Types.StageResult): ()
 	local title = UiStyle.label(panel, "Title", 1, 22)
 	title.Font = UiStyle.BoldFont
 	title.TextColor3 = Colors.Accent
-	title.Text = `{Strings.Results.StageTitle} · {stageName(result.stageId)}`
+	title.Text = `{Strings.Results.StageTitle} · {stageName(result.stageIndex, result.stageId)}`
 	local text, color = headline(result)
 	local head = UiStyle.label(panel, "Headline", 2, 40)
 	head.Font = UiStyle.BoldFont

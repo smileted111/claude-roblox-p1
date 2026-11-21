@@ -23,6 +23,7 @@ export type ServerEventName =
 	| "MatchResult"
 	| "SoloOffer"
 	| "Footprints"
+	| "CaughtBy"
 
 -- 클라이언트 → 서버
 export type ClientEventName =
@@ -36,6 +37,7 @@ export type ClientEventName =
 	| "LobbyRequest"
 	| "ChaserSelect"
 	| "SetVisualMode"
+	| "CastVote"
 
 export type EventName = ServerEventName | ClientEventName
 
@@ -48,6 +50,7 @@ local SERVER_EVENTS: { ServerEventName } = {
 	"MatchResult", -- 참가자 (result: Types.MatchResult). 최종 결과
 	"SoloOffer", -- 한 명 (waitedSeconds: number). 같이 하기 구역에 혼자 오래 있음 → "혼자 시작할까요?" (GDD 5장)
 	"Footprints", -- 추격자 (positions: {Vector3}, lifetime: number). 흔적 보기 스킬: 생존자 발자국 위치 (GDD 7.1)
+	"CaughtBy", -- 잡힌 생존자 (catcher: Model?, position: Vector3). 잡힘 연출: 카메라가 잡은 괴물·추격자를 비춤
 }
 
 local CLIENT_EVENTS: { ClientEventName } = {
@@ -61,6 +64,7 @@ local CLIENT_EVENTS: { ClientEventName } = {
 	"LobbyRequest", -- 로비에 있는 사람 (action: Types.LobbyAction). 같이 하기 구역으로 가기·솔로 제안 답
 	"ChaserSelect", -- 로비에 있는 사람 (action: "Select" | "Unlock", chaserId: Types.ChaserId). 추격자 종류 고르기·코인 해금
 	"SetVisualMode", -- 로비에 있는 사람 (mode: Types.VisualMode). 화면 모드(나이트·캐주얼) 고르기. 저장됨
+	"CastVote", -- 투표 참가자 (kind: Types.VoteKind, value: string). 맵(StageId)·화면 모드 투표. 다시 보내면 바꿈 (VoteService)
 }
 
 -- 관전자(역할 Spectator)도 보낼 수 있는 클라이언트 → 서버 리모트. 나머지는 관전자가 보내면 서버가 모두 거절한다 (GDD 8장).

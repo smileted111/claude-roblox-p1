@@ -15,7 +15,9 @@
 -- 판자 "넘어뜨리기"는 숨지 않은 생존자에게 추격 단계에서, 문 "열기·닫기"는 숨지 않은 생존자와 추격자에게 켠다 (BarrierService).
 -- 내 생존자 상태가 바뀌면 효과를 낸다 (GDD 8장, 12장). 피 표현 없이 화면 효과와 효과음(자리만)으로.
 --   정상 → 부상: 화면이 잠깐 번쩍임 (Config.Catch.HitFlash)
---   잡힘: 화면 암전 Config.Match.CaughtEffectTime초 (Config.Catch.CaughtEffect). 그 뒤 관전은 SpectateController
+--   잡힘: 서버가 CaughtBy 리모트(잡은 괴물·추격자)를 보내면 잡힘 연출(Util/CaughtCinematic: 번쩍임·흔들림·잡은 쪽 얼굴
+--         클로즈업 뒤 암전). 리모트가 오지 않으면 바로 화면 암전. 합쳐 Config.Match.CaughtEffectTime초 (Config.Catch.CaughtEffect).
+--         그 뒤 관전은 SpectateController
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -34,6 +36,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
 local Types = require(ReplicatedStorage.Shared.Types)
+local CaughtCinematic = require(script.Parent.Parent.Util.CaughtCinematic)
 local HideSpotWatcher = require(script.Parent.Parent.Util.HideSpotWatcher)
 local ScreenEffect = require(script.Parent.Parent.Util.ScreenEffect)
 local InputController = require(script.Parent.InputController)
@@ -53,6 +56,8 @@ local itemRemote: RemoteEvent? = nil
 local runBound = false
 local wantsToRun = false
 local lastSurvivorState: Types.SurvivorState? = nil
+local cinematicAt = -math.huge -- 마지막 잡힘 연출을 시작한 시각 (os.clock)
+local CINEMATIC_WAIT = 0.3 -- 잡힘 상태를 받은 뒤 연출 리모트를 기다리는 시간 (초). 넘으면 기본 암전
 
 local function isSurvivor(): boolean
 	return MatchState.getRole(localPlayer) == "Survivor"
@@ -228,9 +233,15 @@ local function onSurvivorStateChanged(): ()
 	local previous = lastSurvivorState
 	lastSurvivorState = state
 	if state == "Caught" and previous ~= "Caught" then
-		local effect = Catch.CaughtEffect
-		ScreenEffect.blackout(effect.FadeInTime, Match.CaughtEffectTime, effect.FadeOutTime)
 		SoundController.play("SurvivorCaught")
+		local caughtAt = os.clock()
+		task.delay(CINEMATIC_WAIT, function()
+			-- 서버가 연출 리모트를 보내지 못한 경우 (캐릭터가 없는 등)
+			if cinematicAt < caughtAt - 1 then
+				local effect = Catch.CaughtEffect
+				ScreenEffect.blackout(effect.FadeInTime, Match.CaughtEffectTime, effect.FadeOutTime)
+			end
+		end)
 	elseif state == "Injured" and previous == "Normal" then
 		local flash = Catch.HitFlash
 		ScreenEffect.flash(flash.Color, flash.StartTransparency, flash.Duration)
@@ -270,6 +281,12 @@ function SurvivorController.Start(): ()
 	end)
 	localPlayer:GetAttributeChangedSignal(Attribute.Hidden):Connect(refreshPrompts)
 	localPlayer:GetAttributeChangedSignal(Attribute.SurvivorState):Connect(onSurvivorStateChanged)
+	Remotes.get("CaughtBy").OnClientEvent:Connect(function(catcher: unknown, position: unknown)
+		cinematicAt = os.clock()
+		local model = if typeof(catcher) == "Instance" and catcher:IsA("Model") then catcher else nil
+		local from = if typeof(position) == "Vector3" then position else Vector3.zero
+		CaughtCinematic.play(model, from)
+	end)
 	localPlayer.CharacterAdded:Connect(refreshHealPrompts)
 	ReplicatedStorage:GetAttributeChangedSignal(Attribute.Phase):Connect(refreshPrompts)
 	HideSpotWatcher.subscribe(refreshHidePrompts)

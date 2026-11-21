@@ -1,22 +1,26 @@
 --!strict
 -- 클라이언트에 공개하는 매치 상태(Attribute)의 이름과 읽기 함수를 이 파일 한 곳에서 정의한다.
 -- 쓰기는 서버만 한다 (MatchService, StageService, RoleService, MovementService, HideService, SpectateService,
--- server/Util/PhaseTimer).
+-- VoteService, server/Util/PhaseTimer).
 --
 -- ReplicatedStorage의 Attribute (매치 전체)
 --   Phase          Types.MatchPhase    현재 단계
 --   PhaseEndsAt    number?             이 단계가 끝나는 서버 시각 (workspace:GetServerTimeNow() 기준). 끝이 정해지지 않으면 nil
 --   TimeLeft       number?             남은 시간 (초, 올림한 정수). 1초마다 갱신. 끝이 정해지지 않으면 nil
---   StageId        Types.StageId?      진행 중인 스테이지. 대기 중에는 nil
+--   StageId        Types.StageId?      진행 중인 스테이지(맵). 대기 중에는 nil
+--   StageIndex     number?             이번 매치의 몇 번째 스테이지인가 (1부터, MatchService). 매치 밖에서는 nil
+--   CameraCeiling  number?             스테이지 안 카메라 최대 높이 (월드 Y, StageService, Config.Camera). 맵이 없으면 nil
 --   HasChaser      boolean?            이번 스테이지에 추격자가 있는가. 솔로이거나 추격자가 나가면 false
 --   SurvivorsLeft  number?             아직 잡히거나 탈출하지 않은 생존자 수
 --   GeneratorsDone  number?            다 고친 발전기 수 (ObjectiveService)
 --   GeneratorsTotal number?            이번 스테이지 발전기 수. 스테이지 밖에서는 nil
 --   ExitOpen       boolean?            출구가 열렸는가 (ObjectiveService)
 --   QueueCount     number?             같이 하기 대기 인원 (LobbyService)
---   QueueCasual    number?             그중 캐주얼 모드를 고른 인원 (LobbyService)
---   QueueMode      Types.VisualMode?   지금 대기열로 시작하면 정해질 화면 모드 (LobbyService, 다수결)
---   MatchMode      Types.VisualMode?   진행 중인 매치의 화면 모드 (MatchService). 매치 밖에서는 nil
+--   MatchMode      Types.VisualMode?   진행 중인 매치의 화면 모드 (MatchService, 첫 투표로 정함). 매치 밖에서는 nil
+--   VoteMaps       string?             투표 중 고를 수 있는 맵 StageId를 쉼표로 이은 것 (VoteService). 투표 밖에서는 nil
+--   VotePlayed     string?             이번 매치에서 이미 플레이해 고를 수 없는 맵 (쉼표, VoteService)
+--   VoteMapCounts  string?             맵별 표 수 "Stage1:2,Stage4:1" (VoteService)
+--   VoteModeCounts string?             화면 모드별 표 수 "Night:1,Casual:2". 모드를 투표하지 않는 스테이지는 nil
 --   SoloServer     boolean?            혼자 하기 서버인가 (LobbyService)
 --   MatchRunning   boolean?            매치 진행 중 (MatchService). 참가자가 아니면 로비에서 기다린다
 --
@@ -41,7 +45,12 @@
 --   Coins, Level, Xp  number?              저장된 코인·레벨·경험치 (DataService). 데이터를 불러오기 전에는 nil
 --   DataLoaded     boolean?                저장된 데이터를 불러옴 (DataService)
 --   Vip            boolean?                게임패스 VIP를 가짐 (ShopService). 채팅 이름 색·로비 이모트·코인 +20%
---   VisualMode     Types.VisualMode?       로비에서 고른 화면 모드 (DataService에 저장, LobbyService가 바꿈)
+--   VisualMode     Types.VisualMode?       로비에서 고른 화면 모드 (DataService에 저장, LobbyService가 바꿈).
+--                                          로비 조명 미리보기, 모드 투표가 같거나 아무도 투표하지 않았을 때 쓴다
+--   InMatch        boolean?                매치 참가자 (MatchService). 스테이지 사이 로비에 있을 때도 켜져 있다
+--   Voter          boolean?                지금 투표에 참여할 수 있음 (VoteService)
+--   VoteMap        Types.StageId?          내가 투표한 맵 (VoteService)
+--   VoteMode       Types.VisualMode?       내가 투표한 화면 모드 (VoteService)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -83,10 +92,18 @@ local Attribute = table.freeze({
 	Xp = "Xp",
 	DataLoaded = "DataLoaded",
 	Vip = "Vip",
-	QueueCasual = "QueueCasual",
-	QueueMode = "QueueMode",
 	MatchMode = "MatchMode",
 	VisualMode = "VisualMode",
+	StageIndex = "StageIndex",
+	CameraCeiling = "CameraCeiling",
+	VoteMaps = "VoteMaps",
+	VotePlayed = "VotePlayed",
+	VoteMapCounts = "VoteMapCounts",
+	VoteModeCounts = "VoteModeCounts",
+	InMatch = "InMatch",
+	Voter = "Voter",
+	VoteMap = "VoteMap",
+	VoteMode = "VoteMode",
 })
 
 -- 아이템 칸 번호 → Attribute 이름 (칸 수는 Config.Survivor.InventorySlots)
@@ -147,12 +164,85 @@ function MatchState.getQueueCount(): number
 	return readNumber(ReplicatedStorage, Attribute.QueueCount) or 0
 end
 
-function MatchState.getQueueCasual(): number
-	return readNumber(ReplicatedStorage, Attribute.QueueCasual) or 0
+function MatchState.getStageIndex(): number?
+	return readNumber(ReplicatedStorage, Attribute.StageIndex)
 end
 
-function MatchState.getQueueMode(): Types.VisualMode?
-	return readString(ReplicatedStorage, Attribute.QueueMode) :: Types.VisualMode?
+function MatchState.getCameraCeiling(): number?
+	return readNumber(ReplicatedStorage, Attribute.CameraCeiling)
+end
+
+-- 쉼표로 이은 목록 (VoteMaps·VotePlayed) → 배열
+local function readList(name: string): { string }
+	local value = readString(ReplicatedStorage, name)
+	if not value or value == "" then
+		return {}
+	end
+	return string.split(value, ",")
+end
+
+-- "키:수,키:수" → { [키]: 수 }
+local function readCounts(name: string): { [string]: number }
+	local counts: { [string]: number } = {}
+	for _, entry in readList(name) do
+		local key, count = string.match(entry, "^([^:]+):(%d+)$")
+		if key and count then
+			counts[key] = tonumber(count) or 0
+		end
+	end
+	return counts
+end
+
+-- 투표 중 고를 수 있는 맵 (투표 밖이면 빈 배열)
+function MatchState.getVoteMaps(): { Types.StageId }
+	return readList(Attribute.VoteMaps) :: { any }
+end
+
+-- 이번 매치에서 이미 플레이한 맵 (투표 중에만)
+function MatchState.getVotePlayed(): { Types.StageId }
+	return readList(Attribute.VotePlayed) :: { any }
+end
+
+function MatchState.getVoteMapCounts(): { [string]: number }
+	return readCounts(Attribute.VoteMapCounts)
+end
+
+-- 화면 모드 표 수. 이번 투표에 모드가 없으면 nil
+function MatchState.getVoteModeCounts(): { [string]: number }?
+	if readString(ReplicatedStorage, Attribute.VoteModeCounts) == nil then
+		return nil
+	end
+	return readCounts(Attribute.VoteModeCounts)
+end
+
+-- 목록 → 쉼표로 이은 글자 (서버가 쓸 때)
+function MatchState.encodeList(list: { string }): string
+	return table.concat(list, ",")
+end
+
+-- { 키 순서 }와 { [키]: 수 } → "키:수,키:수" (서버가 쓸 때)
+function MatchState.encodeCounts(keys: { string }, counts: { [string]: number }): string
+	local parts: { string } = {}
+	for _, key in keys do
+		table.insert(parts, `{key}:{counts[key] or 0}`)
+	end
+	return table.concat(parts, ",")
+end
+
+function MatchState.isInMatch(player: Player): boolean
+	return player:GetAttribute(Attribute.InMatch) == true
+end
+
+function MatchState.isVoter(player: Player): boolean
+	return player:GetAttribute(Attribute.Voter) == true
+end
+
+function MatchState.getVoteMap(player: Player): Types.StageId?
+	return readString(player, Attribute.VoteMap) :: Types.StageId?
+end
+
+function MatchState.getVoteMode(player: Player): Types.VisualMode?
+	return readString(player, Attribute.VoteMode) :: Types.VisualMode?
 end
 
 function MatchState.getMatchMode(): Types.VisualMode?

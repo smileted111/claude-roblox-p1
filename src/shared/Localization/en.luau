@@ -28,6 +28,7 @@ local En: Ko.Text = {
 
 	Phases = {
 		Waiting = "Waiting",
+		Voting = "Voting",
 		RoleReveal = "Role Reveal",
 		Preparation = "Get Ready",
 		Chase = "Chase",
@@ -36,7 +37,7 @@ local En: Ko.Text = {
 	},
 
 	Stages = {
-		Stage1 = "Abandoned School",
+		Stage1 = "School",
 		Stage2 = "Abandoned Hospital",
 		Stage3 = "Underground Lab",
 		Stage4 = "Amusement Park",
@@ -98,6 +99,7 @@ local En: Ko.Text = {
 		CoinsPurchased = "You received %d Coins!",
 		VipActivated = "You're now VIP! Name color · lobby emote · Coins +20%%",
 		MatchMode = "This match is in %s mode.",
+		NextMap = "Vote result: this stage is %s.",
 	},
 
 	Modes = {
@@ -140,6 +142,7 @@ local En: Ko.Text = {
 		Interact = "Interact",
 		AttackReady = "Attack ready",
 		Repairing = "Repairing %d%%",
+		CoinGain = "+%d Coins",
 		Stunned = "Stunned!",
 		Battery = "%s %d%%",
 		SkillReady = "%s ready",
@@ -207,10 +210,8 @@ local En: Ko.Text = {
 		Shop = "Shop",
 		Emote = "Emote",
 		ModeButton = "Mode: %s",
-		NextMode = "Next match: %s",
-		ModeVotes = "Casual %d · Night %d",
-		TogetherHint = "Wait for other players on the green pad",
-		SoloHint = "Press [Play Solo] on the blue pad to start right away",
+		TogetherHint = "Wait for other players on the green rug",
+		SoloHint = "Press [Play Solo] on the blue rug to start right away",
 	},
 
 	Shop = {
@@ -229,6 +230,35 @@ local En: Ko.Text = {
 		CosmeticsSection = "Cosmetics",
 		CosmeticsSoon = "Survivor and Chaser skins, catch effects (coming soon)",
 		VipTag = "VIP",
+	},
+
+	Vote = {
+		Title = "Vote",
+		TimeLeft = "%ds left",
+		ModeSection = "Screen Mode",
+		MapSection = "Map",
+		Votes = "Votes: %d",
+		Played = "%s (played)",
+		Voted = "Voted %d/%d",
+		Hint = "The most-voted choice wins. Tap again to change your vote.",
+		Watching = "Players are voting for the next map.",
+		Choosing = "Choosing...",
+	},
+
+	Signs = {
+		FerrisWheel = "Ferris Wheel",
+		RollerCoaster = "Roller Coaster",
+		Viking = "Pirate Ship",
+		Carousel = "Carousel",
+		HauntedHouse = "Haunted House",
+		Popcorn = "Popcorn",
+		Souvenir = "Souvenirs",
+		IceCream = "Ice Cream",
+		Tickets = "Tickets",
+		StaffOnly = "Staff Only",
+		Restroom = "Restrooms",
+		ParkName = "Starlight Park",
+		Home = "Home Sweet Home",
 	},
 
 	Results = {

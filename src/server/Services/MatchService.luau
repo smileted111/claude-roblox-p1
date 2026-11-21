@@ -1,23 +1,25 @@
 --!strict
 -- MatchService: 매치 시작·종료, 스테이지 순서, 참가자 (GDD 3장, 5장, 8장, 13.2)
 --
--- 흐름: 대기 → 매치(스테이지 Config.Match.StageOrder 순서대로) → 최종 결과 → 다시 대기 (GDD 3장)
+-- 흐름: 대기 → 매치(투표 → 스테이지를 Config.Match.StagesPerMatch번) → 최종 결과 → 다시 대기 (GDD 3장)
 --   대기 (일반 서버): 로비의 같이 하기 구역에 선 사람(LobbyService.getQueue)이 MinTogetherPlayers명 이상이면
 --         LobbyWaitTime초 뒤 그때 구역에 있는 사람들로 시작한다. 그 사이 인원이 모자라면 다시 기다린다.
 --         구역에 혼자 SoloOfferWaitTime초 있으면 혼자 하기를 제안한다 (LobbyService.offerSolo, GDD 5장).
 --         Studio에서 혼자 하기를 고르면 이 서버에서 그 사람 혼자 매치를 시작한다 (예약 서버로 보낼 수 없어서).
 --   대기 (혼자 하기 서버): 들어온 사람 혼자 SoloStartDelay초 뒤 시작한다. 매치가 끝나면 다시 시작한다.
---   매치: 참가자만 진행한다. 시작할 때 추격자 횟수(RoleService)와 매치 기록(RecordService)을 새로 시작하고 스테이지마다
---         StageService.runStage(참가자)를 부른다. 추격자는 스테이지마다 새로 뽑고, 잡혔던 사람도 다음 스테이지에 돌아온다.
+--   매치: 참가자만 진행한다 (Player Attribute InMatch). 시작할 때 추격자 횟수(RoleService)와 매치 기록(RecordService)을
+--         새로 시작하고, 스테이지마다 맵 투표(VoteService, Config.Match.VoteTime초) 뒤 StageService.runStage(맵, 참가자)를 부른다.
+--         투표할 수 있는 맵은 Config.Match.MapPool 중 이번 매치에서 아직 플레이하지 않은 것 (2026-11-21 사용자 요청).
+--         추격자는 스테이지마다 새로 뽑고, 잡혔던 사람도 다음 스테이지에 돌아온다.
 --         스테이지 사이에는 참가자를 로비에 다시 만든다. 참가자가 모두 빠지거나 오류가 나면 매치를 그만두고 대기로.
 --         "로비로 돌아가기"(ReturnToLobby 리모트): 참가자에서 빠져 로비로 간다. 그때까지 받은 보상은 남는다 (GDD 8장).
 --         혼자 하기 서버에서는 일반 서버로 보낸다.
 --   매치 중에 들어온 사람은 로비에서 다음 매치를 기다린다 (Notice MatchInProgress).
---   화면 모드: 매치를 시작할 때 참가자 다수결로 정해(LobbyService.decideMode) MatchMode로 공개하고 알린다.
---         매치 동안 바뀌지 않는다. 스테이지 맵 색(StageService)과 조명(클라이언트 VisualModeController)이 따른다.
+--   화면 모드: 첫 스테이지 투표에서 맵과 함께 정해(VoteService) MatchMode로 공개하고 알린다.
+--         매치 동안 바뀌지 않는다. 스테이지 맵 색(StageService)·괴물 꾸미기(MonsterService)·조명(클라이언트)이 따른다.
 --   최종 결과: 라스트 서바이버(또는 베스트 서바이버)와 기록을 참가자에게 MatchResult 리모트로 보내고
 --         MatchResultTime초 보여준 뒤 대기로 돌아간다. 칭호 보너스 지급은 DataService.
--- 공개: ReplicatedStorage Attribute MatchRunning (MatchState)
+-- 공개: ReplicatedStorage Attribute MatchRunning·MatchMode·StageIndex, Player Attribute InMatch (MatchState)
 --
 -- 캐릭터는 서버가 직접 만든다 (Players.CharacterAutoLoads = false).
 --   로비(Workspace.Lobby의 SpawnLocation)에 만들고, 참가자는 준비 단계에 맵 시작 위치로 옮긴다 (StageService).
@@ -27,6 +29,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Match = require(ReplicatedStorage.Shared.Config.Match)
+local VisualModes = require(ReplicatedStorage.Shared.Config.VisualModes)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Types = require(ReplicatedStorage.Shared.Types)
@@ -40,6 +43,7 @@ local LobbyService = require(script.Parent.LobbyService)
 local RecordService = require(script.Parent.RecordService)
 local RoleService = require(script.Parent.RoleService)
 local StageService = require(script.Parent.StageService)
+local VoteService = require(script.Parent.VoteService)
 
 local Attribute = MatchState.Attribute
 
@@ -199,15 +203,69 @@ local function logMatchResult(result: Types.MatchResult): ()
 	print(`[Match] 최종 결과 · {title} · {table.concat(lines, ", ")}`)
 end
 
+-- 참가자 표시를 지운다 (매치가 끝나거나 참가자가 빠질 때).
+local function leaveParticipants(): ()
+	for player in participants do
+		player:SetAttribute(Attribute.InMatch, nil)
+	end
+	table.clear(participants)
+end
+
+-- 맵(첫 스테이지는 화면 모드도)을 투표로 정한다. 첫 스테이지면 화면 모드를 공개하고 알린다.
+local function voteStage(index: number, active: { Player }, played: { Types.StageId }): Types.StageId?
+	local available: { Types.StageId } = {}
+	for _, stageId in Match.MapPool do
+		if not table.find(played, stageId) then
+			table.insert(available, stageId)
+		end
+	end
+	if #available == 0 then
+		return nil
+	end
+	local withMode = index == 1
+	local stageId, mode = VoteService.run(active, available, played, withMode)
+	local notice = Remotes.get("Notice")
+	local voters = activeParticipants()
+	if withMode then
+		local matchMode = mode or VisualModes.Default
+		ReplicatedStorage:SetAttribute(Attribute.MatchMode, matchMode)
+		for _, player in voters do
+			notice:FireClient(
+				player,
+				"MatchMode" :: Types.NoticeKey,
+				LanguageService.stringsFor(player).Modes[matchMode]
+			)
+		end
+	end
+	for _, player in voters do
+		notice:FireClient(player, "NextMap" :: Types.NoticeKey, LanguageService.stringsFor(player).Stages[stageId])
+	end
+	return stageId
+end
+
 local function playStages(): ()
-	for index, stageId in Match.StageOrder do
+	local played: { Types.StageId } = {}
+	for index = 1, Match.StagesPerMatch do
 		local active = activeParticipants()
 		if #active == 0 then
 			print("[Match] 참가자가 모두 빠져 매치를 그만둠")
 			RecordService.abortMatch()
 			return
 		end
-		print(`[Match] 스테이지 {index}/{#Match.StageOrder} · 참가자 {#active}명`)
+		local stageId = voteStage(index, active, played)
+		if not stageId then
+			print("[Match] 투표할 맵이 남지 않아 스테이지를 더 하지 않음")
+			break
+		end
+		active = activeParticipants()
+		if #active == 0 then
+			print("[Match] 참가자가 모두 빠져 매치를 그만둠")
+			RecordService.abortMatch()
+			return
+		end
+		table.insert(played, stageId)
+		ReplicatedStorage:SetAttribute(Attribute.StageIndex, index)
+		print(`[Match] 스테이지 {index}/{Match.StagesPerMatch} · {stageId} · 참가자 {#active}명`)
 		if not runStageSafely(stageId, active) then
 			RecordService.abortMatch()
 			return
@@ -215,6 +273,7 @@ local function playStages(): ()
 		-- 잡혀서 캐릭터가 없는 사람도 다음 스테이지 전에 로비로 돌아온다.
 		respawnAllInLobby(activeParticipants())
 	end
+	ReplicatedStorage:SetAttribute(Attribute.StageIndex, nil)
 
 	local result = RecordService.finishMatch()
 	if not result then
@@ -223,6 +282,8 @@ local function playStages(): ()
 	DataService.grantMatch(result)
 	AchievementService.onMatchResult(result)
 	local active = activeParticipants()
+	-- 최종 결과 화면의 "다시 하기"(같이 하기 구역으로)가 되도록 참가자 표시를 먼저 지운다.
+	leaveParticipants()
 	if #active > 0 then
 		logMatchResult(result)
 		local remote = Remotes.get("MatchResult")
@@ -234,30 +295,25 @@ local function playStages(): ()
 end
 
 local function runMatch(players: { Player }): ()
-	table.clear(participants)
+	leaveParticipants()
 	local names: { string } = {}
 	for _, player in players do
 		participants[player] = true
+		player:SetAttribute(Attribute.InMatch, true)
 		table.insert(names, player.Name)
 	end
 	ReplicatedStorage:SetAttribute(Attribute.MatchRunning, true)
-	local mode, casualVotes, nightVotes = LobbyService.decideMode(players)
-	ReplicatedStorage:SetAttribute(Attribute.MatchMode, mode)
-	local notice = Remotes.get("Notice")
-	for _, player in players do
-		notice:FireClient(player, "MatchMode" :: Types.NoticeKey, LanguageService.stringsFor(player).Modes[mode])
-	end
-	print(`[Match] 화면 모드: {mode} (캐주얼 {casualVotes} · 나이트 {nightVotes})`)
 	RoleService.resetChaserCounts()
-	RecordService.startMatch(Match.StageOrder)
+	RecordService.startMatch(Match.StagesPerMatch)
 	print(
-		`[Match] 매치 시작 · 참가자 {table.concat(names, ", ")} · 스테이지 {table.concat(
-			Match.StageOrder,
-			" → "
-		)}`
+		`[Match] 매치 시작 · 참가자 {table.concat(names, ", ")} · 스테이지 {Match.StagesPerMatch}개 (맵 {table.concat(
+			Match.MapPool,
+			", "
+		)} 중 투표)`
 	)
 	playStages()
-	table.clear(participants)
+	leaveParticipants()
+	ReplicatedStorage:SetAttribute(Attribute.StageIndex, nil)
 	ReplicatedStorage:SetAttribute(Attribute.MatchRunning, nil)
 	ReplicatedStorage:SetAttribute(Attribute.MatchMode, nil)
 end
@@ -272,6 +328,7 @@ local function onReturnToLobby(player: Player): ()
 		return
 	end
 	participants[player] = nil
+	player:SetAttribute(Attribute.InMatch, nil)
 	StageService.leaveMatch(player)
 	task.spawn(spawnInLobby, player)
 	print(`[Match] {player.Name} 로비로 돌아감 (매치에서 빠짐)`)

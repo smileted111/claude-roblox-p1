@@ -28,6 +28,7 @@ local SurvivorStates: { [Types.SurvivorState]: string } = {
 
 local Phases: { [Types.MatchPhase]: string } = {
 	Waiting = "대기",
+	Voting = "투표",
 	RoleReveal = "역할 공개",
 	Preparation = "준비",
 	Chase = "추격",
@@ -37,7 +38,7 @@ local Phases: { [Types.MatchPhase]: string } = {
 
 -- 맵 이름 (GDD 4.2)
 local Stages: { [Types.StageId]: string } = {
-	Stage1 = "폐교",
+	Stage1 = "학교",
 	Stage2 = "폐병원",
 	Stage3 = "지하 연구소",
 	Stage4 = "놀이공원",
@@ -100,6 +101,7 @@ local Notices: { [Types.NoticeKey]: string } = {
 	CoinsPurchased = "코인 %d개를 받았습니다!",
 	VipActivated = "VIP가 되었습니다! 이름 색상·로비 이모트·코인 +20%%",
 	MatchMode = "이번 매치는 %s 모드입니다.",
+	NextMap = "투표 결과: 이번 스테이지는 %s입니다.",
 }
 
 -- 화면 모드 이름 (Config.VisualModes)
@@ -160,6 +162,7 @@ local Ko = {
 		Interact = "상호작용",
 		AttackReady = "공격 가능",
 		Repairing = "수리 중 %d%%",
+		CoinGain = "+%d 코인", -- 스테이지 중 코인을 받았을 때 (수리 10%마다 등)
 		Stunned = "기절!",
 		Battery = "%s %d%%", -- 아이템 이름, 남은 배터리
 		SkillReady = "%s 준비",
@@ -232,11 +235,9 @@ local Ko = {
 		Shop = "상점",
 		Emote = "이모트",
 		ModeButton = "모드: %s",
-		NextMode = "다음 매치: %s",
-		ModeVotes = "캐주얼 %d · 나이트 %d",
 		-- 로비 표지판 (Studio에서 만든 Workspace.Lobby의 SurfaceGui. 이 원문과 같아야 번역된다)
-		TogetherHint = "초록 발판 위에서 다른 플레이어를 기다려요",
-		SoloHint = "파란 발판 위에서 [혼자 하기]를 누르면 바로 시작",
+		TogetherHint = "초록 카펫 위에서 다른 플레이어를 기다려요",
+		SoloHint = "파란 카펫 위에서 [혼자 하기]를 누르면 바로 시작",
 	},
 
 	-- 상점 (GDD 10장)
@@ -256,6 +257,37 @@ local Ko = {
 		CosmeticsSection = "꾸미기",
 		CosmeticsSoon = "생존자·추격자 스킨, 잡을 때 연출 (준비 중)",
 		VipTag = "VIP",
+	},
+
+	-- 맵·화면 모드 투표 (VoteController)
+	Vote = {
+		Title = "투표",
+		TimeLeft = "%d초 남음",
+		ModeSection = "화면 모드",
+		MapSection = "맵",
+		Votes = "%d표",
+		Played = "%s (플레이함)",
+		Voted = "투표 %d/%d명", -- 맵을 고른 참가자 수, 참가자 수
+		Hint = "가장 많이 투표된 것으로 진행해요. 다시 누르면 바꿀 수 있어요.",
+		Watching = "참가자들이 다음 맵을 투표하고 있어요.",
+		Choosing = "고르는 중...", -- 머리 위 표시: 아직 맵을 고르지 않음
+	},
+
+	-- 맵 표지판 (Studio에서 만든 맵·로비의 SurfaceGui. 이 원문과 같아야 번역된다)
+	Signs = {
+		FerrisWheel = "관람차",
+		RollerCoaster = "롤러코스터",
+		Viking = "바이킹",
+		Carousel = "회전목마",
+		HauntedHouse = "유령의 집",
+		Popcorn = "팝콘",
+		Souvenir = "기념품",
+		IceCream = "아이스크림",
+		Tickets = "매표소",
+		StaffOnly = "직원 전용",
+		Restroom = "화장실",
+		ParkName = "별빛 놀이공원",
+		Home = "우리 집",
 	},
 
 	-- 결과 (GDD 3.2, 3.4)

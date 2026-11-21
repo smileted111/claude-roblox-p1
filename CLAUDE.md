@@ -21,8 +21,8 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 | `ServerPackages` (Wally 서버 전용, 예: ProfileStore) | `ServerScriptService.ServerPackages` |
 
 - `ServerStorage`, `Workspace`, `Lighting`, `StarterGui`는 Rojo가 관리하지 않는다. Studio에서 만든 맵이 Rojo 동기화로 지워지지 않게 하기 위해서다.
-- 스테이지 맵은 `ServerStorage.Maps.<StageId>` (예: `ServerStorage.Maps.Stage1`) 폴더에 둔다.
-- 로비는 `Workspace.Lobby` (스폰·같이 하기·혼자 하기 발판). 스테이지 맵과 겹치지 않게 z 460~540에 있다.
+- 스테이지 맵은 `ServerStorage.Maps.<StageId>` (예: `ServerStorage.Maps.Stage1`) 폴더에 둔다. 투표 후보는 `Config/Match`의 `MapPool` (학교·폐병원·지하 연구소·놀이공원).
+- 로비는 `Workspace.Lobby` (아늑한 가정집 거실: 천장 있는 실내, 스폰·같이 하기·혼자 하기 카펫). 스테이지 맵과 겹치지 않게 z 460~540에 있다.
 
 ## 맵 규칙 (CollectionService 태그)
 
@@ -41,15 +41,18 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 | `DarkZone` | 어두운 구역 (투명·충돌 없음 상자. 그림자 괴물용) |
 | `LobbyTogether` / `LobbySolo` | 로비(`Workspace.Lobby`)의 같이 하기 구역 발판 / 혼자 하기 발판 |
 
-- 맵 생성 스크립트: `tools/mapgen/` (Stage2·3 블록 맵을 다시 만들 때 `common.luau` 뒤에 스테이지 파일을 붙여 Studio MCP로 실행).
+- 맵 생성 스크립트: `tools/mapgen/` (`common.luau` 뒤에 Stage2·3·4, `Barriers`(판자·문), `Props`(맵마다 소품 10개)를 붙여 Studio MCP로 실행. `Lobby.luau`는 혼자 실행).
+- 소품은 맵의 `Props` 폴더(소품마다 Model). 부딪히는 부분은 바닥에서 높이 6 이하, 숨는 곳(옷장 높이 8)에서 12스터드 이상 떨어뜨린다 — 밟고 벽(14) 위로 올라가지 못하게. 더 높은 부분과 벽에 거는 것은 부딪히지 않는 장식.
+- 카메라 높이 제한: 스테이지 안에서는 카메라가 바닥 윗면 + `Config.Camera.StageCeilingHeight`(11) 위로 못 간다 (`CameraController`). 맵 바닥 윗면은 y = 1로 둔다 (SurvivorSpawn 아랫면으로 계산).
 - 캐주얼 화면 모드는 맵 색을 바꾼다 (`shared/Util/MapStyler`): 벽은 이름 `Wall` 또는 `Walls` 폴더 안, 바닥은 이름 `Floor`로 둔다. Neon·투명 파트·글자판은 그대로.
 - 맵 점검 스크립트: `tools/mapcheck/audit.luau` (편집 모드 Studio MCP로 실행, 고치지 않고 문제 표만 돌려줌. 맵을 다듬은 뒤 다시 돌린다).
+- 긴 생성·점검 스크립트를 MCP에 붙여 넣기 어려우면 `return function(Map) ... end`로 감싼 임시 ModuleScript를 `src/shared/`에 두고 Rojo로 동기화해 `require(모듈:Clone())`으로 실행한 뒤 **바로 지운다** (커밋하지 않음).
 
 ## 코드 규칙
 
 - 모든 파일 첫 줄에 `--!strict`. 타입을 명시한다.
 - 서버: `src/server/Services/<Name>Service.luau`, 클라이언트: `src/client/Controllers/<Name>Controller.luau`. 각 모듈은 `Init()`과 `Start()`를 가진다. 진입점이 모든 모듈의 `Init`을 먼저 실행한 다음 `Start`를 실행한다.
-- 괴물 종류별 동작은 `src/server/Monsters/<Name>.luau` (`MonsterTypes.Behavior`), 공통 부분은 MonsterService.
+- 괴물 종류별 동작은 `src/server/Monsters/<Name>.luau` (`MonsterTypes.Behavior`), 공통 부분은 MonsterService. 화면 모드별 외형(캐주얼 귀엽게·나이트 공포 소품)은 `Config/MonsterLooks` + `server/Util/MonsterLooks` (장식은 CanCollide·CanQuery·CanTouch 끔, Massless).
 - 서버 권한: 피격·잡힘·아이템·목표 진행·역할은 서버만 결정한다. 클라이언트 요청은 거리·쿨다운·상태를 검사하고, 원격 호출에는 빈도 제한을 둔다.
 - RemoteEvent/RemoteFunction은 `src/shared/Remotes.luau` 한 곳에서 정의한다. 클라이언트가 보낸 위치·방향은 `RemoteHandler.isFiniteVector3`로 NaN·무한대를 거른다.
 - 캐릭터를 새로 불러올 때는 `server/Util/CharacterLoader.load`(pcall)를 쓴다. 서버가 캐릭터를 옮기면(PivotTo) `MovementService.markTeleported(player)`를 불러 이동 거리 검사가 되돌리지 않게 한다.

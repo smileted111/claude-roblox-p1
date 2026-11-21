@@ -8,8 +8,8 @@ export type Role = "Survivor" | "Chaser" | "Spectator"
 -- 생존자 상태 (GDD 2.2, 3.1). 정상 → 부상 → 잡힘. 출구로 나가면 탈출.
 export type SurvivorState = "Normal" | "Injured" | "Caught" | "Escaped"
 
--- 매치 단계 (GDD 3.1, 3.4)
-export type MatchPhase = "Waiting" | "RoleReveal" | "Preparation" | "Chase" | "StageResult" | "MatchResult"
+-- 매치 단계 (GDD 3.1, 3.4). Voting: 스테이지마다 맵(첫 스테이지는 화면 모드도) 투표 (VoteService)
+export type MatchPhase = "Waiting" | "Voting" | "RoleReveal" | "Preparation" | "Chase" | "StageResult" | "MatchResult"
 
 -- 스테이지 (GDD 4.2). 맵은 ServerStorage.Maps.<StageId>
 export type StageId = "Stage1" | "Stage2" | "Stage3" | "Stage4" | "Stage5"
@@ -108,6 +108,9 @@ export type LobbyAction = "JoinQueue" | "AcceptSolo" | "DeclineSolo"
 -- 화면 모드 (Config.VisualModes): 나이트 = 어두운 공포 분위기(기본), 캐주얼 = 밝고 귀여운 배경
 export type VisualMode = "Night" | "Casual"
 
+-- 투표 종류 (CastVote 리모트, VoteService): 맵 또는 화면 모드
+export type VoteKind = "Map" | "Mode"
+
 -- 로비의 추격자 선택 요청 (ChaserSelect 리모트)
 export type ChaserSelectAction = "Select" | "Unlock"
 
@@ -142,5 +145,6 @@ export type NoticeKey =
 	| "CoinsPurchased"
 	| "VipActivated"
 	| "MatchMode"
+	| "NextMap"
 
 return {}

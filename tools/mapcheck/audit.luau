@@ -11,8 +11,8 @@ local CollectionService = game:GetService("CollectionService")
 local PathfindingService = game:GetService("PathfindingService")
 local ServerStorage = game:GetService("ServerStorage")
 
-local STAGES = { "Stage1", "Stage2", "Stage3" }
-local GENERATORS = { Stage1 = 3, Stage2 = 4, Stage3 = 5 } -- Config.Stages GeneratorCount (GDD 4.2)
+local STAGES = { "Stage1", "Stage2", "Stage3", "Stage4" } -- Config.Match.MapPool
+local GENERATORS = { Stage1 = 3, Stage2 = 4, Stage3 = 5, Stage4 = 5 } -- Config.Stages GeneratorCount (GDD 4.2)
 local MAX_SURVIVORS = 7 -- MaxPlayers 8 - 추격자 1
 local AGENTS = {
 	{ name = "괴물", radius = 2, height = 6 }, -- Config.MonsterAI.Agent

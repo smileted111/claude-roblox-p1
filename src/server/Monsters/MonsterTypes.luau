@@ -78,6 +78,8 @@ export type Monster = {
 	alertedAt: { [Player]: number },
 	-- 손전등에 멈춤 (그림자): 이때까지 움직이지 않는다
 	frozenUntil: number,
+	-- 생존자를 잡은 뒤 덮친 자리에 서 있는 시간 (잡힘 연출, Config.Catch.CaughtEffect.MonsterPause)
+	catchPauseUntil: number,
 }
 
 -- 동작 모듈이 쓰는 공통 함수 (MonsterService가 채움)

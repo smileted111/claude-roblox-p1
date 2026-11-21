@@ -1,8 +1,9 @@
 --!strict
 -- 스테이지 구성 (GDD 4.2).
 -- 괴물 수는 생존자 4명 기준이다. 실제 수는 MonsterScaling의 인원 배율을 곱해 정한다.
--- 화면에 보이는 맵 이름은 Strings.Stages, 매치에 나오는 순서는 Match.StageOrder에 있다.
--- 조명(Lighting)은 맵을 불러올 때 StageService가 적용한다. 형식과 대기 장소 값은 Config.Lighting에 있다.
+-- 화면에 보이는 맵 이름은 Strings.Stages. 매치에 나오는 맵은 투표로 정한다 (Match.MapPool, VoteService).
+--   괴물 구성·발전기 수·제한 시간은 몇 번째 스테이지인지가 아니라 맵을 따른다. Number는 맵 번호 (화면의 "스테이지 n"은 매치 안 순서).
+-- 조명(Lighting)은 클라이언트 VisualModeController가 적용한다 (나이트 모드). 형식과 대기 장소 값은 Config.Lighting에 있다.
 -- 조명 값은 GDD에 수치가 없어 임시다. Stage1만 테스트 맵 화면을 보고 정했고, 나머지는 맵을 만들 때 다시 맞춘다.
 -- 2026-11-21 사용자 요청으로 모든 스테이지의 Brightness·Ambient·OutdoorAmbient를 1.2배 (20% 밝게) 했다.
 
@@ -20,12 +21,12 @@ export type StageDef = {
 	Monsters: { MonsterGroup }, -- 생존자 4명 기준 괴물 구성
 	GeneratorCount: number, -- 작동해야 출구가 열리는 발전기 수
 	TimeLimit: number, -- 추격 단계 제한 시간 (초)
-	PostLaunch: boolean, -- true면 출시 후 추가하는 스테이지 (GDD 15장 M3)
+	PostLaunch: boolean, -- true면 출시 후 추가하는 스테이지 (GDD 15장 M3). Match.MapPool에 넣지 않는다
 	Lighting: Lighting.LightingPreset, -- 이 스테이지에 있는 동안의 조명
 }
 
 local Stages: { [Types.StageId]: StageDef } = {
-	-- 폐교
+	-- 학교 (2026-11-21 사용자 요청으로 폐교에서 이름 변경)
 	Stage1 = {
 		Number = 1,
 		MapFolder = "Stage1",
@@ -103,7 +104,7 @@ local Stages: { [Types.StageId]: StageDef } = {
 			},
 		},
 	},
-	-- 놀이공원 (출시 후)
+	-- 놀이공원: 미로가 아닌 탁 트인 맵 (2026-11-21 사용자 요청으로 매치에 추가)
 	Stage4 = {
 		Number = 4,
 		MapFolder = "Stage4",
@@ -114,8 +115,8 @@ local Stages: { [Types.StageId]: StageDef } = {
 		},
 		GeneratorCount = 5,
 		TimeLimit = 300,
-		PostLaunch = true,
-		-- 보랏빛 밤 (임시)
+		PostLaunch = false,
+		-- 보랏빛 밤 (임시). 가로등이 주요 광원
 		Lighting = {
 			ClockTime = 0,
 			Brightness = 1.2,

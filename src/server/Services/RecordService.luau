@@ -35,7 +35,8 @@ type StageStats = {
 }
 
 type MatchRecord = {
-	stageIds: { Types.StageId },
+	plannedStages: number, -- 이번 매치의 스테이지 수 (Config.Match.StagesPerMatch)
+	stageIds: { Types.StageId }, -- 끝난 스테이지의 맵 (투표로 정해진 순서)
 	stageCount: number, -- 끝난 스테이지 수
 	soloStages: number, -- 추격자 없이 진행한 스테이지 수
 	players: { [number]: Types.MatchPlayerRecord }, -- UserId별
@@ -143,10 +144,11 @@ local function isLastSurvivor(record: Types.MatchPlayerRecord, stageCount: numbe
 	return true
 end
 
--- 새 매치를 시작한다. stageIds는 이번 매치의 스테이지 순서.
-function RecordService.startMatch(stageIds: { Types.StageId }): ()
+-- 새 매치를 시작한다. stageCount는 이번 매치의 스테이지 수 (맵은 스테이지마다 투표로 정해 finishStage에 넘어온다).
+function RecordService.startMatch(stageCount: number): ()
 	current = {
-		stageIds = table.clone(stageIds),
+		plannedStages = stageCount,
+		stageIds = {},
 		stageCount = 0,
 		soloStages = 0,
 		players = {},
@@ -190,6 +192,7 @@ function RecordService.finishStage(
 	if record then
 		record.stageCount += 1
 		stageIndex = record.stageCount
+		record.stageIds[stageIndex] = stageId
 		if not chaser then
 			record.soloStages += 1
 		end
@@ -215,7 +218,8 @@ function RecordService.finishStage(
 		if record then
 			local matchRecord = record.players[player.UserId]
 			if not matchRecord then
-				matchRecord = newRecord(player.UserId, player.DisplayName, #record.stageIds)
+				matchRecord =
+					newRecord(player.UserId, player.DisplayName, math.max(record.plannedStages, record.stageCount))
 				record.players[player.UserId] = matchRecord
 			end
 			matchRecord.stages[stageIndex] = entry.outcome
@@ -295,6 +299,10 @@ function RecordService.finishMatch(): Types.MatchResult?
 			matchRecord.bonusCoins = math.round(Rewards.BestSurvivorBonus * multiplier * vip)
 		end
 		matchRecord.coins += matchRecord.bonusCoins
+	end
+	for _, matchRecord in players do
+		-- 스테이지가 계획보다 적게 끝났으면 (맵이 모자람 등) 끝난 스테이지까지만 보여준다.
+		matchRecord.stages = table.move(matchRecord.stages, 1, record.stageCount, 1, {})
 	end
 	return {
 		stageIds = table.move(record.stageIds, 1, record.stageCount, 1, {}),

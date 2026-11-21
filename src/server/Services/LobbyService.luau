@@ -10,9 +10,10 @@
 --   Studio에서는 다른 서버로 보낼 수 없어서, 이 서버에서 그 사람 혼자 매치를 시작한다 (takeStudioSoloRequest).
 -- 혼자 하기 서버에서 "로비로 돌아가기"를 누르면 일반 서버로 보낸다 (teleportToPublic).
 -- 화면 모드 (Config.VisualModes): 로비 패널의 [모드] 버튼(SetVisualMode 리모트)으로 고르고 저장한다 (Player Attribute VisualMode).
---   매치를 시작할 때 MatchService가 decideMode로 정한다: 참가자 다수결, 같으면 Default. 혼자 하기는 본인 선택.
--- 공개: ReplicatedStorage Attribute QueueCount(같이 하기 대기 인원), QueueCasual·QueueMode(대기열의 캐주얼 인원과
---   지금 시작하면 정해질 모드), SoloServer(혼자 하기 서버인가).
+--   로비 조명 미리보기에 쓰고, 매치 모드는 매치 시작 투표(VoteService)로 정한다. 투표가 같거나 아무도 투표하지 않으면
+--   VoteService가 decideMode(참가자가 고른 모드 다수결, 같으면 Default)를 쓴다.
+-- 매치 참가자(Player Attribute InMatch)는 스테이지 사이에 로비에 있어도 대기열·혼자 하기에 들어가지 않는다.
+-- 공개: ReplicatedStorage Attribute QueueCount(같이 하기 대기 인원), SoloServer(혼자 하기 서버인가).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -106,7 +107,7 @@ end
 
 -- 혼자 하기를 요청한 사람이 로비에 있으면 (매치 참가 중이 아니면) 혼자 하기로 보낸다.
 function LobbyService.requestSolo(player: Player): ()
-	if MatchState.getRole(player) ~= nil then
+	if MatchState.getRole(player) ~= nil or MatchState.isInMatch(player) then
 		return
 	end
 	teleportSolo(player)
@@ -158,7 +159,9 @@ function LobbyService.getQueue(): { Player }
 	end
 	local pads = lobbyParts(MapTags.LobbyTogether)
 	for _, player in Players:GetPlayers() do
-		local parts = if MatchState.getRole(player) == nil and not teleporting[player]
+		local parts = if MatchState.getRole(player) == nil
+				and not MatchState.isInMatch(player)
+				and not teleporting[player]
 			then CharacterParts.get(player)
 			else nil
 		if parts then
@@ -198,20 +201,11 @@ function LobbyService.decideMode(players: { Player }): (Types.VisualMode, number
 	return mode, casual, night
 end
 
--- 같이 하기 대기 인원, 그중 캐주얼을 고른 인원, 지금 시작하면 정해질 모드를 공개한다.
+-- 같이 하기 대기 인원을 공개한다.
 function LobbyService.publishQueue(queue: { Player }): ()
-	local Attribute = MatchState.Attribute
 	local count = #queue
-	local mode, casual = LobbyService.decideMode(queue)
 	if MatchState.getQueueCount() ~= count then
-		ReplicatedStorage:SetAttribute(Attribute.QueueCount, count)
-	end
-	if MatchState.getQueueCasual() ~= casual then
-		ReplicatedStorage:SetAttribute(Attribute.QueueCasual, casual)
-	end
-	local shownMode: Types.VisualMode? = if count > 0 then mode else nil
-	if MatchState.getQueueMode() ~= shownMode then
-		ReplicatedStorage:SetAttribute(Attribute.QueueMode, shownMode)
+		ReplicatedStorage:SetAttribute(MatchState.Attribute.QueueCount, count)
 	end
 end
 
@@ -242,7 +236,7 @@ end
 local function moveToQueue(player: Player): ()
 	local pad = lobbyParts(MapTags.LobbyTogether)[1]
 	local parts = CharacterParts.get(player)
-	if not pad or not parts or MatchState.getRole(player) ~= nil then
+	if not pad or not parts or MatchState.getRole(player) ~= nil or MatchState.isInMatch(player) then
 		return
 	end
 	local offset = Vector3.new((math.random() - 0.5) * pad.Size.X * 0.6, 0, (math.random() - 0.5) * pad.Size.Z * 0.6)

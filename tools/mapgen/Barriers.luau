@@ -1,9 +1,11 @@
--- 판자·문 배치 (docs/studio-workflow.md S2-4). common.luau 뒤에 붙여 실행한다. Stage1~3 맵에 Barriers 폴더를 새로 만든다.
+-- 판자·문 배치 (docs/studio-workflow.md S2-4). common.luau 뒤에 붙여 실행한다. Stage1~4 맵에 Barriers 폴더를 새로 만든다.
+-- ONLY에 스테이지 이름을 넣으면 그 맵만 다시 만든다 (예: Stage4를 새로 만든 뒤 ONLY = "Stage4").
 -- 판자 (Plank 태그 Model): Board(통로 한쪽 벽에 세워 둠) + FallenPose(넘어지면 통로를 가로막는 자리, 투명).
 --   높이 9라 점프로 넘지 못한다. 고리 동선이 있는 통로에만 둔다 (막혀도 돌아갈 길이 있게).
 -- 문 (Door 태그 Model): Panel(문 틈을 막는 닫힌 자리) + OpenPose(경첩을 축으로 90° 연 자리, 투명).
 
 local CollectionService = game:GetService("CollectionService")
+local ONLY = nil -- 예: "Stage4"
 local PLANK_HEIGHT = 9
 local DOOR_HEIGHT = 12
 local ROT90 = CFrame.Angles(0, math.rad(90), 0)
@@ -97,10 +99,28 @@ local specs = {
 			{ 0, -115, true, 8, 1 },
 		},
 	},
+	-- 놀이공원: 판자는 남·북 가장자리 상점과 화장실 사이 골목(폭 8), 문은 상점 3곳과 유령의 집 동쪽 문
+	Stage4 = {
+		planks = {
+			{ -79, -146, false, 8 },
+			{ 79, -146, false, 8 },
+			{ -79, 138, false, 8 },
+			{ 79, 138, false, 8 },
+		},
+		doors = {
+			{ -60, -134, true, 8, -1 },
+			{ 60, -134, true, 8, -1 },
+			{ -60, 134, true, 8, 1 },
+			{ -124, -139, false, 8, -1 },
+		},
+	},
 }
 
 local results = {}
 for stageName, spec in specs do
+	if ONLY and stageName ~= ONLY then
+		continue
+	end
 	local map = game:GetService("ServerStorage").Maps[stageName]
 	local old = map:FindFirstChild("Barriers")
 	if old then

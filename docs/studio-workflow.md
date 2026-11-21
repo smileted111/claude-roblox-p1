@@ -220,7 +220,7 @@ GDD 2·4·6·7장을 기준으로 공용 데이터와 리모트를 만들어줘.
 
 🤖 **프롬프트**
 ```text
-Studio MCP로 스테이지 1(폐교)의 테스트용 블록 맵을 ServerStorage.Maps.Stage1에 만들어줘. 정식 맵 전까지 쓸 회색 블록 맵이야.
+Studio MCP로 스테이지 1(학교)의 테스트용 블록 맵을 ServerStorage.Maps.Stage1에 만들어줘. 정식 맵 전까지 쓸 회색 블록 맵이야.
 - 크기 약 300×300 스터드, 1층 건물. 복도와 방 8~10개, 길이 막힌 곳 없이 순환하는 동선 2개 이상.
 - 벽 높이 14, 문 폭 8 이상 (괴물 길찾기가 막히지 않게).
 - CLAUDE.md의 맵 태그대로 배치: SurvivorSpawn 8, 추격자 대기실(작은 방) 안 ChaserSpawn 1과 ChaserGate 1, MonsterSpawn 4, PatrolPoint로 순찰 경로 2개(Route=A, B), HideSpot 8(옷장 모양 Model), Generator 3, Exit 2, ItemSpawn 10.

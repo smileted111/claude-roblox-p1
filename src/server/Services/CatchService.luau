@@ -15,8 +15,10 @@
 --
 -- 잡히면
 --   RoleService.setSurvivorState(Caught)로 역할이 Spectator가 되고, 모두에게 알림(Notice SurvivorCaught)을 보낸다.
---   캐릭터를 그 자리에 고정했다가 Config.Catch.CaughtEffect.FadeInTime초 뒤(잡힌 사람 화면이 어두워진 뒤) 맵에서 지운다.
---   화면 암전 Config.Match.CaughtEffectTime초와 효과음은 클라이언트(SurvivorController)가 자기 SurvivorState를 보고 한다.
+--   잡힘 연출 (Config.Catch.CaughtEffect): 잡힌 사람에게 CaughtBy 리모트(잡은 괴물·추격자 모델과 위치)를 보내 클라이언트가
+--   카메라 연출을 하고(SurvivorController, Util/CaughtCinematic), 서버는 캐릭터를 고정한 채 잡은 쪽 반대로 밀며 뒤로
+--   넘어뜨린다(KnockdownTime, 모두에게 보임). CinematicTime + FadeInTime 뒤(잡힌 사람 화면이 어두워진 뒤) 맵에서 지운다.
+--   효과음과 연출을 받지 못했을 때의 암전은 클라이언트가 자기 SurvivorState를 보고 한다.
 --   암전이 끝나면 관전이 시작된다 (SpectateService).
 --
 -- 아군 치료
@@ -26,6 +28,7 @@
 --   거리, 사이에 벽 없음, 누른 시간(PromptButtonHoldBegan부터), 누르는 동안 두 사람 모두 맞지 않음. 통과하면 정상으로.
 
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -146,9 +149,33 @@ local function onChaserAttack(chaser: Player): ()
 	end
 end
 
--- 잡힌 생존자를 관전자로 바꾸고, 화면이 어두워진 뒤 캐릭터를 맵에서 지운다.
-local function catch(survivor: Player, source: string, attacker: Player?): ()
+-- 잡힌 캐릭터를 잡은 쪽(from) 반대로 밀며 뒤로 넘어뜨린다. 몸통은 고정된 채 트윈으로 움직인다.
+local function knockDown(parts: CharacterParts.CharacterParts, from: Vector3): ()
+	local effect = Catch.CaughtEffect
+	local root = parts.rootPart
+	local position = root.Position
+	local away = Vector3.new(position.X - from.X, 0, position.Z - from.Z)
+	away = if away.Magnitude > 0.05 then away.Unit else -root.CFrame.LookVector
+	local ground = position.Y - (parts.humanoid.HipHeight + root.Size.Y / 2)
+	local landing = Vector3.new(position.X, ground + 1, position.Z) + away * effect.KnockbackDistance
+	-- 잡은 쪽을 보고 선 채로 X축으로 돌리면 등 쪽(잡은 쪽 반대)으로 눕는다.
+	local goal = CFrame.lookAt(landing, landing - away) * CFrame.Angles(math.rad(80), 0, 0)
+	TweenService:Create(root, TweenInfo.new(effect.KnockdownTime, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+		CFrame = goal,
+	}):Play()
+end
+
+-- 잡힌 생존자를 관전자로 바꾸고, 잡힘 연출(넘어짐)이 끝나 화면이 어두워진 뒤 캐릭터를 맵에서 지운다.
+-- catcher는 잡은 괴물·추격자 모델 (카메라 연출과 넘어지는 방향. 없으면 추격자 캐릭터, 그것도 없으면 제자리에서 넘어짐).
+local function catch(survivor: Player, source: string, attacker: Player?, catcher: Model?): ()
 	local parts = CharacterParts.get(survivor)
+	local catcherModel: Model? = catcher or (if attacker then attacker.Character else nil)
+	local from = if catcherModel and catcherModel.Parent
+		then catcherModel:GetPivot().Position
+		elseif parts then parts.rootPart.Position - parts.rootPart.CFrame.LookVector
+		else Vector3.zero
+	-- 상태보다 먼저 보내 클라이언트가 기본 암전 대신 연출을 고르게 한다.
+	Remotes.get("CaughtBy"):FireClient(survivor, catcherModel, from)
 	RoleService.setSurvivorState(survivor, "Caught")
 	if attacker then
 		RecordService.addCatch(attacker)
@@ -161,7 +188,10 @@ local function catch(survivor: Player, source: string, attacker: Player?): ()
 	end
 	local character = parts.character
 	parts.rootPart.Anchored = true
-	task.delay(Catch.CaughtEffect.FadeInTime, function()
+	MovementService.markTeleported(survivor)
+	knockDown(parts, from)
+	local effect = Catch.CaughtEffect
+	task.delay(effect.CinematicTime + effect.FadeInTime, function()
 		-- 그 사이 스테이지가 끝나 새 캐릭터가 생겼으면 옛 캐릭터만 지운다.
 		if survivor.Character == character then
 			survivor.Character = nil
@@ -180,8 +210,15 @@ end
 
 -- 생존자를 한 번 때린다: 정상 → 부상, 부상 → 잡힘. instantCatch면 바로 잡힘 (거인, S3-4).
 -- source는 로그용 이름. attacker는 때린 추격자 (매치 기록의 잡은 수. 괴물이면 nil).
+-- catcher는 때린 괴물 모델 (잡힘 연출용, 추격자는 attacker 캐릭터를 씀).
 -- 맞힐 수 없는 상태(CatchService.canBeHit)면 false.
-function CatchService.hit(survivor: Player, source: string, instantCatch: boolean?, attacker: Player?): boolean
+function CatchService.hit(
+	survivor: Player,
+	source: string,
+	instantCatch: boolean?,
+	attacker: Player?,
+	catcher: Model?
+): boolean
 	if not CatchService.canBeHit(survivor) then
 		return false
 	end
@@ -193,7 +230,7 @@ function CatchService.hit(survivor: Player, source: string, instantCatch: boolea
 		RoleService.setSurvivorState(survivor, "Injured")
 		print(`[Catch] {source} → {survivor.Name} 부상`)
 	else
-		catch(survivor, source, attacker)
+		catch(survivor, source, attacker, catcher)
 	end
 	return true
 end

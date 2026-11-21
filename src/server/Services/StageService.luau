@@ -5,12 +5,15 @@
 --   역할 공개  Config.Match.RoleRevealTime   추격자를 뽑고 룰렛 신호(RoleReveal)를 보냄. 솔로는 생략 (GDD 3.1)
 --   준비       Config.Match.PreparationTime  맵을 Workspace.CurrentMap에 복제한다. 매치 화면 모드가 캐주얼이면
 --                                            맵 색을 파스텔로 바꾼다 (Util/MapStyler). 조명은 클라이언트(VisualModeController)가 바꾼다.
+--                                            카메라 높이 제한(바닥 윗면 + Config.Camera.StageCeilingHeight)을 CameraCeiling으로 공개.
 --                                            생존자는 SurvivorSpawn, 추격자는 전용 외형(ChaserService)으로 ChaserSpawn에 배치.
 --                                            ChaserGate는 닫아 둠. 숨는 곳(HideService)·발전기와 출구(ObjectiveService)·
 --                                            아이템(ItemService)·판자와 문(BarrierService) 준비
 --                                            괴물 생성(MonsterService). 괴물은 추격 단계부터 움직인다
 --   추격       Config.Stages[id].TimeLimit   ChaserGate를 엶
---   결과       Config.Match.StageResultTime  결과를 RecordService에 기록하고 코인·통계를 지급(DataService),
+--   결과       Config.Match.StageResultTime  추격이 일찍 끝났으면(마지막 생존자가 잡힘 등) 잡힘 연출 시간
+--                                            (Config.Match.CaughtEffectTime)을 기다린 뒤,
+--                                            결과를 RecordService에 기록하고 코인·통계를 지급(DataService),
 --                                            StageResult 리모트로 보냄.
 --                                            끝나면 맵을 지우고 역할을 비움
 --
@@ -24,6 +27,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
 
+local Camera = require(ReplicatedStorage.Shared.Config.Camera)
 local MapObjects = require(ReplicatedStorage.Shared.Config.MapObjects)
 local MapTags = require(ReplicatedStorage.Shared.MapTags)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
@@ -168,6 +172,12 @@ local function loadMap(stageId: Types.StageId): Instance
 	-- 캐주얼 모드: 다른 서비스가 맵을 준비(원래 색 기억 등)하기 전에 칠한다.
 	local mode = MatchState.getMatchMode() or VisualModes.Default
 	local styled = if mode == "Casual" then MapStyler.apply(map, VisualModes.Casual.Palette, {}) else 0
+	-- 카메라 높이 제한: 시작 위치 표시(바닥 위에 놓임)의 가장 낮은 아랫면을 바닥 윗면으로 본다.
+	local floorTop = math.huge
+	for _, spawnPart in taggedParts(map, MapTags.SurvivorSpawn) do
+		floorTop = math.min(floorTop, spawnPart.Position.Y - spawnPart.Size.Y / 2)
+	end
+	ReplicatedStorage:SetAttribute(Attribute.CameraCeiling, floorTop + Camera.StageCeilingHeight)
 	map.Parent = Workspace
 	print(
 		`[Stage] 맵 불러옴: ServerStorage.{MAPS_FOLDER}.{mapName} → Workspace.{CURRENT_MAP_NAME} · 화면 모드 {mode}`
@@ -329,6 +339,7 @@ local function finish(): ()
 	HideService.clearMap()
 	StageService.unloadMap()
 	RoleService.clearAll()
+	ReplicatedStorage:SetAttribute(Attribute.CameraCeiling, nil)
 	ReplicatedStorage:SetAttribute(Attribute.StageId, nil)
 	ReplicatedStorage:SetAttribute(Attribute.HasChaser, nil)
 	ReplicatedStorage:SetAttribute(Attribute.SurvivorsLeft, nil)
@@ -404,7 +415,9 @@ function StageService.runStage(stageId: Types.StageId, participants: { Player })
 	ReplicatedStorage:SetAttribute(Attribute.HasChaser, chaser ~= nil)
 	ReplicatedStorage:SetAttribute(Attribute.SurvivorsLeft, #run.survivors)
 
-	print(`[Stage] 스테이지 {stage.Number} ({Strings.Stages[stageId]}) 시작 · 참가자 {#participants}명`)
+	print(
+		`[Stage] 스테이지 {MatchState.getStageIndex() or 1} · 맵 {stage.Number} ({Strings.Stages[stageId]}) 시작 · 참가자 {#participants}명`
+	)
 	if chaser then
 		print(
 			`[Role] 추격자: {chaser.Name} (이번이 {RoleService.getChaserCount(chaser)}번째) · 생존자: {names(
@@ -466,6 +479,10 @@ function StageService.runStage(stageId: Types.StageId, participants: { Player })
 			fireParticipants(run, "Notice", "ChaserReleased" :: Types.NoticeKey)
 		end
 		outcome = PhaseTimer.run("Chase", stage.TimeLimit, shouldEnd)
+		if outcome == "EndedEarly" then
+			-- 마지막 생존자가 잡혔으면(혼자 하기 등) 잡힘 연출이 끝날 때까지 결과를 띄우지 않는다.
+			task.wait(Match.CaughtEffectTime)
+		end
 	end
 
 	-- 결과
