@@ -39,6 +39,7 @@ local Strings = require(ReplicatedStorage.Shared.Strings)
 local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
 local Types = require(ReplicatedStorage.Shared.Types)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
+local PromptUtil = require(ReplicatedStorage.Shared.Util.PromptUtil)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 local HideService = require(script.Parent.HideService)
 local MovementService = require(script.Parent.MovementService)
@@ -134,7 +135,7 @@ local function onChaserAttack(chaser: Player): ()
 	if not parts then
 		return
 	end
-	local def = Chasers[Match.DefaultChaser]
+	local def = Chasers[MatchState.getChaserType(chaser) or Match.DefaultChaser]
 	nextAttackAt[chaser] = now + def.AttackCooldown - Catch.Attack.CooldownSlack
 
 	local target = findAttackTarget(parts.rootPart, def)
@@ -242,7 +243,7 @@ local function onHealTriggered(healer: Player, target: Player): ()
 end
 
 local function createHealPrompt(target: Player, rootPart: BasePart): ProximityPrompt
-	local prompt = Instance.new("ProximityPrompt")
+	local prompt = PromptUtil.new()
 	prompt.Name = CatchState.HealPromptName
 	prompt.ActionText = Strings.Prompts.Heal
 	prompt.ObjectText = target.DisplayName

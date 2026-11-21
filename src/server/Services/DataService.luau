@@ -114,6 +114,13 @@ local function publish(player: Player, data: PlayerData): ()
 	player:SetAttribute(Attribute.Coins, data.Coins)
 	player:SetAttribute(Attribute.Level, data.Level)
 	player:SetAttribute(Attribute.Xp, data.Xp)
+	local unlocked: { string } = {}
+	for chaserId in data.UnlockedChasers do
+		table.insert(unlocked, chaserId)
+	end
+	table.sort(unlocked)
+	player:SetAttribute(Attribute.UnlockedChasers, table.concat(unlocked, ","))
+	player:SetAttribute(Attribute.SelectedChaser, data.SelectedChaser)
 end
 
 -- 저장 형식이 바뀌면 여기서 옮긴다. 지금은 버전 1뿐이다.
@@ -121,9 +128,12 @@ local function migrate(data: PlayerData): ()
 	if data.Version < Data.Version then
 		data.Version = Data.Version
 	end
-	-- 기본 해금 추격자가 늘었으면 채워 준다.
+	-- 기본 해금 추격자가 늘었으면 채워 주고, 고른 추격자가 없어졌거나 잠겨 있으면 기본으로 되돌린다.
 	for chaserId in defaultUnlocked() do
 		data.UnlockedChasers[chaserId] = true
+	end
+	if not Chasers[data.SelectedChaser :: any] or not data.UnlockedChasers[data.SelectedChaser] then
+		data.SelectedChaser = Match.DefaultChaser
 	end
 end
 
@@ -233,6 +243,23 @@ function DataService.spendCoins(player: Player, amount: number, reason: string):
 	publish(player, data)
 	print(`[Data] {player.Name} 코인 -{amount} ({reason}) → {data.Coins}`)
 	return true
+end
+
+-- 추격자 종류를 해금한다 (코인은 부르는 쪽이 먼저 쓴다).
+function DataService.unlockChaser(player: Player, chaserId: string): ()
+	local data = DataService.getData(player)
+	if data then
+		data.UnlockedChasers[chaserId] = true
+		publish(player, data)
+	end
+end
+
+function DataService.setSelectedChaser(player: Player, chaserId: string): ()
+	local data = DataService.getData(player)
+	if data then
+		data.SelectedChaser = chaserId
+		publish(player, data)
+	end
 end
 
 function DataService.setChaserOptOut(player: Player, optOut: boolean): ()

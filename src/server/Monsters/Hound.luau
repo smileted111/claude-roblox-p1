@@ -105,6 +105,14 @@ local Hound: MonsterTypes.Behavior = {
 	tick = tick,
 	onNoise = onNoise,
 	onIdle = nil,
+	onSummon = function(monster: Monster, position: Vector3, now: number, seconds: number, api: Api): ()
+		-- 부른 자리로 돌진한다. 돌진 시간은 부른 시간만큼
+		monster.noiseGoal = position
+		monster.dashUntil = now + seconds
+		monster.target = nil
+		api.stopMoving(monster)
+		api.setState(monster, "Chase", "조종자가 부름")
+	end,
 	usesPatrolRoute = true,
 }
 

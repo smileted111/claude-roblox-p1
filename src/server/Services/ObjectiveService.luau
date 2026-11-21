@@ -30,6 +30,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
+local PromptUtil = require(ReplicatedStorage.Shared.Util.PromptUtil)
 local NoiseBus = require(script.Parent.Parent.Util.NoiseBus)
 local RecordService = require(script.Parent.RecordService)
 local RoleService = require(script.Parent.RoleService)
@@ -323,7 +324,7 @@ local function addGenerator(instance: Instance): ()
 	attachment.Position = Vector3.new(0, body.Size.Y / 2 + 0.5, 0)
 	attachment.Parent = body
 
-	local prompt = Instance.new("ProximityPrompt")
+	local prompt = PromptUtil.new()
 	prompt.Name = ObjectiveState.RepairPromptName
 	prompt.ActionText = Strings.Prompts.Repair
 	prompt.HoldDuration = 0 -- 누르고 있는 동안 고친다. 진행은 서버가 관리

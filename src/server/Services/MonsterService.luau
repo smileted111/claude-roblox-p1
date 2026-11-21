@@ -787,6 +787,46 @@ local function tick(monster: Monster, now: number, dt: number, active: boolean, 
 	monster.behavior.tick(monster, now, dt, targets, api)
 end
 
+-- 조종자가 부름: 마지막으로 본 곳을 position으로 두고 의심 상태로 찾아오게 한다.
+-- LoseSightTime 계산이 seconds초 뒤에 끝나도록 lastSeenAt을 미래로 둔다.
+local function defaultSummon(monster: Monster, position: Vector3, now: number, seconds: number, source: string): ()
+	monster.target = nil
+	monster.lastSeenPosition = position
+	monster.lastSeenAt = now + seconds - Config.LoseSightTime
+	monster.suspicion = 0
+	stopMoving(monster)
+	setState(monster, "Suspicious", `{source}이 부름`)
+end
+
+-- position에 가까운 움직이는 괴물 count마리를 seconds초 동안 position으로 부른다 (조종자 스킬, GDD 7.1). 부른 수를 돌려준다.
+function MonsterService.summon(position: Vector3, count: number, seconds: number, source: string): number
+	if not MonsterState.canActInPhase(MatchState.getPhase()) then
+		return 0
+	end
+	local movers: { Monster } = {}
+	for _, monster in monsters do
+		if monster.alive and monster.def.WalkSpeed > 0 and monster.state ~= "Attack" then
+			table.insert(movers, monster)
+		end
+	end
+	table.sort(movers, function(a: Monster, b: Monster): boolean
+		return (a.rootPart.Position - position).Magnitude < (b.rootPart.Position - position).Magnitude
+	end)
+	local now = os.clock()
+	local called = math.min(count, #movers)
+	for index = 1, called do
+		local monster = movers[index]
+		local onSummon = monster.behavior.onSummon
+		if onSummon then
+			onSummon(monster, position, now, seconds, api)
+		else
+			defaultSummon(monster, position, now, seconds, source)
+		end
+	end
+	print(`[Monster] {source} → 괴물 {called}마리 부름`)
+	return called
+end
+
 -- 소리 사건: 들리는 거리 안의 소리를 듣는 괴물에게 전한다 (추격 단계만).
 local function onNoise(noise: NoiseBus.Noise): ()
 	if #monsters == 0 or not MonsterState.canActInPhase(MatchState.getPhase()) then

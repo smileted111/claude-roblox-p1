@@ -26,6 +26,7 @@ local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local MonsterState = require(ReplicatedStorage.Shared.MonsterState)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
+local PromptUtil = require(ReplicatedStorage.Shared.Util.PromptUtil)
 local MovementService = require(script.Parent.MovementService)
 
 type Plank = {
@@ -87,7 +88,7 @@ local function hidePose(pose: BasePart): ()
 end
 
 local function newPrompt(parent: Instance, actionText: string, distance: number, tag: string): ProximityPrompt
-	local prompt = Instance.new("ProximityPrompt")
+	local prompt = PromptUtil.new()
 	prompt.ActionText = actionText
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = distance

@@ -83,6 +83,7 @@ local Watcher: MonsterTypes.Behavior = {
 	onIdle = function(monster: Monster): ()
 		setEyeColor(monster, false)
 	end,
+	onSummon = nil, -- 움직이지 않아 불리지 않는다
 	usesPatrolRoute = false,
 }
 

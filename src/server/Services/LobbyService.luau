@@ -24,6 +24,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
+local PromptUtil = require(ReplicatedStorage.Shared.Util.PromptUtil)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 
 local LOBBY_FOLDER = "Lobby" -- Workspace.Lobby
@@ -220,7 +221,7 @@ end
 
 local function setupSoloPads(): ()
 	for _, pad in lobbyParts(MapTags.LobbySolo) do
-		local prompt = Instance.new("ProximityPrompt")
+		local prompt = PromptUtil.new()
 		prompt.Name = "SoloPrompt"
 		prompt.ActionText = Strings.Lobby.Solo
 		prompt.HoldDuration = 0.5

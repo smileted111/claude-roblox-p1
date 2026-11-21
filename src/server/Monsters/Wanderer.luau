@@ -30,6 +30,7 @@ local Wanderer: MonsterTypes.Behavior = {
 	tick = tick,
 	onNoise = nil,
 	onIdle = nil,
+	onSummon = nil,
 	usesPatrolRoute = true,
 }
 

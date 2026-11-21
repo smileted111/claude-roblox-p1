@@ -1,11 +1,14 @@
 --!strict
--- ChaserController: 추격자 조작 — 근접 공격·열어보기 (GDD 6.1, 7장, 13.2). 스킬은 S3-3에서.
+-- ChaserController: 추격자 조작 — 근접 공격·고유 스킬·열어보기 (GDD 6.1, 7장, 13.2).
 --
 -- 공격: PC 마우스 왼쪽 클릭, 모바일 화면 탭(UI가 아닌 곳), 게임패드 R2. 추격 단계의 추격자만.
 --   이 컨트롤러는 쿨다운(Config.Chasers.AttackCooldown) 동안 다시 보내지 않고, 휘두르는 애니메이션과 효과음,
 --   HUD 쿨다운 바(UIController)만 맡는다.
 --   맞았는지, 쿨다운이 지났는지는 서버(CatchService)가 다시 판정한다 (ChaserAttack 리모트).
 -- 숨는 곳의 "열어보기" 프롬프트를 추격자에게만, 추격 단계에서만 켠다. 누르는 시간(ChaserOpenTime)과 판정은 서버(HideService).
+-- 스킬: E·게임패드 Y·모바일 화면 버튼(Config.Input.SkillKeys). 카메라가 보는 수평 방향을 UseSkill로 보내고(망령 순간이동 방향)
+--   판정·효과·쿨다운은 서버(ChaserService). 쿨다운은 Player Attribute SkillReadyAt으로 받아 HUD(UIController)가 보여준다.
+--   흔적 보기(추적자): Footprints 리모트로 받은 생존자 발 위치에 빛나는 발자국을 Lifetime초 동안 찍는다 (이 화면에만).
 -- 위치 표시: ChaserMarker 리모트(발전기 소리, 감시자 경보)를 받으면 그 위치에 duration초 동안 표시 (Util/WorldMarker).
 -- 괴물 위치 (GDD 7장, 질문지 Q2-8): 추격자일 때 Workspace.Monsters의 괴물마다 벽 너머에서도 보이는 아이콘(색 점 + 이름).
 --   서버가 괴물 모델을 추격자에게 항상 스트리밍하므로(MonsterService) 맵 어디서든 보인다.
@@ -13,8 +16,10 @@
 --   이름표를 가린다 (LocalTransparencyModifier). 괴물의 시야에서 빼는 것은 서버(ItemService.isConcealed).
 
 local CollectionService = game:GetService("CollectionService")
+local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
@@ -24,6 +29,7 @@ local ItemState = require(ReplicatedStorage.Shared.ItemState)
 local CatchState = require(ReplicatedStorage.Shared.CatchState)
 local Chasers = require(ReplicatedStorage.Shared.Config.Chasers)
 local HideSpotState = require(ReplicatedStorage.Shared.HideSpotState)
+local Input = require(ReplicatedStorage.Shared.Config.Input)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MonsterState = require(ReplicatedStorage.Shared.MonsterState)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
@@ -43,6 +49,12 @@ local localPlayer = Players.LocalPlayer
 local ChaserController = {}
 
 local attackRemote: RemoteEvent? = nil
+local skillRemote: RemoteEvent? = nil
+local skillBound = false
+local footprintFolder: Folder? = nil
+
+local SKILL_ACTION = "ChaserSkill"
+local FOOTPRINT_COLOR = Color3.fromRGB(255, 120, 60)
 local attackAnimation: Animation? = nil
 local nextAttackAt = 0 -- os.clock
 -- 캐릭터가 바뀌면 애니메이션을 새 Animator에 다시 불러온다.
@@ -87,7 +99,7 @@ local function tryAttack(): ()
 	if not parts then
 		return
 	end
-	local cooldown = Chasers[Match.DefaultChaser].AttackCooldown
+	local cooldown = Chasers[MatchState.getChaserType(localPlayer) or Match.DefaultChaser].AttackCooldown
 	nextAttackAt = now + cooldown
 	if attackRemote then
 		attackRemote:FireServer()
@@ -306,6 +318,89 @@ function ChaserController.Init(): ()
 	attackAnimation = animation
 end
 
+-- 스킬 ------------------------------------------------------------------------------------------------------
+
+local function useSkill(): ()
+	if MatchState.getRole(localPlayer) ~= "Chaser" or not CatchState.canHitInPhase(MatchState.getPhase()) then
+		return
+	end
+	local readyAt = MatchState.getSkillReadyAt(localPlayer)
+	if readyAt and Workspace:GetServerTimeNow() < readyAt then
+		return
+	end
+	local camera = Workspace.CurrentCamera
+	if camera and skillRemote then
+		skillRemote:FireServer(camera.CFrame.LookVector)
+	end
+end
+
+local function onSkillAction(
+	_actionName: string,
+	inputState: Enum.UserInputState,
+	_inputObject: InputObject
+): Enum.ContextActionResult
+	if inputState == Enum.UserInputState.Begin then
+		useSkill()
+	end
+	return Enum.ContextActionResult.Sink
+end
+
+-- 추격자일 때만 스킬 입력(과 모바일 화면 버튼)을 묶는다.
+local function updateSkillBinding(): ()
+	local shouldBind = MatchState.getRole(localPlayer) == "Chaser"
+	if shouldBind == skillBound then
+		return
+	end
+	skillBound = shouldBind
+	if shouldBind then
+		ContextActionService:BindAction(SKILL_ACTION, onSkillAction, true, table.unpack(Input.SkillKeys))
+		local chaserType = MatchState.getChaserType(localPlayer) or Match.DefaultChaser
+		ContextActionService:SetTitle(SKILL_ACTION, Strings.Skills[Chasers[chaserType].Skill.Kind])
+	else
+		ContextActionService:UnbindAction(SKILL_ACTION)
+	end
+end
+
+-- 흔적 보기: 받은 위치마다 바닥에 빛나는 발자국을 찍고 lifetime초 동안 서서히 지운다.
+local function onFootprints(positions: unknown, lifetime: unknown): ()
+	if typeof(positions) ~= "table" or typeof(lifetime) ~= "number" then
+		return
+	end
+	if MatchState.getRole(localPlayer) ~= "Chaser" then
+		return
+	end
+	local folder = footprintFolder
+	if not folder or not folder.Parent then
+		folder = Instance.new("Folder")
+		folder.Name = "Footprints"
+		folder.Parent = Workspace
+		footprintFolder = folder
+	end
+	for _, position in positions :: { unknown } do
+		if typeof(position) == "Vector3" then
+			local mark = Instance.new("Part")
+			mark.Name = "Footprint"
+			mark.Anchored = true
+			mark.CanCollide = false
+			mark.CanQuery = false
+			mark.CanTouch = false
+			mark.CastShadow = false
+			mark.Material = Enum.Material.Neon
+			mark.Color = FOOTPRINT_COLOR
+			mark.Size = Vector3.new(0.8, 0.1, 1.3)
+			mark.Position = position + Vector3.new(0, 0.06, 0)
+			mark.Parent = folder
+			local tween = TweenService:Create(mark, TweenInfo.new(lifetime), { Transparency = 1 })
+			tween.Completed:Connect(function()
+				mark:Destroy()
+			end)
+			tween:Play()
+		end
+	end
+end
+
+-- -------------------------------------------------------------------------------------------------------------
+
 function ChaserController.Start(): ()
 	attackRemote = Remotes.get("ChaserAttack")
 	UserInputService.InputBegan:Connect(onInputBegan)
@@ -329,6 +424,16 @@ function ChaserController.Start(): ()
 	end)
 
 	localPlayer:GetAttributeChangedSignal(Attribute.Role):Connect(refreshOpenPrompts)
+	skillRemote = Remotes.get("UseSkill")
+	localPlayer:GetAttributeChangedSignal(Attribute.Role):Connect(updateSkillBinding)
+	localPlayer:GetAttributeChangedSignal(Attribute.ChaserType):Connect(function()
+		-- 종류가 정해지면 모바일 버튼 이름을 다시 붙인다.
+		skillBound = false
+		ContextActionService:UnbindAction(SKILL_ACTION)
+		updateSkillBinding()
+	end)
+	Remotes.get("Footprints").OnClientEvent:Connect(onFootprints)
+	updateSkillBinding()
 	ReplicatedStorage:GetAttributeChangedSignal(Attribute.Phase):Connect(refreshOpenPrompts)
 	HideSpotWatcher.subscribe(refreshOpenPrompts)
 end

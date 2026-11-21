@@ -10,11 +10,16 @@ export type SkillDef = {
 	Duration: number?, -- 효과 지속 시간 (초)
 	SpeedMultiplier: number?, -- 이동 속도 배율
 	Distance: number?, -- 이동 거리 (스터드)
+	WallMargin: number?, -- 순간이동이 벽에 막히면 벽에서 이만큼 앞에 멈춤 (스터드)
 	MonsterCount: number?, -- 부르는 괴물 수
+	Interval: number?, -- 발자국을 찍는 간격 (초)
+	Lifetime: number?, -- 찍은 발자국이 보이는 시간 (초)
 }
 
 export type ChaserDef = {
 	Unlock: Types.UnlockKind,
+	UnlockCost: number, -- 코인 해금 가격 (기본 해금은 0)
+	Color: Color3, -- 전용 캐릭터 몸 색, 로비 선택 화면 색 (임시 외형 ServerStorage.ChaserModels)
 	WalkSpeed: number,
 	AttackCooldown: number, -- 근접 공격 간격 (초)
 	AttackRange: number, -- 추격자 앞쪽 공격 판정 거리 (스터드, HumanoidRootPart 중심 사이)
@@ -31,6 +36,8 @@ local Chasers: { [Types.ChaserId]: ChaserDef } = {
 	-- 사냥꾼 — 돌진: 2초간 이동 속도 +50%
 	Hunter = {
 		Unlock = "Default",
+		UnlockCost = 0,
+		Color = Color3.fromRGB(150, 40, 40), -- 임시
 		WalkSpeed = WALK_SPEED,
 		AttackCooldown = ATTACK_COOLDOWN,
 		AttackRange = ATTACK_RANGE,
@@ -45,6 +52,8 @@ local Chasers: { [Types.ChaserId]: ChaserDef } = {
 	-- 추적자 — 흔적 보기: 8초간 생존자 발자국이 보임
 	Tracker = {
 		Unlock = "Default",
+		UnlockCost = 0,
+		Color = Color3.fromRGB(40, 110, 60), -- 임시
 		WalkSpeed = WALK_SPEED,
 		AttackCooldown = ATTACK_COOLDOWN,
 		AttackRange = ATTACK_RANGE,
@@ -53,11 +62,15 @@ local Chasers: { [Types.ChaserId]: ChaserDef } = {
 			Kind = "RevealFootprints",
 			Cooldown = 30,
 			Duration = 8,
+			Interval = 0.4, -- 임시
+			Lifetime = 4, -- 임시
 		},
 	},
 	-- 망령 — 순간이동: 바라보는 방향으로 짧게 이동
 	Wraith = {
 		Unlock = "Coins",
+		UnlockCost = 300, -- 임시
+		Color = Color3.fromRGB(200, 200, 215), -- 임시
 		WalkSpeed = WALK_SPEED,
 		AttackCooldown = ATTACK_COOLDOWN,
 		AttackRange = ATTACK_RANGE,
@@ -66,11 +79,14 @@ local Chasers: { [Types.ChaserId]: ChaserDef } = {
 			Kind = "Blink",
 			Cooldown = 25,
 			Distance = 20, -- 임시 ("짧게")
+			WallMargin = 2, -- 임시
 		},
 	},
 	-- 조종자 — 괴물 부르기: 가장 가까운 괴물 2마리를 내 위치로 부름
 	Puppeteer = {
 		Unlock = "Coins",
+		UnlockCost = 500, -- 임시
+		Color = Color3.fromRGB(110, 50, 150), -- 임시
 		WalkSpeed = WALK_SPEED,
 		AttackCooldown = ATTACK_COOLDOWN,
 		AttackRange = ATTACK_RANGE,
@@ -79,6 +95,7 @@ local Chasers: { [Types.ChaserId]: ChaserDef } = {
 			Kind = "CallMonsters",
 			Cooldown = 35,
 			MonsterCount = 2,
+			Duration = 10, -- 임시: 불린 괴물이 그 자리로 오는 동안 (못 오면 포기)
 		},
 	},
 }

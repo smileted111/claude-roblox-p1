@@ -27,6 +27,7 @@ local Strings = require(ReplicatedStorage.Shared.Strings)
 local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
 local Types = require(ReplicatedStorage.Shared.Types)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
+local PromptUtil = require(ReplicatedStorage.Shared.Util.PromptUtil)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 local MovementService = require(script.Parent.MovementService)
 local RoleService = require(script.Parent.RoleService)
@@ -137,7 +138,7 @@ local function placePickup(spawnPart: BasePart, itemId: Types.ItemId, parent: In
 		* CFrame.Angles(0, math.rad(45), 0)
 	pickup:SetAttribute(Attribute.ItemId, itemId)
 
-	local prompt = Instance.new("ProximityPrompt")
+	local prompt = PromptUtil.new()
 	prompt.Name = "PickupPrompt"
 	prompt.ActionText = Strings.Prompts.PickUp
 	prompt.ObjectText = Strings.Items[itemId]

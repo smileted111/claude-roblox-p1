@@ -11,7 +11,7 @@
 --   아래 가운데  생존자: 상태(정상/부상), 스태미나 바, 아이템 2칸(이름·색. 누르면 사용, 숫자키 1·2는 SurvivorController).
 --               발전기를 고치는 동안 그 위에 수리 진행 바 (Player Attribute RepairProgress)
 --               추격자: 공격 쿨다운 바 (ChaserController가 공격할 때 UIController.startAttackCooldown을 부름).
---               판자에 맞아 기절하면 "기절!" (Player Attribute Stunned)
+--               판자에 맞아 기절하면 "기절!" (Player Attribute Stunned). 그 아래 고유 스킬 이름과 쿨다운 (SkillReadyAt)
 --               휴대폰에서 왼쪽 아래 이동 스틱, 오른쪽 아래 점프·달리기 버튼과 겹치지 않게 가운데에 좁게 둔다.
 --   가운데       역할 공개: RoleReveal 리모트를 받으면 후보 이름이 돌다가(Config.Ui.RoleReveal.SpinTime)
 --               추격자 이름에서 멈추고, 내 역할과 목표 한 줄(Strings.RoleGoals)을 ResultHoldTime초 보여준다.
@@ -21,7 +21,9 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -30,7 +32,9 @@ local Strings = require(ReplicatedStorage.Shared.Strings)
 local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Ui = require(ReplicatedStorage.Shared.Config.Ui)
+local Chasers = require(ReplicatedStorage.Shared.Config.Chasers)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
+local Match = require(ReplicatedStorage.Shared.Config.Match)
 local GeneratorBillboards = require(script.Parent.Parent.Util.GeneratorBillboards)
 local SurvivorController = require(script.Parent.SurvivorController)
 local UiStyle = require(script.Parent.Parent.Util.UiStyle)
@@ -75,6 +79,8 @@ type ChaserView = {
 	frame: Frame,
 	attackLabel: TextLabel,
 	attackFill: Frame,
+	skillLabel: TextLabel,
+	skillFill: Frame,
 }
 
 type RevealView = {
@@ -224,7 +230,7 @@ local function createChaser(gui: ScreenGui): ChaserView
 	local frame = UiStyle.panel(gui, "Chaser", true)
 	frame.AnchorPoint = Vector2.new(0.5, 1)
 	frame.Position = UDim2.new(0.5, 0, 1, -14)
-	frame.Size = UDim2.fromOffset(250, 64)
+	frame.Size = UDim2.fromOffset(250, 112)
 	frame.Visible = false
 	UiStyle.padding(frame, 6, 12)
 	UiStyle.list(frame, Enum.FillDirection.Vertical, 4)
@@ -233,7 +239,17 @@ local function createChaser(gui: ScreenGui): ChaserView
 	attackLabel.TextXAlignment = Enum.TextXAlignment.Left
 	attackLabel.Text = Strings.Hud.AttackReady
 	local _, attackFill = UiStyle.bar(frame, "Cooldown", 2, UDim2.new(1, 0, 0, 14), Colors.Accent)
-	return { frame = frame, attackLabel = attackLabel, attackFill = attackFill }
+	local skillLabel = UiStyle.label(frame, "Skill", 3, 26)
+	skillLabel.Font = UiStyle.BoldFont
+	skillLabel.TextXAlignment = Enum.TextXAlignment.Left
+	local _, skillFill = UiStyle.bar(frame, "SkillCooldown", 4, UDim2.new(1, 0, 0, 14), Colors.Warning)
+	return {
+		frame = frame,
+		attackLabel = attackLabel,
+		attackFill = attackFill,
+		skillLabel = skillLabel,
+		skillFill = skillFill,
+	}
 end
 
 local function createReveal(center: Frame): RevealView
@@ -414,6 +430,31 @@ local function renderRepair(): ()
 	if progress then
 		view.repair.label.Text = string.format(Strings.Hud.Repairing, math.floor(progress * 100))
 		view.repair.fill.Size = UDim2.fromScale(math.clamp(progress, 0, 1), 1)
+	end
+end
+
+-- 추격자 스킬 쿨다운 (서버가 공개한 SkillReadyAt과 서버 시각으로 계산). 매 프레임 부른다.
+local function renderSkill(): ()
+	local view = hud
+	if not view or MatchState.getRole(localPlayer) ~= "Chaser" then
+		return
+	end
+	local chaserView = view.chaser
+	local chaserType = MatchState.getChaserType(localPlayer) or Match.DefaultChaser
+	local def = Chasers[chaserType].Skill
+	local name = Strings.Skills[def.Kind]
+	local readyAt = MatchState.getSkillReadyAt(localPlayer)
+	local remaining = if readyAt then readyAt - Workspace:GetServerTimeNow() else 0
+	if remaining > 0 then
+		chaserView.skillLabel.Text = string.format(Strings.Hud.SkillCooldown, name, math.ceil(remaining))
+		chaserView.skillLabel.TextColor3 = Colors.Subtext
+		chaserView.skillFill.Size = UDim2.fromScale(math.clamp(1 - remaining / def.Cooldown, 0, 1), 1)
+		chaserView.skillFill.BackgroundColor3 = Colors.Disabled
+	else
+		chaserView.skillLabel.Text = string.format(Strings.Hud.SkillReady, name)
+		chaserView.skillLabel.TextColor3 = Colors.Text
+		chaserView.skillFill.Size = UDim2.fromScale(1, 1)
+		chaserView.skillFill.BackgroundColor3 = Colors.Warning
 	end
 end
 
@@ -647,6 +688,7 @@ function UIController.Start(): ()
 		localPlayer:GetAttributeChangedSignal(name):Connect(renderSurvivor)
 	end
 	localPlayer:GetAttributeChangedSignal(Attribute.Stunned):Connect(renderChaser)
+	RunService.Heartbeat:Connect(renderSkill)
 	local view = hud
 	if view then
 		for slot, button in view.survivor.slots do

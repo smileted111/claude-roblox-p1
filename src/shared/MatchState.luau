@@ -29,6 +29,10 @@
 --   RepairProgress number?                 지금 고치는 발전기의 진행 0~1 (ObjectiveService). 고치는 중이 아니면 nil
 --   Item1, Item2   Types.ItemId?           아이템 칸 (ItemService). 비면 nil
 --   Stunned        boolean?                기절 중 (판자에 맞은 추격자, MovementService). 움직이지도 공격하지도 못함
+--   ChaserType     Types.ChaserId?         이번 스테이지 추격자 종류 (ChaserService). 추격자일 때만
+--   SkillReadyAt   number?                 추격자 스킬을 다시 쓸 수 있는 서버 시각 (GetServerTimeNow 기준, ChaserService)
+--   SelectedChaser Types.ChaserId?         로비에서 고른 추격자 (DataService에 저장)
+--   UnlockedChasers string?                해금한 추격자 ChaserId를 쉼표로 이은 것 (DataService에 저장)
 --   Coins, Level, Xp  number?              저장된 코인·레벨·경험치 (DataService). 데이터를 불러오기 전에는 nil
 --   DataLoaded     boolean?                저장된 데이터를 불러옴 (DataService)
 
@@ -61,6 +65,10 @@ local Attribute = table.freeze({
 	Item1 = "Item1",
 	Item2 = "Item2",
 	Stunned = "Stunned",
+	ChaserType = "ChaserType",
+	SkillReadyAt = "SkillReadyAt",
+	SelectedChaser = "SelectedChaser",
+	UnlockedChasers = "UnlockedChasers",
 	Coins = "Coins",
 	Level = "Level",
 	Xp = "Xp",
@@ -144,6 +152,23 @@ end
 function MatchState.getItem(player: Player, slot: number): Types.ItemId?
 	local name = ITEM_SLOT_ATTRIBUTES[slot]
 	return if name then readString(player, name) :: Types.ItemId? else nil
+end
+
+function MatchState.getChaserType(player: Player): Types.ChaserId?
+	return readString(player, Attribute.ChaserType) :: Types.ChaserId?
+end
+
+function MatchState.getSkillReadyAt(player: Player): number?
+	return readNumber(player, Attribute.SkillReadyAt)
+end
+
+function MatchState.getSelectedChaser(player: Player): Types.ChaserId?
+	return readString(player, Attribute.SelectedChaser) :: Types.ChaserId?
+end
+
+function MatchState.isChaserUnlocked(player: Player, chaserId: Types.ChaserId): boolean
+	local list = readString(player, Attribute.UnlockedChasers) or ""
+	return table.find(string.split(list, ","), chaserId) ~= nil
 end
 
 function MatchState.getCoins(player: Player): number?

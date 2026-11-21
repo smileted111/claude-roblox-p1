@@ -3,7 +3,7 @@
 --
 -- 속도(Humanoid.WalkSpeed)는 서버만 정한다. 클라이언트는 달리기 의사만 보낸다 (SetRunning, SurvivorController).
 --   생존자  걷기 Config.Survivor.WalkSpeed, 달리기 RunSpeed. 부상이면 둘 다 × InjuredSpeedMultiplier. 숨어 있으면 0
---   추격자  Config.Chasers[Config.Match.DefaultChaser].WalkSpeed (추격자 종류 선택은 S3-3)
+--   추격자  Config.Chasers[이번 추격자 종류(Player Attribute ChaserType)].WalkSpeed. 돌진 스킬 중에는 × 배율 (boost)
 --   그 외   대기 장소 등. Config.Survivor.WalkSpeed, 달리기 없음
 --   기절    누구든 0 (판자에 맞은 추격자, MovementService.stun). Player Attribute Stunned
 --
@@ -37,6 +37,8 @@ type RunState = {
 	lastRunAt: number, -- 마지막으로 달린 시각 (os.clock). 회복 지연 계산용
 	nextNoiseAt: number, -- 다음 달리는 소리를 낼 시각 (os.clock)
 	stunnedUntil: number, -- 기절이 끝나는 시각 (os.clock)
+	boostUntil: number, -- 속도 증가가 끝나는 시각 (os.clock)
+	boostMultiplier: number,
 	shownStamina: number?, -- 마지막으로 Attribute에 쓴 값
 }
 
@@ -65,8 +67,10 @@ local function speedFor(player: Player, state: RunState, running: boolean, now: 
 		return 0
 	end
 	local role = MatchState.getRole(player)
+	local boost = if now < state.boostUntil then state.boostMultiplier else 1
 	if role == "Chaser" then
-		return Chasers[Match.DefaultChaser].WalkSpeed
+		local chaserType = MatchState.getChaserType(player) or Match.DefaultChaser
+		return Chasers[chaserType].WalkSpeed * boost
 	end
 	if role ~= "Survivor" then
 		return Survivor.WalkSpeed
@@ -96,6 +100,7 @@ local function refill(player: Player, state: RunState): ()
 	state.wantsToRun = false
 	state.running = false
 	state.stunnedUntil = 0
+	state.boostUntil = 0
 	state.stamina = StaminaConfig.Max
 	publish(player, state)
 end
@@ -157,6 +162,8 @@ local function onPlayerAdded(player: Player): ()
 		lastRunAt = 0,
 		nextNoiseAt = 0,
 		stunnedUntil = 0,
+		boostUntil = 0,
+		boostMultiplier = 1,
 		shownStamina = nil,
 	}
 	states[player] = state
@@ -176,6 +183,15 @@ function MovementService.stun(player: Player, seconds: number): ()
 	if state then
 		state.stunnedUntil = math.max(state.stunnedUntil, os.clock() + seconds)
 		player:SetAttribute(Attribute.Stunned, true)
+	end
+end
+
+-- seconds초 동안 이동 속도 × multiplier (사냥꾼 돌진)
+function MovementService.boost(player: Player, multiplier: number, seconds: number): ()
+	local state = states[player]
+	if state then
+		state.boostMultiplier = multiplier
+		state.boostUntil = os.clock() + seconds
 	end
 end
 

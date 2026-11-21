@@ -4,7 +4,7 @@
 -- 한 스테이지: 역할 공개 → 준비 → 추격 → 결과 (MatchService가 runStage로 부름)
 --   역할 공개  Config.Match.RoleRevealTime   추격자를 뽑고 룰렛 신호(RoleReveal)를 보냄. 솔로는 생략 (GDD 3.1)
 --   준비       Config.Match.PreparationTime  맵을 Workspace.CurrentMap에 복제하고 조명을 Config.Stages[id].Lighting으로.
---                                            생존자는 SurvivorSpawn, 추격자는 ChaserSpawn에 배치.
+--                                            생존자는 SurvivorSpawn, 추격자는 전용 외형(ChaserService)으로 ChaserSpawn에 배치.
 --                                            ChaserGate는 닫아 둠. 숨는 곳(HideService)·발전기와 출구(ObjectiveService)·
 --                                            아이템(ItemService)·판자와 문(BarrierService) 준비
 --                                            괴물 생성(MonsterService). 괴물은 추격 단계부터 움직인다
@@ -35,6 +35,7 @@ local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
 local BarrierService = require(script.Parent.BarrierService)
+local ChaserService = require(script.Parent.ChaserService)
 local DataService = require(script.Parent.DataService)
 local HideService = require(script.Parent.HideService)
 local ItemService = require(script.Parent.ItemService)
@@ -207,7 +208,10 @@ local function placeAt(player: Player, spawnPart: BasePart): ()
 	if not isInGame(player) then
 		return
 	end
-	local character = ensureCharacter(player)
+	-- 추격자는 전용 외형으로 새로 불러온다 (ChaserService). 생존자는 지금 캐릭터 그대로.
+	local character = if MatchState.getRole(player) == "Chaser"
+		then ChaserService.loadCharacter(player)
+		else ensureCharacter(player)
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 	if not character or not humanoid or not rootPart or not rootPart:IsA("BasePart") then

@@ -112,6 +112,8 @@ export type Behavior = {
 	onNoise: ((monster: Monster, noise: NoiseBus.Noise, now: number, api: Api) -> ())?,
 	-- 추격 단계가 끝나 대기(Idle)로 돌아갔을 때 (경보 표시 되돌리기 등)
 	onIdle: ((monster: Monster) -> ())?,
+	-- 조종자가 불렀을 때 seconds초 동안 position으로 온다. 없으면 공통 처리(의심 상태로 그 자리를 찾아감)
+	onSummon: ((monster: Monster, position: Vector3, now: number, seconds: number, api: Api) -> ())?,
 	usesPatrolRoute: boolean, -- false면 순찰 경로를 배정하지 않음 (움직이지 않는 감시자)
 }
 

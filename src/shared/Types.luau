@@ -105,6 +105,9 @@ export type MatchResult = {
 -- AcceptSolo·DeclineSolo: "혼자 시작할까요?"에 대한 답
 export type LobbyAction = "JoinQueue" | "AcceptSolo" | "DeclineSolo"
 
+-- 로비의 추격자 선택 요청 (ChaserSelect 리모트)
+export type ChaserSelectAction = "Select" | "Unlock"
+
 -- 잠깐 띄우는 알림 문구의 키 (Strings.Notices)
 export type NoticeKey =
 	"PreparationSurvivor"
@@ -119,5 +122,7 @@ export type NoticeKey =
 	| "SoloTeleporting"
 	| "SoloTeleportFailed"
 	| "SoloStudio"
+	| "ChaserUnlocked"
+	| "NotEnoughCoins"
 
 return {}

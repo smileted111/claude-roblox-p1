@@ -29,6 +29,7 @@ local MapTags = require(ReplicatedStorage.Shared.MapTags)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
+local PromptUtil = require(ReplicatedStorage.Shared.Util.PromptUtil)
 local RoleService = require(script.Parent.RoleService)
 
 type CharacterParts = CharacterParts.CharacterParts
@@ -302,7 +303,7 @@ local function createPrompt(
 	holdDuration: number,
 	requiresLineOfSight: boolean
 ): ProximityPrompt
-	local prompt = Instance.new("ProximityPrompt")
+	local prompt = PromptUtil.new()
 	prompt.Name = name
 	prompt.ActionText = actionText
 	prompt.HoldDuration = holdDuration

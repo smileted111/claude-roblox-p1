@@ -58,6 +58,21 @@ local Chasers: { [Types.ChaserId]: string } = {
 	Puppeteer = "조종자",
 }
 
+-- 추격자 스킬 이름과 설명 (GDD 7.1). 설명의 %d는 Config.Chasers 값으로 채운다
+local Skills: { [Types.SkillKind]: string } = {
+	Dash = "돌진",
+	RevealFootprints = "흔적 보기",
+	Blink = "순간이동",
+	CallMonsters = "괴물 부르기",
+}
+
+local SkillDescriptions: { [Types.SkillKind]: string } = {
+	Dash = "%d초 동안 이동 속도 +%d%%",
+	RevealFootprints = "%d초 동안 생존자 발자국이 보임",
+	Blink = "바라보는 쪽으로 %d스터드 순간이동 (벽은 못 넘음)",
+	CallMonsters = "가장 가까운 괴물 %d마리를 내 자리로 부름",
+}
+
 local Items: { [Types.ItemId]: string } = {
 	Flashlight = "손전등",
 	Bandage = "붕대",
@@ -79,6 +94,8 @@ local Notices: { [Types.NoticeKey]: string } = {
 	SoloTeleporting = "혼자 하기 서버로 이동하는 중...",
 	SoloTeleportFailed = "이동하지 못했습니다. 잠시 뒤 다시 시도해 주세요.",
 	SoloStudio = "Studio에서는 이 서버에서 혼자 하기를 시작합니다.",
+	ChaserUnlocked = "%s 해금!",
+	NotEnoughCoins = "코인이 모자랍니다.",
 }
 
 local Strings = {
@@ -89,6 +106,8 @@ local Strings = {
 	Stages = Stages,
 	Monsters = Monsters,
 	Chasers = Chasers,
+	Skills = Skills,
+	SkillDescriptions = SkillDescriptions,
 	Items = Items,
 	Notices = Notices,
 
@@ -131,6 +150,8 @@ local Strings = {
 		AttackReady = "공격 가능",
 		Repairing = "수리 중 %d%%",
 		Stunned = "기절!",
+		SkillReady = "%s 준비",
+		SkillCooldown = "%s %d초",
 		ExitOpen = "출구 열림!",
 		Exit = "출구",
 		Repaired = "작동 중",
@@ -178,6 +199,12 @@ local Strings = {
 		SoloYes = "혼자 하기",
 		SoloNo = "더 기다리기",
 		ChaserOptOut = "추격자 안 하기",
+		ChaserSelect = "추격자 선택",
+		Selected = "선택됨",
+		Select = "고르기",
+		UnlockCost = "%d 코인 해금",
+		Close = "닫기",
+		Cooldown = "쿨다운 %d초",
 		On = "켬",
 		Off = "끔",
 		Coins = "코인 %d",
