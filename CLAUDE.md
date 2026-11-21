@@ -18,6 +18,7 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 | `src/server` | `ServerScriptService.Server` |
 | `src/client` | `StarterPlayer.StarterPlayerScripts.Client` |
 | `Packages` (Wally) | `ReplicatedStorage.Packages` |
+| `ServerPackages` (Wally 서버 전용, 예: ProfileStore) | `ServerScriptService.ServerPackages` |
 
 - `ServerStorage`, `Workspace`, `Lighting`, `StarterGui`는 Rojo가 관리하지 않는다. Studio에서 만든 맵이 Rojo 동기화로 지워지지 않게 하기 위해서다.
 - 스테이지 맵은 `ServerStorage.Maps.<StageId>` (예: `ServerStorage.Maps.Stage1`) 폴더에 둔다.

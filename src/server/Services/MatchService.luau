@@ -22,6 +22,7 @@ local Match = require(ReplicatedStorage.Shared.Config.Match)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Types = require(ReplicatedStorage.Shared.Types)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
+local DataService = require(script.Parent.DataService)
 local RecordService = require(script.Parent.RecordService)
 local RoleService = require(script.Parent.RoleService)
 local StageService = require(script.Parent.StageService)
@@ -149,6 +150,9 @@ local function runMatch(): ()
 	end
 
 	local result = RecordService.finishMatch()
+	if result then
+		DataService.grantMatch(result)
+	end
 	if result and #Players:GetPlayers() > 0 then
 		logMatchResult(result)
 		Remotes.get("MatchResult"):FireAllClients(result)

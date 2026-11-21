@@ -16,6 +16,7 @@ local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Types = require(ReplicatedStorage.Shared.Types)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
+local DataService = require(script.Parent.DataService)
 
 local Attribute = MatchState.Attribute
 
@@ -141,8 +142,9 @@ function RoleService.Start(): ()
 		if typeof(optOut) ~= "boolean" then
 			return
 		end
-		player:SetAttribute(Attribute.ChaserOptOut, optOut)
-		print(`[Role] {player.Name}: 추격자 안 하기 = {optOut}`)
+		player:SetAttribute(Attribute.ChaserOptOut, if optOut then true else nil)
+		DataService.setChaserOptOut(player, optOut)
+		print(`[Role] {player.Name}: 추격자 안 하기 = {optOut} (저장)`)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player: Player)

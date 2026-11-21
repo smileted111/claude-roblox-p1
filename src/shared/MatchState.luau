@@ -26,6 +26,8 @@
 --   RepairProgress number?                 지금 고치는 발전기의 진행 0~1 (ObjectiveService). 고치는 중이 아니면 nil
 --   Item1, Item2   Types.ItemId?           아이템 칸 (ItemService). 비면 nil
 --   Stunned        boolean?                기절 중 (판자에 맞은 추격자, MovementService). 움직이지도 공격하지도 못함
+--   Coins, Level, Xp  number?              저장된 코인·레벨·경험치 (DataService). 데이터를 불러오기 전에는 nil
+--   DataLoaded     boolean?                저장된 데이터를 불러옴 (DataService)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -53,6 +55,10 @@ local Attribute = table.freeze({
 	Item1 = "Item1",
 	Item2 = "Item2",
 	Stunned = "Stunned",
+	Coins = "Coins",
+	Level = "Level",
+	Xp = "Xp",
+	DataLoaded = "DataLoaded",
 })
 
 -- 아이템 칸 번호 → Attribute 이름 (칸 수는 Config.Survivor.InventorySlots)
@@ -120,6 +126,10 @@ end
 function MatchState.getItem(player: Player, slot: number): Types.ItemId?
 	local name = ITEM_SLOT_ATTRIBUTES[slot]
 	return if name then readString(player, name) :: Types.ItemId? else nil
+end
+
+function MatchState.getCoins(player: Player): number?
+	return readNumber(player, Attribute.Coins)
 end
 
 function MatchState.isStunned(player: Player): boolean

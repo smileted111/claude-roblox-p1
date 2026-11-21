@@ -43,6 +43,7 @@ wally install    # wally.toml의 패키지를 Packages/에 받기
 | `src/server` | `ServerScriptService.Server` | 서버 진입점, `Services/` |
 | `src/client` | `StarterPlayer.StarterPlayerScripts.Client` | 클라이언트 진입점, `Controllers/` |
 | `Packages` | `ReplicatedStorage.Packages` | Wally 패키지 (Git에 올리지 않음) |
+| `ServerPackages` | `ServerScriptService.ServerPackages` | 서버 전용 Wally 패키지: ProfileStore (Git에 올리지 않음) |
 
 진입점은 `Services/`(서버)·`Controllers/`(클라이언트) 폴더의 모듈을 모두 불러와 `Init()`을 전부 실행한 다음 `Start()`를 실행한다.
 

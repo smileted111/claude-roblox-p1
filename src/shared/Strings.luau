@@ -173,7 +173,6 @@ local Strings = {
 		ColumnStage = "S%d",
 		ColumnCatches = "잡은 수",
 		ColumnCoins = "코인",
-		CoinsNote = "코인은 아직 저장되지 않습니다 (임시).",
 	},
 
 	-- 스테이지 결과의 플레이어별 결과 (Types.StageOutcome)

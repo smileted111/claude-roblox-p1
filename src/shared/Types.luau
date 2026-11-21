@@ -88,6 +88,7 @@ export type MatchPlayerRecord = {
 	chaserWins: number, -- 추격자로 이긴 스테이지 수
 	score: number,
 	coins: number, -- 이번 매치에서 받는 코인 (스테이지 코인 합 + 칭호 보너스, Config.Rewards)
+	bonusCoins: number, -- 그중 매치가 끝날 때 받는 칭호 보너스 (스테이지 코인은 스테이지마다 지급)
 	lastSurvivor: boolean,
 }
 

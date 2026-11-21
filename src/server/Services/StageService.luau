@@ -9,7 +9,8 @@
 --                                            아이템(ItemService)·판자와 문(BarrierService) 준비
 --                                            괴물 생성(MonsterService). 괴물은 추격 단계부터 움직인다
 --   추격       Config.Stages[id].TimeLimit   ChaserGate를 엶
---   결과       Config.Match.StageResultTime  결과를 RecordService에 기록하고 StageResult 리모트로 보냄.
+--   결과       Config.Match.StageResultTime  결과를 RecordService에 기록하고 코인·통계를 지급(DataService),
+--                                            StageResult 리모트로 보냄.
 --                                            끝나면 맵을 지우고 역할을 비우고, 조명을 대기 장소 값(Config.Lighting.Lobby)으로 되돌림
 --
 -- 조기 종료: 남은 생존자가 없으면 (모두 잡힘·탈출·나감) 바로 결과로 간다 (GDD 3.2, 5장).
@@ -32,6 +33,7 @@ local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
 local BarrierService = require(script.Parent.BarrierService)
+local DataService = require(script.Parent.DataService)
 local HideService = require(script.Parent.HideService)
 local ItemService = require(script.Parent.ItemService)
 local MonsterService = require(script.Parent.MonsterService)
@@ -444,6 +446,7 @@ function StageService.runStage(stageId: Types.StageId): ()
 
 	-- 결과
 	local result = recordResult(run, if outcome == "TimeUp" then "TimeUp" else "NoSurvivorsLeft")
+	DataService.grantStage(result)
 	Remotes.get("StageResult"):FireAllClients(result)
 	if #Players:GetPlayers() > 0 then
 		PhaseTimer.run("StageResult", Match.StageResultTime)

@@ -8,7 +8,7 @@
 -- 최종 결과 (MatchResult 리모트, 최종 결과 단계 동안. 따로 ScreenGui)
 --   라스트 서바이버 발표(이름이 튀어나오는 연출, 없으면 베스트 서바이버) / 표(이름, 스테이지별 결과, 잡은 수, 코인) /
 --   "다시 하기" 버튼: 지금은 화면을 닫는다 (서버는 결과 시간이 끝나면 다음 매치 대기로 간다. S3-2에서 대기열 참가로).
--- 코인은 아직 저장되지 않는 임시 값이다 (S3-1). 단계가 바뀌면 화면을 닫는다.
+-- 코인은 서버가 스테이지·매치가 끝날 때 지급하고 저장한다 (DataService). 단계가 바뀌면 화면을 닫는다.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -222,11 +222,6 @@ local function showMatch(result: Types.MatchResult): ()
 		cell(line, tostring(record.catches), CATCH_WIDTH, 20)
 		cell(line, tostring(record.coins), COIN_WIDTH, 21, Colors.Warning)
 	end
-
-	local note = UiStyle.label(panel, "Note", 90, 18)
-	note.TextSize = 13
-	note.TextColor3 = Colors.Subtext
-	note.Text = Strings.Results.CoinsNote
 
 	local again = UiStyle.button(panel, "PlayAgain", 100, UDim2.fromOffset(220, 48), true)
 	again.Text = Strings.Results.PlayAgain
