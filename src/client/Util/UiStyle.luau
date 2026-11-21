@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
+local Types = require(ReplicatedStorage.Shared.Types)
 local Ui = require(ReplicatedStorage.Shared.Config.Ui)
 
 local Colors = table.freeze({
@@ -21,8 +22,18 @@ local Colors = table.freeze({
 	Stamina = Color3.fromRGB(110, 200, 255),
 })
 
+-- 추격자 화면의 괴물 아이콘 색 (괴물 모델의 눈 색과 맞춤)
+local MonsterColors: { [Types.MonsterId]: Color3 } = {
+	Wanderer = Color3.fromRGB(60, 255, 90),
+	Hound = Color3.fromRGB(255, 140, 40),
+	Watcher = Color3.fromRGB(255, 230, 60),
+	Shadow = Color3.fromRGB(170, 110, 255),
+	Giant = Color3.fromRGB(255, 70, 70),
+}
+
 local UiStyle = {
 	Colors = Colors,
+	MonsterColors = MonsterColors,
 	PanelTransparency = 0.25,
 	Font = Enum.Font.GothamMedium,
 	BoldFont = Enum.Font.GothamBold,

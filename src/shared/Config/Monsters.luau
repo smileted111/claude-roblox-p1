@@ -6,11 +6,13 @@
 local Types = require(script.Parent.Parent.Types)
 
 export type MonsterDef = {
-	WalkSpeed: number, -- 0이면 움직이지 않음
+	WalkSpeed: number, -- 0이면 움직이지 않음. 추격·돌진 속도
+	PatrolSpeed: number?, -- 순찰할 때의 속도. 없으면 WalkSpeed
 	Senses: { Types.Sense },
 	SightRange: number, -- 볼 수 있는 거리. Sight가 없으면 0
 	SightAngle: number, -- 시야각. Sight가 없으면 0
 	HearingRange: number, -- 소리를 듣는 거리. Sound가 없으면 0
+	CloseDetectRange: number?, -- 시야가 없어도 이 거리 안(벽 너머 제외)의 생존자는 알아챔 (사냥개)
 	AttackRange: number, -- 0이면 공격하지 않음
 	AttackCooldown: number, -- 공격 간격 (초)
 	CatchesInstantly: boolean, -- 맞으면 부상 없이 바로 잡힘 (GDD 2.2)
@@ -18,6 +20,7 @@ export type MonsterDef = {
 	BreaksHideSpots: boolean, -- 숨는 곳을 부숨 (GDD 4.4)
 	ChaseGiveUpTime: number?, -- 돌진한 뒤 이 시간 안에 못 잡으면 포기 (초)
 	AlertMarkerDuration: number?, -- 발견한 생존자 위치를 추격자에게 보여주는 시간 (초)
+	AlertEyeColor: Color3?, -- 경보 중 눈 색 (감시자)
 	FlashlightFreezeTime: number?, -- 손전등 빛을 받으면 멈추는 시간 (초, GDD 6.3 손전등과 같은 값)
 	DarkTransparency: number?, -- 어두운 곳에서의 투명도 (1이면 완전히 안 보임)
 }
@@ -50,10 +53,12 @@ local Monsters: { [Types.MonsterId]: MonsterDef } = {
 	-- 사냥개: 달리는 소리에 반응해 짧게 돌진, 5초 후 포기
 	Hound = {
 		WalkSpeed = 22,
+		PatrolSpeed = 12, -- 임시: 순찰까지 22면 너무 빨라 소리를 낼 틈이 없음
 		Senses = { "Sound" },
 		SightRange = 0,
 		SightAngle = 0,
 		HearingRange = 60, -- 임시
+		CloseDetectRange = 10, -- 임시
 		AttackRange = ATTACK_RANGE,
 		AttackCooldown = ATTACK_COOLDOWN,
 		CatchesInstantly = false,
@@ -74,6 +79,7 @@ local Monsters: { [Types.MonsterId]: MonsterDef } = {
 		BreaksBarriers = false,
 		BreaksHideSpots = false,
 		AlertMarkerDuration = 5,
+		AlertEyeColor = Color3.fromRGB(255, 60, 50), -- 임시
 	},
 	-- 그림자: 어두운 곳에서는 거의 안 보임. 손전등을 비추면 2초간 멈춤
 	Shadow = {

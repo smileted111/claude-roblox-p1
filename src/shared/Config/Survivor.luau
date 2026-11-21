@@ -17,6 +17,8 @@ export type SurvivorConfig = {
 	Stamina: StaminaConfig,
 	HitInvulnerableTime: number, -- 맞은 직후 다시 맞지 않는 시간 (초)
 	HealTime: number, -- 아군을 치료하는 데 걸리는 시간 (초)
+	RunNoiseRadius: number, -- 달리는 소리가 들리는 거리 (스터드, 사냥개)
+	RunNoiseInterval: number, -- 달리는 동안 소리를 내는 간격 (초)
 	InventorySlots: number, -- 아이템 칸 수
 }
 
@@ -33,6 +35,8 @@ local Survivor: SurvivorConfig = {
 	},
 	HitInvulnerableTime = 1, -- docs/studio-workflow.md S1-5
 	HealTime = 4,
+	RunNoiseRadius = 50, -- 임시
+	RunNoiseInterval = 0.5, -- 임시
 	InventorySlots = 2,
 }
 

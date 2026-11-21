@@ -44,6 +44,7 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 
 - 모든 파일 첫 줄에 `--!strict`. 타입을 명시한다.
 - 서버: `src/server/Services/<Name>Service.luau`, 클라이언트: `src/client/Controllers/<Name>Controller.luau`. 각 모듈은 `Init()`과 `Start()`를 가진다. 진입점이 모든 모듈의 `Init`을 먼저 실행한 다음 `Start`를 실행한다.
+- 괴물 종류별 동작은 `src/server/Monsters/<Name>.luau` (`MonsterTypes.Behavior`), 공통 부분은 MonsterService.
 - 서버 권한: 피격·잡힘·아이템·목표 진행·역할은 서버만 결정한다. 클라이언트 요청은 거리·쿨다운·상태를 검사하고, 원격 호출에는 빈도 제한을 둔다.
 - RemoteEvent/RemoteFunction은 `src/shared/Remotes.luau` 한 곳에서 정의한다.
 - 수치(속도, 시간, 괴물 수 등)는 코드에 직접 쓰지 않고 `src/shared/Config/`의 데이터 테이블에 둔다. 값은 GDD에 적힌 초기값을 쓴다.

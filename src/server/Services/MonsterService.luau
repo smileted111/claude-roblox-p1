@@ -1,27 +1,35 @@
 --!strict
--- MonsterService: 괴물 생성·AI (GDD 4.1, 4.3, 4.4, 13.2)
+-- MonsterService: 괴물 생성·AI의 공통 부분 (GDD 4.1, 4.3, 4.4, 7장, 13.2)
+-- 종류별 동작은 server/Monsters/<Name>.luau (MonsterTypes.Behavior)에 있다: 배회자·사냥개·감시자.
+-- 그림자·거인은 S3-4에서 추가한다. 동작이 없는 종류는 배회자로 대신하고 경고를 남긴다.
 --
 -- 생성 (StageService가 준비 단계에서 맵을 불러온 뒤 spawnForStage, 스테이지가 끝나면 clear를 부름)
 --   종류별 수 = 반올림(Config.Stages의 수 × Config.MonsterScaling의 인원 배율). 그 구간의 MinPerType보다 적으면 올림.
 --   모두 합쳐 MonsterScaling.MaxActive를 넘지 않게 종류를 돌아가며 한 마리씩 채운다 (computeCounts).
 --   ServerStorage.MonsterModels.<MonsterId>를 복제해 Workspace.Monsters에 둔다 (MonsterState).
---   MonsterSpawn 태그 파트에 무작위 순서로 한 마리씩, 자리가 모자라면 돌아가며 옆으로 띄워 놓는다.
---   순찰 경로(PatrolPoint의 Route·Order)는 괴물이 적은 경로부터 배정하고, 그 경로에서 가장 가까운 지점부터 돈다.
+--   MonsterSpawn 자리: Attribute Monster가 그 종류인 자리 → 종류 지정이 없는 자리 → 가장 덜 쓴 자리 순서로 고른다.
+--   한 자리에 둘 이상이면 옆으로 띄운다. 괴물은 자리 파트가 보는 방향을 본다 (감시자).
+--   순찰 경로(PatrolPoint의 Route·Order)는 움직이는 괴물에게만, 괴물이 적은 경로부터 배정하고 가장 가까운 지점부터 돈다.
+--   추격자에게는 괴물 모델을 항상 스트리밍한다 (ModelStreamingMode PersistentPerPlayer). 추격자 화면의
+--   괴물 위치 아이콘(ChaserController)이 맵 어디서든 보이게 하기 위해서다 (질문지 Q2-8).
 --
 -- AI: Heartbeat 하나가 모든 괴물을 갱신한다. 괴물마다 Config.MonsterAI.TickInterval 간격이고,
 --     시작 시점을 괴물 수로 나눠 한 프레임에 몰리지 않게 한다. 갱신 중에는 멈추지(yield) 않는다.
---   대기  추격 단계가 아니면 제자리에 서 있다 (준비 중에는 움직이지 않음, MonsterState.canActInPhase)
+--   추격 단계가 아니면 대기(Idle): 제자리에 서 있다 (준비 중에는 움직이지 않음, MonsterState.canActInPhase).
+--   추격 단계에서는 종류별 동작(Behavior.tick)을 부른다. 공통 상태 처리(Api)는 배회자식 흐름이다:
 --   순찰  경로의 다음 지점으로 걷는다. 생존자를 보면 의심 (InstantChaseDistance 안이면 바로 추격)
 --   의심  마지막으로 본 곳으로 다가간다. SuspicionTime초 동안 보면 추격. 가 봐도 없으면 포기
 --   추격  대상에게 다가간다. 보이고 가까우면 곧장, 아니면 길찾기. AttackRange 안이면 공격
 --   공격  멈춰서 대상을 보고 AttackWindup초 뒤 판정. 맞으면 CatchService.hit (정상 → 부상 → 잡힘). 끝나면 추격
 --   포기  대상이 LoseSightTime초 동안 안 보이거나 마지막으로 본 곳에 없으면 GiveUpTime초 서 있다가 순찰
+--   순찰할 때는 PatrolSpeed(있으면), 나머지 상태에서는 WalkSpeed로 걷는다.
 --
--- 감지 (Sight): SightRange 안, 앞쪽 SightAngle 안(추격 중에는 각도를 보지 않음), 눈(Head)에서 생존자의
---   몸통이나 머리까지 레이캐스트가 벽(충돌하는 파트)에 막히지 않아야 한다.
+-- 감지
+--   시야(Sight): SightRange 안, 앞쪽 SightAngle 안(추격 중에는 각도를 보지 않음), 눈(Head)에서 생존자의
+--     몸통이나 머리까지 레이캐스트가 벽(충돌하는 파트)에 막히지 않아야 한다.
+--   소리(Sound): server/Util/NoiseBus의 소리 사건이 min(HearingRange, 소리 반경) 안이면 Behavior.onNoise.
 --   대상은 숨지 않은 정상·부상 생존자뿐이다. 추격자는 감지·공격하지 않는다 (GDD 2장, 질문지 Q2-7).
 --   거리를 먼저 검사하므로 생존자에게서 먼 괴물은 레이캐스트 없이 이동만 한다 (GDD 4.4).
---   소리 감지(사냥개)는 S2-3에서 추가한다.
 --
 -- 길찾기: 괴물마다 Path 하나. 경로 계산은 괴물마다 PathRecomputeInterval초 이상 간격으로만 한다.
 --   ComputeAsync는 멈추므로 따로 실행하고, 결과가 올 때까지는 이전 경로를 따라간다.
@@ -41,84 +49,37 @@ local MonsterAI = require(ReplicatedStorage.Shared.Config.MonsterAI)
 local MonsterScaling = require(ReplicatedStorage.Shared.Config.MonsterScaling)
 local MonsterState = require(ReplicatedStorage.Shared.MonsterState)
 local Monsters = require(ReplicatedStorage.Shared.Config.Monsters)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
+local Hound = require(script.Parent.Parent.Monsters.Hound)
+local MonsterTypes = require(script.Parent.Parent.Monsters.MonsterTypes)
+local Wanderer = require(script.Parent.Parent.Monsters.Wanderer)
+local Watcher = require(script.Parent.Parent.Monsters.Watcher)
+local NoiseBus = require(script.Parent.Parent.Util.NoiseBus)
 local CatchService = require(script.Parent.CatchService)
 local HideService = require(script.Parent.HideService)
 local RoleService = require(script.Parent.RoleService)
 
 type AIState = Types.MonsterAIState
+type Monster = MonsterTypes.Monster
+type Target = MonsterTypes.Target
+type Route = MonsterTypes.Route
+type Animations = MonsterTypes.Animations
 
--- 순찰 경로: 같은 Route의 PatrolPoint 위치를 Order 순서로
-type Route = {
-	name: string,
-	points: { Vector3 },
-}
-
--- 괴물이 볼 수 있는 생존자 (숨지 않은 정상·부상). 갱신이 있는 프레임마다 한 번 모은다.
-type Target = {
-	player: Player,
-	rootPart: BasePart,
-	head: BasePart?,
-}
-
-type Animations = {
-	idle: AnimationTrack,
-	walk: AnimationTrack,
-	attack: AnimationTrack,
-}
-
-type Monster = {
-	name: string, -- 로그용 (예: 배회자#1)
-	kind: Types.MonsterId,
-	def: Monsters.MonsterDef,
-	model: Model,
-	humanoid: Humanoid,
-	rootPart: BasePart,
-	eye: BasePart, -- Head. 시야 레이캐스트의 시작점
-	path: Path,
-	animations: Animations,
-	connections: { RBXScriptConnection },
-	alive: boolean,
-
-	state: AIState,
-	stateSince: number, -- os.clock
-	nextTickAt: number,
-	lastTickAt: number,
-
-	route: Route?,
-	routeIndex: number,
-
-	target: Player?,
-	lastSeenPosition: Vector3?,
-	lastSeenAt: number,
-	suspicion: number, -- 의심 중 대상을 본 시간의 합 (초)
-	nextAttackAt: number,
-	attackHitAt: number,
-
-	pathRequest: number, -- 올릴 때마다 그 전에 시작한 경로 계산 결과를 버린다
-	computing: boolean,
-	lastPathAt: number,
-	pathGoal: Vector3?, -- 지금 waypoints가 향하는 목표. 곧장 다가가는 중이거나 멈췄으면 nil
-	waypoints: { PathWaypoint },
-	waypointIndex: number,
-	forceRepath: boolean,
-	pathOnlyUntil: number, -- 곧장 다가가다 막혔으면 이때까지 길찾기만 쓴다
-
-	stuckCheckPosition: Vector3,
-	stuckCheckAt: number,
-}
-
--- 동작을 구현한 괴물. 나머지 종류는 배회자로 대체하고 경고를 남긴다 (사냥개·감시자 S2-3, 그림자·거인 S3-4).
-local IMPLEMENTED: { [Types.MonsterId]: boolean } = {
-	Wanderer = true,
+-- 종류별 동작. 없는 종류는 FALLBACK_MONSTER로 대신한다 (그림자·거인 S3-4).
+local BEHAVIORS: { [Types.MonsterId]: MonsterTypes.Behavior } = {
+	Wanderer = Wanderer,
+	Hound = Hound,
+	Watcher = Watcher,
 }
 local FALLBACK_MONSTER: Types.MonsterId = "Wanderer"
 
 local PATROL_ROUTE_ATTRIBUTE = "Route" -- PatrolPoint의 경로 이름 (CLAUDE.md 맵 규칙)
 local PATROL_ORDER_ATTRIBUTE = "Order" -- PatrolPoint의 순서
+local SPAWN_MONSTER_ATTRIBUTE = "Monster" -- MonsterSpawn에 먼저 놓을 괴물 종류 (CLAUDE.md 맵 규칙)
 local MOVING_SPEED = 0.1 -- Humanoid.Running 속도가 이보다 크면 걷는 중으로 본다 (멈춰 있을 때의 흔들림을 걸러냄)
 
 local STATE_NAMES: { [AIState]: string } = {
@@ -128,6 +89,7 @@ local STATE_NAMES: { [AIState]: string } = {
 	Chase = "추격",
 	Attack = "공격",
 	GiveUp = "포기",
+	Alert = "경보",
 }
 
 local Config = MonsterAI
@@ -140,6 +102,7 @@ local monsters: { Monster } = {}
 local monsterFolder: Folder? = nil
 local heartbeatConnection: RBXScriptConnection? = nil
 local serial = 0
+local api: MonsterTypes.Api
 
 -- 시야 검사: 캐릭터와 괴물은 빼고, 충돌하는 파트만 시야를 가리는 것으로 본다 (열린 대기실 문, 바닥 표시 등은 통과).
 local sightParams = RaycastParams.new()
@@ -172,6 +135,10 @@ local function shuffled<T>(list: { T }): { T }
 		copy[i], copy[j] = copy[j], copy[i]
 	end
 	return copy
+end
+
+local function hasSense(monster: Monster, sense: Types.Sense): boolean
+	return table.find(monster.def.Senses, sense) ~= nil
 end
 
 --------------------------------------------------------------------------------
@@ -288,6 +255,37 @@ local function pickRoute(routes: { Route }, routeUse: { [string]: number }, posi
 	return best
 end
 
+-- 괴물 한 마리를 놓을 MonsterSpawn: 그 종류로 지정된 빈자리 → 지정 없는 빈자리 → 가장 덜 쓴 자리.
+-- 두 번째 값은 그 자리에 이미 놓인 수 (옆으로 띄우는 데 씀).
+local function pickSpawn(kind: Types.MonsterId, spawns: { BasePart }, used: { [BasePart]: number }): (BasePart, number)
+	local function firstUnused(match: (BasePart) -> boolean): BasePart?
+		for _, spawnPart in spawns do
+			if (used[spawnPart] or 0) == 0 and match(spawnPart) then
+				return spawnPart
+			end
+		end
+		return nil
+	end
+	local chosen = firstUnused(function(spawnPart: BasePart): boolean
+		return spawnPart:GetAttribute(SPAWN_MONSTER_ATTRIBUTE) == kind
+	end) or firstUnused(function(spawnPart: BasePart): boolean
+		return spawnPart:GetAttribute(SPAWN_MONSTER_ATTRIBUTE) == nil
+	end)
+	if not chosen then
+		local fewest = math.huge
+		for _, spawnPart in spawns do
+			if (used[spawnPart] or 0) < fewest then
+				chosen = spawnPart
+				fewest = used[spawnPart] or 0
+			end
+		end
+	end
+	local spawnPart = chosen :: BasePart
+	local lap = used[spawnPart] or 0
+	used[spawnPart] = lap + 1
+	return spawnPart, lap
+end
+
 --------------------------------------------------------------------------------
 -- 상태와 이동
 
@@ -300,6 +298,8 @@ local function setState(monster: Monster, state: AIState, detail: string?): ()
 	monster.state = state
 	monster.stateSince = os.clock()
 	monster.model:SetAttribute(Attribute.State, state)
+	local def = monster.def
+	monster.humanoid.WalkSpeed = if state == "Patrol" and def.PatrolSpeed then def.PatrolSpeed else def.WalkSpeed
 end
 
 -- 경로의 지금 중간 지점으로 걷는다. 이미 가까운 지점은 건너뛴다.
@@ -454,15 +454,7 @@ local function hasLineOfSight(monster: Monster, target: Target): boolean
 end
 
 local function canSee(monster: Monster): boolean
-	if monster.def.SightRange <= 0 then
-		return false
-	end
-	for _, sense in monster.def.Senses do
-		if sense == "Sight" then
-			return true
-		end
-	end
-	return false
+	return monster.def.SightRange > 0 and hasSense(monster, "Sight")
 end
 
 local function isInSight(monster: Monster, target: Target, checkAngle: boolean): boolean
@@ -511,6 +503,37 @@ local function findVisibleTarget(
 	return best
 end
 
+-- 시야각 안에 보이는 생존자 모두 (감시자)
+local function findVisibleTargets(monster: Monster, targets: { Target }): { Target }
+	local seen: { Target } = {}
+	if canSee(monster) then
+		for _, target in targets do
+			if isInSight(monster, target, true) then
+				table.insert(seen, target)
+			end
+		end
+	end
+	return seen
+end
+
+-- range 안에서 벽에 가리지 않은 가장 가까운 생존자 (시야각·시각 감각과 상관없음. 사냥개가 가까이 있는 생존자를 알아챔)
+local function findNearbyTarget(monster: Monster, targets: { Target }, range: number): Target?
+	if range <= 0 then
+		return nil
+	end
+	local best: Target? = nil
+	local bestDistance = range
+	local origin = monster.rootPart.Position
+	for _, target in targets do
+		local distance = (target.rootPart.Position - origin).Magnitude
+		if distance <= bestDistance and hasLineOfSight(monster, target) then
+			best = target
+			bestDistance = distance
+		end
+	end
+	return best
+end
+
 local function findTarget(targets: { Target }, player: Player?): Target?
 	for _, target in targets do
 		if target.player == player then
@@ -520,8 +543,15 @@ local function findTarget(targets: { Target }, player: Player?): Target?
 	return nil
 end
 
+local function markForChasers(position: Vector3, duration: number, reason: Types.MarkerReason): ()
+	local remote = Remotes.get("ChaserMarker")
+	for _, chaser in RoleService.getChasers() do
+		remote:FireClient(chaser, position, duration, reason)
+	end
+end
+
 --------------------------------------------------------------------------------
--- 상태별 갱신
+-- 공통 상태 처리 (배회자식 흐름)
 
 local function remember(monster: Monster, target: Target, now: number): ()
 	monster.target = target.player
@@ -551,6 +581,7 @@ end
 local function giveUp(monster: Monster, reason: string): ()
 	monster.target = nil
 	monster.lastSeenPosition = nil
+	monster.noiseGoal = nil
 	stopMoving(monster)
 	setState(monster, "GiveUp", reason)
 end
@@ -597,7 +628,7 @@ local function tickPatrol(monster: Monster, now: number, targets: { Target }): (
 		return
 	end
 	local route = monster.route
-	if not route or monster.def.WalkSpeed <= 0 then
+	if not route or monster.humanoid.WalkSpeed <= 0 then
 		return
 	end
 	local position = monster.rootPart.Position
@@ -639,13 +670,20 @@ local function tickSuspicious(monster: Monster, now: number, dt: number, targets
 	travelTo(monster, seen.rootPart.Position, now, true)
 end
 
-local function startAttack(monster: Monster, target: Target, now: number): ()
+-- 사거리 안이고 쿨다운이 지났으면 멈춰서 공격을 시작한다.
+local function tryStartAttack(monster: Monster, target: Target, now: number): boolean
+	local def = monster.def
+	local distance = (target.rootPart.Position - monster.rootPart.Position).Magnitude
+	if def.AttackRange <= 0 or distance > def.AttackRange or now < monster.nextAttackAt then
+		return false
+	end
 	stopMoving(monster)
 	face(monster, target.rootPart.Position)
-	monster.nextAttackAt = now + monster.def.AttackCooldown
+	monster.nextAttackAt = now + def.AttackCooldown
 	monster.attackHitAt = now + Config.AttackWindup
 	monster.animations.attack:Play(Config.AnimationFadeTime)
 	setState(monster, "Attack", target.player.Name)
+	return true
 end
 
 local function tickChase(monster: Monster, now: number, targets: { Target }): ()
@@ -659,17 +697,16 @@ local function tickChase(monster: Monster, now: number, targets: { Target }): ()
 		print(`[Monster] {monster.name} 추격 대상 바꿈 → {seen.player.Name}`)
 	end
 	remember(monster, seen, now)
-
-	local def = monster.def
-	local targetPosition = seen.rootPart.Position
-	local distance = (targetPosition - monster.rootPart.Position).Magnitude
-	if def.AttackRange > 0 and distance <= def.AttackRange and now >= monster.nextAttackAt then
-		startAttack(monster, seen, now)
+	if tryStartAttack(monster, seen, now) then
 		return
 	end
+
+	local def = monster.def
 	if def.WalkSpeed <= 0 then
 		return
 	end
+	local targetPosition = seen.rootPart.Position
+	local distance = (targetPosition - monster.rootPart.Position).Magnitude
 	if checkStuck(monster, now, distance > def.AttackRange) then
 		monster.forceRepath = true
 		monster.pathOnlyUntil = now + Config.StuckTime
@@ -709,29 +746,58 @@ local function tickGiveUp(monster: Monster, now: number, targets: { Target }): (
 	end
 end
 
+api = {
+	setState = setState,
+	tickPatrol = tickPatrol,
+	tickSuspicious = tickSuspicious,
+	tickChase = tickChase,
+	tickAttack = tickAttack,
+	tickGiveUp = tickGiveUp,
+	resumePatrol = resumePatrol,
+	giveUp = giveUp,
+	remember = remember,
+	travelTo = travelTo,
+	moveDirect = moveDirect,
+	stopMoving = stopMoving,
+	checkStuck = checkStuck,
+	findVisibleTarget = findVisibleTarget,
+	findVisibleTargets = findVisibleTargets,
+	findNearbyTarget = findNearbyTarget,
+	tryStartAttack = tryStartAttack,
+	markForChasers = markForChasers,
+}
+
 local function tick(monster: Monster, now: number, dt: number, active: boolean, targets: { Target }): ()
 	if not active then
 		if monster.state ~= "Idle" then
 			monster.target = nil
+			monster.noiseGoal = nil
 			stopMoving(monster)
 			setState(monster, "Idle")
+			local onIdle = monster.behavior.onIdle
+			if onIdle then
+				onIdle(monster)
+			end
 		end
 		return
 	end
-	local state = monster.state
-	if state == "Idle" then
-		resumePatrol(monster)
-		tickPatrol(monster, now, targets)
-	elseif state == "Patrol" then
-		tickPatrol(monster, now, targets)
-	elseif state == "Suspicious" then
-		tickSuspicious(monster, now, dt, targets)
-	elseif state == "Chase" then
-		tickChase(monster, now, targets)
-	elseif state == "Attack" then
-		tickAttack(monster, now, targets)
-	elseif state == "GiveUp" then
-		tickGiveUp(monster, now, targets)
+	monster.behavior.tick(monster, now, dt, targets, api)
+end
+
+-- 소리 사건: 들리는 거리 안의 소리를 듣는 괴물에게 전한다 (추격 단계만).
+local function onNoise(noise: NoiseBus.Noise): ()
+	if #monsters == 0 or not MonsterState.canActInPhase(MatchState.getPhase()) then
+		return
+	end
+	local now = os.clock()
+	for _, monster in monsters do
+		local listener = monster.behavior.onNoise
+		if listener and monster.alive and hasSense(monster, "Sound") then
+			local range = math.min(monster.def.HearingRange, noise.radius)
+			if (monster.rootPart.Position - noise.position).Magnitude <= range then
+				listener(monster, noise, now, api)
+			end
+		end
 	end
 end
 
@@ -884,7 +950,12 @@ local function createMonster(
 	model.Name = `{kind}{serial}`
 	model:SetAttribute(Attribute.MonsterId, kind)
 	model:SetAttribute(Attribute.State, "Idle")
+	-- 추격자 화면의 괴물 위치 아이콘이 멀리서도 보이게 추격자에게는 항상 스트리밍한다.
+	model.ModelStreamingMode = Enum.ModelStreamingMode.PersistentPerPlayer
 	model.Parent = parent
+	for _, chaser in RoleService.getChasers() do
+		model:AddPersistentPlayer(chaser)
+	end
 	-- 괴물의 물리는 서버가 맡는다. 가까운 플레이어에게 넘어가면 움직임이 끊기고 조작될 수 있다.
 	if rootPart:CanSetNetworkOwnership() then
 		rootPart:SetNetworkOwner(nil)
@@ -896,6 +967,7 @@ local function createMonster(
 		name = `{Strings.Monsters[kind]}#{serial}`,
 		kind = kind,
 		def = def,
+		behavior = BEHAVIORS[kind],
 		model = model,
 		humanoid = humanoid,
 		rootPart = rootPart,
@@ -936,6 +1008,10 @@ local function createMonster(
 
 		stuckCheckPosition = rootPart.Position,
 		stuckCheckAt = now,
+
+		noiseGoal = nil,
+		dashUntil = 0,
+		alertedAt = {},
 	}
 	connectHumanoid(monster)
 	return monster
@@ -997,14 +1073,14 @@ function MonsterService.spawnForStage(
 		return if template and template:IsA("Model") then template else nil
 	end
 	local routeUse: { [string]: number } = {}
-	local placed = 0
+	local spawnUse: { [BasePart]: number } = {}
 	local made: { [Types.MonsterId]: number } = {}
 	local madeOrder: { Types.MonsterId } = {}
 	for _, group in groups do
 		local kind = group.Monster
 		local template = findTemplate(kind)
-		if group.Count > 0 and (not IMPLEMENTED[kind] or not template) then
-			local reason = if IMPLEMENTED[kind]
+		if group.Count > 0 and (not BEHAVIORS[kind] or not template) then
+			local reason = if BEHAVIORS[kind]
 				then `ServerStorage.{MonsterState.ModelsFolderName}.{kind} 모델이 없어`
 				else "아직 동작을 만들지 않아"
 			warn(
@@ -1019,13 +1095,13 @@ function MonsterService.spawnForStage(
 			)
 		elseif template then
 			for _ = 1, group.Count do
-				local spawnPart = spawns[placed % #spawns + 1]
-				local lap = placed // #spawns
-				local route = pickRoute(routes, routeUse, spawnPart.Position)
+				local spawnPart, lap = pickSpawn(kind, spawns, spawnUse)
+				local route = if BEHAVIORS[kind].usesPatrolRoute
+					then pickRoute(routes, routeUse, spawnPart.Position)
+					else nil
 				local monster = createMonster(kind, template, spawnPart, lap, route, folder)
 				if monster then
 					table.insert(monsters, monster)
-					placed += 1
 					if not made[kind] then
 						table.insert(madeOrder, kind)
 					end
@@ -1061,6 +1137,8 @@ end
 
 function MonsterService.Init(): () end
 
-function MonsterService.Start(): () end
+function MonsterService.Start(): ()
+	NoiseBus.subscribe(onNoise)
+end
 
 return MonsterService

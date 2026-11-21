@@ -7,16 +7,20 @@
 --   맞았는지, 쿨다운이 지났는지는 서버(CatchService)가 다시 판정한다 (ChaserAttack 리모트).
 -- 숨는 곳의 "열어보기" 프롬프트를 추격자에게만, 추격 단계에서만 켠다. 누르는 시간(ChaserOpenTime)과 판정은 서버(HideService).
 -- 위치 표시: ChaserMarker 리모트(발전기 소리, 감시자 경보)를 받으면 그 위치에 duration초 동안 표시 (Util/WorldMarker).
+-- 괴물 위치 (GDD 7장, 질문지 Q2-8): 추격자일 때 Workspace.Monsters의 괴물마다 벽 너머에서도 보이는 아이콘(색 점 + 이름).
+--   서버가 괴물 모델을 추격자에게 항상 스트리밍하므로(MonsterService) 맵 어디서든 보인다.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
 local Assets = require(ReplicatedStorage.Shared.Config.Assets)
 local CatchState = require(ReplicatedStorage.Shared.CatchState)
 local Chasers = require(ReplicatedStorage.Shared.Config.Chasers)
 local HideSpotState = require(ReplicatedStorage.Shared.HideSpotState)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
+local MonsterState = require(ReplicatedStorage.Shared.MonsterState)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
@@ -114,6 +118,95 @@ local function onChaserMarker(position: unknown, duration: unknown, reason: unkn
 	WorldMarker.show(position, duration, text, MARKER_COLORS[markerReason])
 end
 
+-- 괴물 위치 아이콘 -------------------------------------------------------------------------------------------
+
+local MONSTER_ICON_NAME = "ChaserMonsterIcon"
+local monsterIcons: { [Model]: BillboardGui } = {}
+local monsterFolderConnections: { RBXScriptConnection } = {}
+
+local function removeMonsterIcon(model: Model): ()
+	local icon = monsterIcons[model]
+	if icon then
+		monsterIcons[model] = nil
+		icon:Destroy()
+	end
+end
+
+local function addMonsterIcon(model: Model): ()
+	if monsterIcons[model] then
+		return
+	end
+	local root = model:FindFirstChild("HumanoidRootPart")
+	local kind = model:GetAttribute(MonsterState.Attribute.MonsterId)
+	if not root or not root:IsA("BasePart") or typeof(kind) ~= "string" then
+		return
+	end
+	local monsterId = kind :: Types.MonsterId
+	local color = UiStyle.MonsterColors[monsterId] or UiStyle.Colors.Text
+	local icon = Instance.new("BillboardGui")
+	icon.Name = MONSTER_ICON_NAME
+	icon.AlwaysOnTop = true
+	icon.LightInfluence = 0
+	icon.Size = UDim2.fromOffset(80, 38)
+	icon.StudsOffsetWorldSpace = Vector3.new(0, 4.5, 0)
+	local dot = Instance.new("Frame")
+	dot.Name = "Dot"
+	dot.AnchorPoint = Vector2.new(0.5, 0)
+	dot.Position = UDim2.fromScale(0.5, 0)
+	dot.Size = UDim2.fromOffset(16, 16)
+	dot.BackgroundColor3 = color
+	UiStyle.corner(dot, 8)
+	UiStyle.stroke(dot, UiStyle.Colors.Panel)
+	dot.Parent = icon
+	local label = UiStyle.label(icon, "Name", 0, 18)
+	label.Position = UDim2.fromOffset(0, 18)
+	label.Font = UiStyle.BoldFont
+	label.TextSize = 14
+	label.TextColor3 = color
+	label.TextStrokeTransparency = 0.3
+	label.Text = Strings.Monsters[monsterId] or kind
+	icon.Parent = root
+	monsterIcons[model] = icon
+end
+
+local function refreshMonsterIcons(): ()
+	local show = MatchState.getRole(localPlayer) == "Chaser"
+	local folder = Workspace:FindFirstChild(MonsterState.FolderName)
+	for model in monsterIcons do
+		if not show or not folder or model.Parent ~= folder then
+			removeMonsterIcon(model)
+		end
+	end
+	if show and folder then
+		for _, child in folder:GetChildren() do
+			if child:IsA("Model") then
+				addMonsterIcon(child)
+			end
+		end
+	end
+end
+
+local function watchMonsterFolder(folder: Instance): ()
+	for _, connection in monsterFolderConnections do
+		connection:Disconnect()
+	end
+	table.clear(monsterFolderConnections)
+	table.insert(monsterFolderConnections, folder.ChildAdded:Connect(refreshMonsterIcons))
+	table.insert(monsterFolderConnections, folder.ChildRemoved:Connect(refreshMonsterIcons))
+	-- 모델이 통째로 들어오기 전에 ChildAdded가 오면 몸통이 생길 때 다시 맞춘다.
+	table.insert(
+		monsterFolderConnections,
+		folder.DescendantAdded:Connect(function(descendant: Instance)
+			if descendant.Name == "HumanoidRootPart" then
+				refreshMonsterIcons()
+			end
+		end)
+	)
+	refreshMonsterIcons()
+end
+
+-- -------------------------------------------------------------------------------------------------------------
+
 local function onTouchTapInWorld(_position: Vector2, processedByUI: boolean): ()
 	if not processedByUI then
 		tryAttack()
@@ -132,6 +225,17 @@ function ChaserController.Start(): ()
 	UserInputService.InputBegan:Connect(onInputBegan)
 	UserInputService.TouchTapInWorld:Connect(onTouchTapInWorld)
 	Remotes.get("ChaserMarker").OnClientEvent:Connect(onChaserMarker)
+
+	Workspace.ChildAdded:Connect(function(child: Instance)
+		if child.Name == MonsterState.FolderName then
+			watchMonsterFolder(child)
+		end
+	end)
+	local existing = Workspace:FindFirstChild(MonsterState.FolderName)
+	if existing then
+		watchMonsterFolder(existing)
+	end
+	localPlayer:GetAttributeChangedSignal(Attribute.Role):Connect(refreshMonsterIcons)
 
 	localPlayer:GetAttributeChangedSignal(Attribute.Role):Connect(refreshOpenPrompts)
 	ReplicatedStorage:GetAttributeChangedSignal(Attribute.Phase):Connect(refreshOpenPrompts)

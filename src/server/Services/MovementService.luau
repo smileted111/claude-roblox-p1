@@ -12,6 +12,8 @@
 --   바닥나면 달리기가 끊기고, MinToStartRun 이상 찰 때까지 다시 달릴 수 없다.
 --   역할이 바뀌거나 캐릭터가 새로 생기면 가득 찬다.
 -- 스태미나와 달리는 중인지는 Player Attribute(MatchState.Attribute.Stamina, Running)로 공개한다.
+-- 달리는 동안 Config.Survivor.RunNoiseInterval초마다 소리 사건(server/Util/NoiseBus, 반경 RunNoiseRadius)을 낸다.
+--   사냥개가 이 소리에 반응한다 (GDD 4.1).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,6 +23,7 @@ local Chasers = require(ReplicatedStorage.Shared.Config.Chasers)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
+local NoiseBus = require(script.Parent.Parent.Util.NoiseBus)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 
 -- WalkSpeed는 float로 저장되어 14.4 같은 값이 정확히 같지 않으므로 이 차이 이상일 때만 바꾼다.
@@ -31,6 +34,7 @@ type RunState = {
 	running: boolean, -- 지금 실제로 달리는 중
 	stamina: number,
 	lastRunAt: number, -- 마지막으로 달린 시각 (os.clock). 회복 지연 계산용
+	nextNoiseAt: number, -- 다음 달리는 소리를 낼 시각 (os.clock)
 	shownStamina: number?, -- 마지막으로 Attribute에 쓴 값
 }
 
@@ -104,6 +108,16 @@ local function update(player: Player, state: RunState, deltaTime: number, now: n
 	if running then
 		state.stamina = math.max(0, state.stamina - StaminaConfig.RunDrainPerSecond * deltaTime)
 		state.lastRunAt = now
+		local rootPart = humanoid and humanoid.RootPart
+		if rootPart and now >= state.nextNoiseAt then
+			state.nextNoiseAt = now + Survivor.RunNoiseInterval
+			NoiseBus.emit({
+				kind = "Running",
+				position = rootPart.Position,
+				radius = Survivor.RunNoiseRadius,
+				source = player,
+			})
+		end
 		if state.stamina <= 0 then
 			running = false
 		end
@@ -130,6 +144,7 @@ local function onPlayerAdded(player: Player): ()
 		running = false,
 		stamina = StaminaConfig.Max,
 		lastRunAt = 0,
+		nextNoiseAt = 0,
 		shownStamina = nil,
 	}
 	states[player] = state
