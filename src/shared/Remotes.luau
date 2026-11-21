@@ -15,7 +15,7 @@ local RunService = game:GetService("RunService")
 local FOLDER_NAME = "Remotes"
 
 -- 서버 → 클라이언트
-export type ServerEventName = "RoleReveal" | "Notice" | "ChaserMarker" | "StageResult" | "MatchResult"
+export type ServerEventName = "RoleReveal" | "Notice" | "ChaserMarker" | "StageResult" | "MatchResult" | "SoloOffer"
 
 -- 클라이언트 → 서버
 export type ClientEventName =
@@ -26,6 +26,7 @@ export type ClientEventName =
 	| "SpectateCycle"
 	| "SetChaserOptOut"
 	| "ReturnToLobby"
+	| "LobbyRequest"
 
 export type EventName = ServerEventName | ClientEventName
 
@@ -34,8 +35,9 @@ local SERVER_EVENTS: { ServerEventName } = {
 	"RoleReveal", -- 모두 (chaserUserId: number, candidateUserIds: {number}). 역할 공개 룰렛 시작. 솔로는 보내지 않음
 	"Notice", -- 한 명 또는 모두 (key: Types.NoticeKey, ...: string | number). Strings.Notices 문구를 잠깐 띄움
 	"ChaserMarker", -- 추격자 (position: Vector3, duration: number, reason: Types.MarkerReason). 생존자 위치 잠깐 표시
-	"StageResult", -- 모두 (result). 스테이지 결과. 형식은 S2-5에서 Types에 정의
-	"MatchResult", -- 모두 (result). 최종 결과. 형식은 S2-5에서 Types에 정의
+	"StageResult", -- 참가자 (result: Types.StageResult). 스테이지 결과
+	"MatchResult", -- 참가자 (result: Types.MatchResult). 최종 결과
+	"SoloOffer", -- 한 명 (waitedSeconds: number). 같이 하기 구역에 혼자 오래 있음 → "혼자 시작할까요?" (GDD 5장)
 }
 
 local CLIENT_EVENTS: { ClientEventName } = {
@@ -45,7 +47,8 @@ local CLIENT_EVENTS: { ClientEventName } = {
 	"UseItem", -- 생존자 (slot: number, aimPosition: Vector3?). 아이템 사용. 알람시계는 던질 위치를 함께 보냄
 	"SpectateCycle", -- 관전자 (step: number). 1이면 다음, -1이면 이전 대상. 관전 대상 자체는 Player Attribute(MatchState)
 	"SetChaserOptOut", -- 모두 (optOut: boolean). "추격자 안 하기" 설정
-	"ReturnToLobby", -- 관전자 (). 로비로 돌아가기
+	"ReturnToLobby", -- 참가자 (). 매치에서 빠져 로비로 (관전 화면 버튼). 혼자 하기 서버에서는 일반 서버로 이동
+	"LobbyRequest", -- 로비에 있는 사람 (action: Types.LobbyAction). 같이 하기 구역으로 가기·솔로 제안 답
 }
 
 -- 관전자(역할 Spectator)도 보낼 수 있는 클라이언트 → 서버 리모트. 나머지는 관전자가 보내면 서버가 모두 거절한다 (GDD 8장).

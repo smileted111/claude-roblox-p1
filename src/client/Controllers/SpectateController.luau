@@ -9,7 +9,7 @@
 -- 대상 바꾸기: 이전 Q·←·LB, 다음 E·→·RB, 화면 버튼(모바일·마우스). SpectateCycle 리모트로 요청하고 서버가 정한다.
 --   ←/→는 Roblox 기본 카메라 회전 키라 더 높은 우선순위로 묶어 가로챈다.
 -- 화면: 관전 중 / 대상 이름 / 역할·상태(숨음) / 남은 생존자 수·단계와 남은 시간 / 이전·다음 /
---   목표 진행(발전기 n/전체 또는 출구 열림) / 로비로 돌아가기(자리만. S3-2에서 연결).
+--   목표 진행(발전기 n/전체 또는 출구 열림) / 로비로 돌아가기(ReturnToLobby 리모트: 매치에서 빠져 로비로).
 -- 관전자 채팅: 서버가 관전자 채널(SpectateState.ChatChannelName)에 나를 넣으면 입력창 대상을 그 채널로 바꾸고
 --   안내 문구를 띄운다. 빠지면 RBXGeneral로 되돌린다. 관전자 채널 메시지 앞에는 [관전]을 붙인다.
 
@@ -39,6 +39,7 @@ type SpectateGui = {
 	hintLabel: TextLabel,
 	previousButton: TextButton,
 	nextButton: TextButton,
+	lobbyButton: TextButton,
 }
 
 local Attribute = MatchState.Attribute
@@ -99,8 +100,8 @@ local function createGui(): SpectateGui
 	local nextButton = UiStyle.button(row, "Next", 2, UDim2.fromOffset(150, 52), true)
 	nextButton.Text = `{Strings.Spectate.Next}  ▶`
 
-	-- 자리만 (S3-2에서 연결). 눌러도 아무 일도 없어 흐리게 보인다.
-	local lobbyButton = UiStyle.button(bottom, "ReturnToLobby", 3, UDim2.fromOffset(220, 40), false)
+	-- 매치에서 빠져 로비로 (ReturnToLobby 리모트, 그때까지 받은 보상은 남음. 혼자 하기 서버는 일반 서버로 이동)
+	local lobbyButton = UiStyle.button(bottom, "ReturnToLobby", 3, UDim2.fromOffset(240, 44), true)
 	lobbyButton.Text = Strings.Spectate.ReturnToLobby
 
 	gui.Parent = UiStyle.playerGui()
@@ -112,6 +113,7 @@ local function createGui(): SpectateGui
 		hintLabel = hintLabel,
 		previousButton = previousButton,
 		nextButton = nextButton,
+		lobbyButton = lobbyButton,
 	}
 end
 
@@ -376,6 +378,7 @@ function SpectateController.Init(): () end
 
 function SpectateController.Start(): ()
 	cycleRemote = Remotes.get("SpectateCycle")
+	local lobbyRemote = Remotes.get("ReturnToLobby")
 	local ui = createGui()
 	view = ui
 	ui.previousButton.Activated:Connect(function()
@@ -383,6 +386,9 @@ function SpectateController.Start(): ()
 	end)
 	ui.nextButton.Activated:Connect(function()
 		requestCycle(1)
+	end)
+	ui.lobbyButton.Activated:Connect(function()
+		lobbyRemote:FireServer()
 	end)
 
 	localPlayer:GetAttributeChangedSignal(Attribute.Spectating):Connect(refresh)

@@ -15,6 +15,9 @@ local MapTags = table.freeze({
 	Plank = "Plank", -- 판자 (Model: Board 파트 + 넘어진 자리 FallenPose 파트)
 	Door = "Door", -- 문 (Model: Panel 파트 + 열린 자리 OpenPose 파트)
 	DarkZone = "DarkZone", -- 어두운 구역 (보이지 않고 부딪히지 않는 상자. 그림자 괴물이 거의 투명해짐, S3-4)
+	-- 로비 (Workspace.Lobby, 맵 폴더가 아님)
+	LobbyTogether = "LobbyTogether", -- 같이 하기 구역 발판. 위에 서 있으면 대기열
+	LobbySolo = "LobbySolo", -- 혼자 하기 발판. "혼자 하기" 프롬프트가 생김
 })
 
 return MapTags

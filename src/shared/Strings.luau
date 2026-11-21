@@ -75,6 +75,10 @@ local Notices: { [Types.NoticeKey]: string } = {
 	SurvivorEscaped = "%s 님이 탈출했습니다!",
 	ExitOpened = "출구가 열렸습니다! 빨리 탈출하세요!",
 	ChaserLeft = "추격자가 나갔습니다. 이번 스테이지는 괴물만 남습니다.",
+	MatchInProgress = "매치가 진행 중입니다. 로비에서 다음 매치를 기다려 주세요.",
+	SoloTeleporting = "혼자 하기 서버로 이동하는 중...",
+	SoloTeleportFailed = "이동하지 못했습니다. 잠시 뒤 다시 시도해 주세요.",
+	SoloStudio = "Studio에서는 이 서버에서 혼자 하기를 시작합니다.",
 }
 
 local Strings = {
@@ -153,6 +157,31 @@ local Strings = {
 		GamepadHint = "LB·RB로 대상 바꾸기",
 		ChatPrefix = "[관전]",
 		ChatNotice = "관전자 채팅입니다. 메시지는 관전자끼리만 볼 수 있습니다.",
+	},
+
+	-- 서버가 연결을 끊을 때 (Player:Kick)
+	System = {
+		DataLoadFailed = "데이터를 불러오지 못했습니다. 다시 들어와 주세요.",
+		DataSessionTaken = "다른 서버에서 데이터를 쓰고 있어 연결을 끊었습니다. 다시 들어와 주세요.",
+		SoloServerFull = "혼자 하기 서버에는 들어올 수 없습니다.",
+	},
+
+	-- 로비 (GDD 3장, 5장, 11장)
+	Lobby = {
+		Together = "같이 하기",
+		Solo = "혼자 하기",
+		QueueCount = "같이 하기 대기 %d명",
+		NeedMore = "한 명 더 오면 시작",
+		SoloServer = "혼자 하기 서버",
+		SoloOfferTitle = "혼자 시작할까요?",
+		SoloOfferBody = "%d초 동안 다른 플레이어가 오지 않았습니다. 추격자 없이 괴물만 나오는 혼자 하기로 시작할까요? (보상 70%%)",
+		SoloYes = "혼자 하기",
+		SoloNo = "더 기다리기",
+		ChaserOptOut = "추격자 안 하기",
+		On = "켬",
+		Off = "끔",
+		Coins = "코인 %d",
+		Level = "Lv %d",
 	},
 
 	-- 결과 (GDD 3.2, 3.4)

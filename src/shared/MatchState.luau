@@ -13,6 +13,9 @@
 --   GeneratorsDone  number?            다 고친 발전기 수 (ObjectiveService)
 --   GeneratorsTotal number?            이번 스테이지 발전기 수. 스테이지 밖에서는 nil
 --   ExitOpen       boolean?            출구가 열렸는가 (ObjectiveService)
+--   QueueCount     number?             같이 하기 대기 인원 (LobbyService)
+--   SoloServer     boolean?            혼자 하기 서버인가 (LobbyService)
+--   MatchRunning   boolean?            매치 진행 중 (MatchService). 참가자가 아니면 로비에서 기다린다
 --
 -- Player의 Attribute (플레이어별)
 --   Role           Types.Role?             이번 스테이지의 역할. 대기 중에는 nil
@@ -43,6 +46,9 @@ local Attribute = table.freeze({
 	GeneratorsDone = "GeneratorsDone",
 	GeneratorsTotal = "GeneratorsTotal",
 	ExitOpen = "ExitOpen",
+	QueueCount = "QueueCount",
+	SoloServer = "SoloServer",
+	MatchRunning = "MatchRunning",
 	Role = "Role",
 	SurvivorState = "SurvivorState",
 	ChaserOptOut = "ChaserOptOut",
@@ -113,6 +119,18 @@ end
 
 function MatchState.isExitOpen(): boolean
 	return ReplicatedStorage:GetAttribute(Attribute.ExitOpen) == true
+end
+
+function MatchState.getQueueCount(): number
+	return readNumber(ReplicatedStorage, Attribute.QueueCount) or 0
+end
+
+function MatchState.isSoloServer(): boolean
+	return ReplicatedStorage:GetAttribute(Attribute.SoloServer) == true
+end
+
+function MatchState.isMatchRunning(): boolean
+	return ReplicatedStorage:GetAttribute(Attribute.MatchRunning) == true
 end
 
 function MatchState.getRepairProgress(player: Player): number?

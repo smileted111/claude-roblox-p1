@@ -84,9 +84,9 @@ function RoleService.assignRoles(participants: { Player }, chaser: Player?): ()
 	end
 end
 
--- 스테이지 진행 중에 들어온 사람: 다음 스테이지까지 관전자.
-function RoleService.setSpectator(player: Player): ()
-	setRole(player, "Spectator", nil)
+-- 매치에서 빠진 사람 (로비로 돌아감): 역할을 지운다.
+function RoleService.clearRole(player: Player): ()
+	setRole(player, nil, nil)
 end
 
 -- 생존자 상태를 바꾼다 (CatchService·출구 처리에서 부름). 잡히거나 탈출하면 스테이지가 끝날 때까지 관전자가 된다.

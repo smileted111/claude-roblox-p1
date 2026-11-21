@@ -317,11 +317,22 @@ local function renderTop(): ()
 	end
 
 	if phase == "Waiting" then
+		-- 로비: 같이 하기 대기 인원과 시작까지 남은 시간 (혼자 하기 서버는 서버 이름)
 		top.timerLabel.Visible = false
 		top.infoLabel.Visible = true
-		top.infoLabel.Text = if timeLeft
-			then string.format(Strings.Hud.StartsIn, timeLeft)
-			else Strings.Hud.WaitingForPlayers
+		local queueCount = MatchState.getQueueCount()
+		local lines: { string } = {}
+		if MatchState.isSoloServer() then
+			table.insert(lines, Strings.Lobby.SoloServer)
+		elseif queueCount > 0 then
+			table.insert(lines, string.format(Strings.Lobby.QueueCount, queueCount))
+		end
+		if timeLeft then
+			table.insert(lines, string.format(Strings.Hud.StartsIn, timeLeft))
+		elseif queueCount == 1 then
+			table.insert(lines, Strings.Lobby.NeedMore)
+		end
+		top.infoLabel.Text = if #lines > 0 then table.concat(lines, " · ") else Strings.Hud.WaitingForPlayers
 		return
 	end
 	top.timerLabel.Visible = timeLeft ~= nil
@@ -622,6 +633,8 @@ function UIController.Start(): ()
 			Attribute.GeneratorsDone,
 			Attribute.GeneratorsTotal,
 			Attribute.ExitOpen,
+			Attribute.QueueCount,
+			Attribute.SoloServer,
 		}
 	do
 		ReplicatedStorage:GetAttributeChangedSignal(name):Connect(renderTop)

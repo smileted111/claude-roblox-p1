@@ -1,37 +1,46 @@
 --!strict
--- MatchService: 매치 시작·종료, 스테이지 순서 (GDD 3장, 13.2)
+-- MatchService: 매치 시작·종료, 스테이지 순서, 참가자 (GDD 3장, 5장, 8장, 13.2)
 --
 -- 흐름: 대기 → 매치(스테이지 Config.Match.StageOrder 순서대로) → 최종 결과 → 다시 대기 (GDD 3장)
---   대기: Config.Match.MinPlayers명 이상이면 LobbyWaitTime초 뒤 시작. 그 사이 인원이 모자라면 처음부터 다시 기다린다.
---   매치: 시작할 때 추격자 횟수(RoleService)와 매치 기록(RecordService)을 새로 시작하고, 스테이지마다
---         StageService.runStage를 부른다. 추격자는 스테이지마다 새로 뽑고, 잡혔던 사람도 다음 스테이지에 생존자로 돌아온다.
---         스테이지 사이에는 모두 대기 장소에 다시 만든다. 사람이 모두 나가거나 오류가 나면 매치를 그만두고 대기로.
---   최종 결과: 라스트 서바이버(또는 베스트 서바이버)와 플레이어별 기록을 MatchResult 리모트로 보내고
---         Config.Match.MatchResultTime초 동안 보여준 뒤 대기로 돌아간다.
+--   대기 (일반 서버): 로비의 같이 하기 구역에 선 사람(LobbyService.getQueue)이 MinTogetherPlayers명 이상이면
+--         LobbyWaitTime초 뒤 그때 구역에 있는 사람들로 시작한다. 그 사이 인원이 모자라면 다시 기다린다.
+--         구역에 혼자 SoloOfferWaitTime초 있으면 혼자 하기를 제안한다 (LobbyService.offerSolo, GDD 5장).
+--         Studio에서 혼자 하기를 고르면 이 서버에서 그 사람 혼자 매치를 시작한다 (예약 서버로 보낼 수 없어서).
+--   대기 (혼자 하기 서버): 들어온 사람 혼자 SoloStartDelay초 뒤 시작한다. 매치가 끝나면 다시 시작한다.
+--   매치: 참가자만 진행한다. 시작할 때 추격자 횟수(RoleService)와 매치 기록(RecordService)을 새로 시작하고 스테이지마다
+--         StageService.runStage(참가자)를 부른다. 추격자는 스테이지마다 새로 뽑고, 잡혔던 사람도 다음 스테이지에 돌아온다.
+--         스테이지 사이에는 참가자를 로비에 다시 만든다. 참가자가 모두 빠지거나 오류가 나면 매치를 그만두고 대기로.
+--         "로비로 돌아가기"(ReturnToLobby 리모트): 참가자에서 빠져 로비로 간다. 그때까지 받은 보상은 남는다 (GDD 8장).
+--         혼자 하기 서버에서는 일반 서버로 보낸다.
+--   매치 중에 들어온 사람은 로비에서 다음 매치를 기다린다 (Notice MatchInProgress).
+--   최종 결과: 라스트 서바이버(또는 베스트 서바이버)와 기록을 참가자에게 MatchResult 리모트로 보내고
+--         MatchResultTime초 보여준 뒤 대기로 돌아간다. 칭호 보너스 지급은 DataService.
+-- 공개: ReplicatedStorage Attribute MatchRunning (MatchState)
 --
 -- 캐릭터는 서버가 직접 만든다 (Players.CharacterAutoLoads = false).
---   스테이지 밖: 들어오거나 죽으면 대기 장소(Workspace의 SpawnLocation)에 만든다.
---   스테이지 중: 새로 들어온 사람은 다음 스테이지까지 관전자(캐릭터 없음).
---               죽은 참가자는 Players.RespawnTime 뒤 자기 역할의 시작 위치에 다시 만든다 (StageService.respawn).
---   스테이지가 끝나면 모두 대기 장소에 다시 만든다 (잡힌 사람도 돌아옴).
+--   로비(Workspace.Lobby의 SpawnLocation)에 만들고, 참가자는 준비 단계에 맵 시작 위치로 옮긴다 (StageService).
+--   죽으면 Players.RespawnTime 뒤 StageService.respawn (참가자는 자기 역할의 시작 위치, 아니면 로비).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Match = require(ReplicatedStorage.Shared.Config.Match)
+local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Types = require(ReplicatedStorage.Shared.Types)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
+local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 local DataService = require(script.Parent.DataService)
+local LobbyService = require(script.Parent.LobbyService)
 local RecordService = require(script.Parent.RecordService)
 local RoleService = require(script.Parent.RoleService)
 local StageService = require(script.Parent.StageService)
 
+local Attribute = MatchState.Attribute
+
 local MatchService = {}
 
-local function hasEnoughPlayers(): boolean
-	return #Players:GetPlayers() >= Match.MinPlayers
-end
+local participants: { [Player]: boolean } = {}
 
 local function spawnInLobby(player: Player): ()
 	if player.Parent == Players then
@@ -61,47 +70,88 @@ local function onPlayerAdded(player: Player): ()
 	if player.Character then
 		task.spawn(watchCharacter, player, player.Character)
 	end
-
-	if StageService.isRunning() then
-		RoleService.setSpectator(player)
-		print(`[Match] {player.Name} 입장 · 스테이지 진행 중이라 다음 스테이지까지 관전`)
+	if MatchState.isMatchRunning() then
+		Remotes.get("Notice"):FireClient(player, "MatchInProgress" :: Types.NoticeKey)
+		print(`[Match] {player.Name} 입장 · 매치 진행 중이라 로비에서 대기`)
 	else
-		print(`[Match] {player.Name} 입장 · 대기 장소`)
-		if not player.Character then
-			spawnInLobby(player)
-		end
+		print(`[Match] {player.Name} 입장 · 로비`)
+	end
+	if not player.Character then
+		spawnInLobby(player)
 	end
 end
 
-local function waitForPlayers(): ()
+-- 매치에 참가할 사람들이 정해질 때까지 기다린다.
+local function waitForParticipants(): { Player }
+	PhaseTimer.set("Waiting", "같이 하기 대기")
+	local alonePlayer: Player? = nil
+	local aloneSince = 0
 	while true do
-		if not hasEnoughPlayers() then
-			PhaseTimer.set("Waiting", `플레이어 {Match.MinPlayers}명 이상 기다리는 중`)
-			repeat
-				task.wait(Match.PhaseTickInterval)
-			until hasEnoughPlayers()
+		local studioSolo = LobbyService.takeStudioSoloRequest()
+		if studioSolo then
+			LobbyService.publishQueueCount(0)
+			return { studioSolo }
 		end
-		print(`[Match] 플레이어 {#Players:GetPlayers()}명 · {Match.LobbyWaitTime}초 뒤 스테이지 시작`)
-		local outcome = PhaseTimer.run("Waiting", Match.LobbyWaitTime, function(): boolean
-			return not hasEnoughPlayers()
-		end)
-		if outcome == "TimeUp" then
-			return
+
+		local solo = LobbyService.isSoloServer()
+		local needed = if solo then Match.MinPlayers else Match.MinTogetherPlayers
+		local queue = LobbyService.getQueue()
+		LobbyService.publishQueueCount(#queue)
+		if #queue >= needed then
+			local delay = if solo then Match.SoloStartDelay else Match.LobbyWaitTime
+			print(`[Match] 같이 하기 {#queue}명 · {delay}초 뒤 매치 시작`)
+			local outcome = PhaseTimer.run("Waiting", delay, function(): boolean
+				local current = LobbyService.getQueue()
+				LobbyService.publishQueueCount(#current)
+				return #current < needed
+			end)
+			local final = LobbyService.getQueue()
+			if outcome == "TimeUp" and #final >= needed then
+				LobbyService.publishQueueCount(0)
+				return final
+			end
+			print("[Match] 인원이 모자라 대기를 다시 시작")
+			PhaseTimer.set("Waiting", "같이 하기 대기")
+			alonePlayer = nil
+		elseif #queue == 1 and not solo then
+			-- 혼자 오래 기다리면 혼자 하기를 제안한다 (거절하면 SoloOfferWaitTime 뒤 다시).
+			local player = queue[1]
+			local now = os.clock()
+			if player ~= alonePlayer then
+				alonePlayer = player
+				aloneSince = now
+			elseif now - aloneSince >= Match.SoloOfferWaitTime then
+				LobbyService.offerSolo(player, math.floor(now - aloneSince))
+				aloneSince = now
+			end
+		else
+			if alonePlayer then
+				LobbyService.clearOffer(alonePlayer)
+			end
+			alonePlayer = nil
 		end
-		print("[Match] 인원이 모자라 대기를 처음부터 다시 시작")
+		task.wait(Match.PhaseTickInterval)
 	end
 end
 
-local function spawnEveryoneInLobby(): ()
-	for _, player in Players:GetPlayers() do
-		task.spawn(spawnInLobby, player)
+-- 아직 매치에 남은 참가자 (UserId순)
+local function activeParticipants(): { Player }
+	local list: { Player } = {}
+	for player in participants do
+		if player.Parent == Players then
+			table.insert(list, player)
+		end
 	end
+	table.sort(list, function(a: Player, b: Player): boolean
+		return a.UserId < b.UserId
+	end)
+	return list
 end
 
 -- 스테이지 한 판. 오류가 나면 false. 처리기는 오류가 난 자리에서 불려서 traceback에 원래 위치가 남는다.
-local function runStageSafely(stageId: Types.StageId): boolean
+local function runStageSafely(stageId: Types.StageId, players: { Player }): boolean
 	local ok = xpcall(function(): ()
-		StageService.runStage(stageId)
+		StageService.runStage(stageId, players)
 	end, function(message: unknown): ()
 		warn(
 			`[Match] 스테이지 진행 중 오류로 매치를 그만둡니다: {debug.traceback(tostring(message))}`
@@ -129,42 +179,80 @@ local function logMatchResult(result: Types.MatchResult): ()
 	print(`[Match] 최종 결과 · {title} · {table.concat(lines, ", ")}`)
 end
 
-local function runMatch(): ()
-	RoleService.resetChaserCounts()
-	RecordService.startMatch(Match.StageOrder)
-	print(`[Match] 매치 시작 · 스테이지 {table.concat(Match.StageOrder, " → ")}`)
-
+local function playStages(): ()
 	for index, stageId in Match.StageOrder do
-		if #Players:GetPlayers() == 0 then
-			print("[Match] 플레이어가 모두 나가 매치를 그만둠")
+		local active = activeParticipants()
+		if #active == 0 then
+			print("[Match] 참가자가 모두 빠져 매치를 그만둠")
 			RecordService.abortMatch()
 			return
 		end
-		print(`[Match] 스테이지 {index}/{#Match.StageOrder}`)
-		if not runStageSafely(stageId) then
+		print(`[Match] 스테이지 {index}/{#Match.StageOrder} · 참가자 {#active}명`)
+		if not runStageSafely(stageId, active) then
 			RecordService.abortMatch()
 			return
 		end
-		-- 잡혀서 캐릭터가 없는 사람도 다음 스테이지 전에 대기 장소로 돌아온다.
-		spawnEveryoneInLobby()
+		-- 잡혀서 캐릭터가 없는 사람도 다음 스테이지 전에 로비로 돌아온다.
+		for _, player in activeParticipants() do
+			task.spawn(spawnInLobby, player)
+		end
 	end
 
 	local result = RecordService.finishMatch()
-	if result then
-		DataService.grantMatch(result)
+	if not result then
+		return
 	end
-	if result and #Players:GetPlayers() > 0 then
+	DataService.grantMatch(result)
+	local active = activeParticipants()
+	if #active > 0 then
 		logMatchResult(result)
-		Remotes.get("MatchResult"):FireAllClients(result)
+		local remote = Remotes.get("MatchResult")
+		for _, player in active do
+			remote:FireClient(player, result)
+		end
 		PhaseTimer.run("MatchResult", Match.MatchResultTime)
 	end
 end
 
+local function runMatch(players: { Player }): ()
+	table.clear(participants)
+	local names: { string } = {}
+	for _, player in players do
+		participants[player] = true
+		table.insert(names, player.Name)
+	end
+	ReplicatedStorage:SetAttribute(Attribute.MatchRunning, true)
+	RoleService.resetChaserCounts()
+	RecordService.startMatch(Match.StageOrder)
+	print(
+		`[Match] 매치 시작 · 참가자 {table.concat(names, ", ")} · 스테이지 {table.concat(
+			Match.StageOrder,
+			" → "
+		)}`
+	)
+	playStages()
+	table.clear(participants)
+	ReplicatedStorage:SetAttribute(Attribute.MatchRunning, nil)
+end
+
+-- 참가자가 매치에서 빠져 로비로 간다 (관전 화면의 "로비로 돌아가기").
+local function onReturnToLobby(player: Player): ()
+	if LobbyService.isSoloServer() then
+		LobbyService.teleportToPublic(player)
+		return
+	end
+	if not participants[player] then
+		return
+	end
+	participants[player] = nil
+	StageService.leaveMatch(player)
+	task.spawn(spawnInLobby, player)
+	print(`[Match] {player.Name} 로비로 돌아감 (매치에서 빠짐)`)
+end
+
 local function runLoop(): ()
 	while true do
-		waitForPlayers()
-		runMatch()
-		spawnEveryoneInLobby()
+		runMatch(waitForParticipants())
 	end
 end
 
@@ -179,7 +267,11 @@ function MatchService.Start(): ()
 		task.spawn(onPlayerAdded, player)
 	end
 	Players.PlayerRemoving:Connect(function(player: Player)
+		participants[player] = nil
 		print(`[Match] {player.Name} 퇴장`)
+	end)
+	RemoteHandler.connect("ReturnToLobby", function(player: Player)
+		onReturnToLobby(player)
 	end)
 
 	task.spawn(runLoop)

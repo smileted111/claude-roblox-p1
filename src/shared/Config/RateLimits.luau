@@ -18,6 +18,7 @@ local RateLimits: { [Remotes.ClientEventName]: RateLimitRule } = {
 	SpectateCycle = { MaxCalls = 5, Window = 1 },
 	SetChaserOptOut = { MaxCalls = 2, Window = 1 },
 	ReturnToLobby = { MaxCalls = 1, Window = 5 },
+	LobbyRequest = { MaxCalls = 3, Window = 2 },
 }
 
 return RateLimits

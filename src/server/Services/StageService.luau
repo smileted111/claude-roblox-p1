@@ -13,8 +13,10 @@
 --                                            StageResult 리모트로 보냄.
 --                                            끝나면 맵을 지우고 역할을 비우고, 조명을 대기 장소 값(Config.Lighting.Lobby)으로 되돌림
 --
+-- 참가자: MatchService가 넘겨준 매치 참가자만 역할을 받는다. 로비에 있는 다른 사람은 상관없다.
+--   신호(역할 공개·알림·결과)는 참가자에게만 보낸다. "로비로 돌아가기"로 빠진 참가자(leaveMatch)는 나간 것으로 본다.
 -- 조기 종료: 남은 생존자가 없으면 (모두 잡힘·탈출·나감) 바로 결과로 간다 (GDD 3.2, 5장).
--- 추격자가 나가면 새로 뽑지 않고 괴물만으로 계속한다 (GDD 5장, 질문지 Q6-5).
+-- 추격자가 나가면(게임에서 나감·로비로 돌아감) 새로 뽑지 않고 괴물만으로 계속한다 (GDD 5장, 질문지 Q6-5).
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -48,6 +50,8 @@ type EndReason = "TimeUp" | "NoSurvivorsLeft"
 
 type StageRun = {
 	stageId: Types.StageId,
+	participants: { Player }, -- 이 스테이지 참가자 (MatchService가 넘김)
+	left: { [Player]: boolean }, -- 스테이지 중에 로비로 돌아간 참가자
 	survivors: { Player }, -- 처음 생존자로 배정된 사람 (결과 기록용)
 	chaser: Player?, -- 추격자가 나가면 nil
 	originalChaser: Player?, -- 처음 뽑힌 추격자 (결과 기록용)
@@ -73,6 +77,21 @@ end
 
 local function isInGame(player: Player): boolean
 	return player.Parent == Players
+end
+
+-- 아직 이 스테이지에 남아 있는 참가자인가 (게임에서 나가거나 로비로 돌아가지 않음)
+local function isInMatch(run: StageRun, player: Player): boolean
+	return isInGame(player) and not run.left[player] and table.find(run.participants, player) ~= nil
+end
+
+-- 남아 있는 참가자에게만 리모트를 보낸다.
+local function fireParticipants(run: StageRun, name: Remotes.ServerEventName, ...: any): ()
+	local remote = Remotes.get(name)
+	for _, player in run.participants do
+		if isInMatch(run, player) then
+			remote:FireClient(player, ...)
+		end
+	end
 end
 
 -- 맵 안에서 태그가 붙은 파트. ServerStorage의 원본 맵에도 같은 태그가 있어서 CollectionService:GetTagged 대신 맵 안만 찾는다.
@@ -242,10 +261,10 @@ end
 -- 남은 생존자가 없으면 true (스테이지 조기 종료).
 local function updateAndCheckEnd(run: StageRun): boolean
 	local chaser = run.chaser
-	if chaser and not isInGame(chaser) then
+	if chaser and not isInMatch(run, chaser) then
 		run.chaser = nil
 		ReplicatedStorage:SetAttribute(Attribute.HasChaser, false)
-		Remotes.get("Notice"):FireAllClients("ChaserLeft" :: Types.NoticeKey)
+		fireParticipants(run, "Notice", "ChaserLeft" :: Types.NoticeKey)
 		print(`[Stage] 추격자 {chaser.Name} 이탈 → 이번 스테이지는 괴물만으로 계속`)
 	end
 
@@ -266,7 +285,7 @@ local function recordResult(run: StageRun, reason: EndReason): Types.StageResult
 	local succeeded = 0
 	for _, player in run.survivors do
 		local outcome: Types.StageOutcome
-		if not isInGame(player) then
+		if not isInMatch(run, player) then
 			outcome = "Left"
 		else
 			local state = MatchState.getSurvivorState(player)
@@ -287,7 +306,7 @@ local function recordResult(run: StageRun, reason: EndReason): Types.StageResult
 	end
 	local original = run.originalChaser
 	if original then
-		local outcome: Types.StageOutcome = if isInGame(original) then "Chaser" else "Left"
+		local outcome: Types.StageOutcome = if isInMatch(run, original) then "Chaser" else "Left"
 		local entry: RecordService.StageEntry = { player = original, outcome = outcome }
 		table.insert(entries, entry)
 		table.insert(lines, `{original.Name}={outcome}`)
@@ -331,14 +350,14 @@ function StageService.cleanup(): ()
 	finish()
 end
 
--- 죽은 플레이어를 다시 내보낸다. 스테이지 밖이면 대기 장소(Workspace의 SpawnLocation),
--- 스테이지 중이면 자기 역할의 시작 위치 (맵을 불러오기 전이면 대기 장소). 관전자는 내보내지 않는다.
+-- 죽은 플레이어를 다시 내보낸다. 스테이지 밖이거나 참가자가 아니면 로비(Workspace.Lobby의 SpawnLocation),
+-- 스테이지 중인 참가자는 자기 역할의 시작 위치 (맵을 불러오기 전이면 로비). 관전자는 내보내지 않는다.
 function StageService.respawn(player: Player): ()
 	if not isInGame(player) then
 		return
 	end
 	local run = current
-	if not run then
+	if not run or not isInMatch(run, player) then
 		player:LoadCharacterAsync()
 		return
 	end
@@ -355,18 +374,28 @@ function StageService.respawn(player: Player): ()
 	print(`[Stage] {player.Name} 다시 생성 ({role})`)
 end
 
+-- 참가자가 스테이지 중에 로비로 돌아간다 (MatchService). 역할을 지우고 나간 것으로 기록한다.
+function StageService.leaveMatch(player: Player): ()
+	local run = current
+	if run and table.find(run.participants, player) then
+		run.left[player] = true
+		RoleService.clearRole(player)
+		print(`[Stage] {player.Name} 스테이지에서 빠짐 (로비로)`)
+	end
+end
+
 -- 스테이지 한 판을 진행한다. 결과 단계까지 끝나면 맵을 지우고 돌아온다 (MatchService가 스테이지마다 부름).
--- 시작할 때 서버에 있는 모든 플레이어가 참가자다. 추격자는 스테이지마다 새로 뽑고(GDD 3.3),
--- 잡혔던 사람도 다음 스테이지에는 생존자로 돌아온다.
-function StageService.runStage(stageId: Types.StageId): ()
+-- participants만 역할을 받는다. 추격자는 스테이지마다 새로 뽑고(GDD 3.3), 잡혔던 사람도 다음 스테이지에는 생존자로 돌아온다.
+function StageService.runStage(stageId: Types.StageId, participants: { Player }): ()
 	assert(current == nil, "이미 스테이지가 진행 중입니다")
 	local stage = Stages[stageId]
-	local participants = Players:GetPlayers()
 	local chaser, candidates = RoleService.pickChaser(participants)
 	RoleService.assignRoles(participants, chaser)
 
 	local run: StageRun = {
 		stageId = stageId,
+		participants = table.clone(participants),
+		left = {},
 		survivors = RoleService.getActiveSurvivors(),
 		chaser = chaser,
 		originalChaser = chaser,
@@ -407,7 +436,7 @@ function StageService.runStage(stageId: Types.StageId): ()
 		for _, player in candidates do
 			table.insert(candidateIds, player.UserId)
 		end
-		Remotes.get("RoleReveal"):FireAllClients(chaser.UserId, candidateIds)
+		fireParticipants(run, "RoleReveal", chaser.UserId, candidateIds)
 		outcome = PhaseTimer.run("RoleReveal", Match.RoleRevealTime, shouldEnd)
 	else
 		print("[Stage] 솔로라 역할 공개를 건너뜀")
@@ -439,7 +468,7 @@ function StageService.runStage(stageId: Types.StageId): ()
 	if outcome == "TimeUp" then
 		setGateOpen(run, true)
 		if run.chaser then
-			Remotes.get("Notice"):FireAllClients("ChaserReleased" :: Types.NoticeKey)
+			fireParticipants(run, "Notice", "ChaserReleased" :: Types.NoticeKey)
 		end
 		outcome = PhaseTimer.run("Chase", stage.TimeLimit, shouldEnd)
 	end
@@ -447,8 +476,12 @@ function StageService.runStage(stageId: Types.StageId): ()
 	-- 결과
 	local result = recordResult(run, if outcome == "TimeUp" then "TimeUp" else "NoSurvivorsLeft")
 	DataService.grantStage(result)
-	Remotes.get("StageResult"):FireAllClients(result)
-	if #Players:GetPlayers() > 0 then
+	fireParticipants(run, "StageResult", result)
+	local anyoneLeft = false
+	for _, player in run.participants do
+		anyoneLeft = anyoneLeft or isInMatch(run, player)
+	end
+	if anyoneLeft then
 		PhaseTimer.run("StageResult", Match.StageResultTime)
 	end
 	finish()

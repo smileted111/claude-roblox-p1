@@ -5,7 +5,8 @@
 local Types = require(script.Parent.Parent.Types)
 
 export type MatchConfig = {
-	MinPlayers: number, -- 매치를 시작하는 최소 인원
+	MinPlayers: number, -- 매치를 시작하는 최소 인원 (혼자 하기 서버)
+	MinTogetherPlayers: number, -- 같이 하기 구역에 이만큼 모이면 매치를 시작 (일반 서버)
 	MaxPlayers: number,
 	LobbyWaitTime: number, -- 대기 단계 시간 (초)
 	RoleRevealTime: number, -- 역할 공개 룰렛 (초)
@@ -19,12 +20,15 @@ export type MatchConfig = {
 	CaughtEffectTime: number, -- 잡힘 연출 뒤 관전 시작까지 (초)
 	SpectateSwitchDelay: number, -- 관전 대상이 잡히면 다음 대상으로 넘어가기까지 (초)
 	SoloOfferWaitTime: number, -- 같이 하기 대기 중 혼자면 솔로를 제안하기까지 (초)
+	SoloStartDelay: number, -- 혼자 하기 서버에 들어온 뒤 매치를 시작하기까지 (초)
+	QueueZoneHeight: number, -- 같이 하기 발판 위로 이 높이까지 서 있으면 대기열 (스터드)
 	SoloRewardMultiplier: number, -- 솔로 보상 배율
 	PhaseTickInterval: number, -- 단계 타이머가 남은 시간을 갱신하고 조기 종료 조건을 확인하는 간격 (초)
 }
 
 local Match: MatchConfig = {
 	MinPlayers = 1,
+	MinTogetherPlayers = 2, -- GDD 5장: 혼자면 30초 뒤 솔로를 제안
 	MaxPlayers = 8,
 	LobbyWaitTime = 10, -- docs/studio-workflow.md S1-3
 	RoleRevealTime = 5,
@@ -38,6 +42,8 @@ local Match: MatchConfig = {
 	CaughtEffectTime = 2,
 	SpectateSwitchDelay = 1,
 	SoloOfferWaitTime = 30,
+	SoloStartDelay = 5, -- 임시
+	QueueZoneHeight = 10, -- 임시
 	SoloRewardMultiplier = 0.7,
 	PhaseTickInterval = 0.2, -- 임시
 }

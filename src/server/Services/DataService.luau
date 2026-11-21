@@ -26,6 +26,7 @@ local Data = require(ReplicatedStorage.Shared.Config.Data)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Score = require(ReplicatedStorage.Shared.Config.Score)
+local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
 -- Wally 래퍼 모듈이 ProfileStore의 타입을 다시 내보내지 않아 여기서 쓰는 부분만 타입으로 적는다.
 local ProfileStore: any = require(ServerScriptService.ServerPackages.ProfileStore)
@@ -138,7 +139,7 @@ local function loadProfile(player: Player): ()
 		-- 나갔거나 서버가 닫히는 중이거나 불러오지 못함
 		if player.Parent == Players then
 			warn(`[Data] {player.Name}: 데이터를 불러오지 못했습니다`)
-			player:Kick("데이터를 불러오지 못했습니다. 다시 들어와 주세요.")
+			player:Kick(Strings.System.DataLoadFailed)
 		end
 		return
 	end
@@ -147,9 +148,7 @@ local function loadProfile(player: Player): ()
 	profile.OnSessionEnd:Connect(function()
 		profiles[player] = nil
 		if player.Parent == Players then
-			player:Kick(
-				"다른 서버에서 데이터를 쓰고 있어 연결을 끊었습니다. 다시 들어와 주세요."
-			)
+			player:Kick(Strings.System.DataSessionTaken)
 		end
 	end)
 	if player.Parent ~= Players then

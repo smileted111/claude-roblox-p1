@@ -101,6 +101,10 @@ export type MatchResult = {
 	solo: boolean, -- 모든 스테이지를 추격자 없이 진행
 }
 
+-- 로비에서 보내는 요청 (LobbyRequest 리모트). JoinQueue: 같이 하기 구역으로 이동 (다시 하기 버튼),
+-- AcceptSolo·DeclineSolo: "혼자 시작할까요?"에 대한 답
+export type LobbyAction = "JoinQueue" | "AcceptSolo" | "DeclineSolo"
+
 -- 잠깐 띄우는 알림 문구의 키 (Strings.Notices)
 export type NoticeKey =
 	"PreparationSurvivor"
@@ -111,5 +115,9 @@ export type NoticeKey =
 	| "SurvivorEscaped"
 	| "ExitOpened"
 	| "ChaserLeft"
+	| "MatchInProgress"
+	| "SoloTeleporting"
+	| "SoloTeleportFailed"
+	| "SoloStudio"
 
 return {}

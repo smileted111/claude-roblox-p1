@@ -7,7 +7,7 @@
 --   플레이어 줄: 이름 · 결과(생존·탈출·잡힘·추격자 n명 잡음·나감) · 받은 코인
 -- 최종 결과 (MatchResult 리모트, 최종 결과 단계 동안. 따로 ScreenGui)
 --   라스트 서바이버 발표(이름이 튀어나오는 연출, 없으면 베스트 서바이버) / 표(이름, 스테이지별 결과, 잡은 수, 코인) /
---   "다시 하기" 버튼: 지금은 화면을 닫는다 (서버는 결과 시간이 끝나면 다음 매치 대기로 간다. S3-2에서 대기열 참가로).
+--   "다시 하기" 버튼: 화면을 닫고 로비의 같이 하기 구역으로 옮겨 다음 매치를 기다린다 (LobbyController.playAgain).
 -- 코인은 서버가 스테이지·매치가 끝날 때 지급하고 저장한다 (DataService). 단계가 바뀌면 화면을 닫는다.
 
 local Players = game:GetService("Players")
@@ -20,6 +20,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
 local UiStyle = require(script.Parent.Parent.Util.UiStyle)
+local LobbyController = require(script.Parent.LobbyController)
 local UIController = require(script.Parent.UIController)
 
 local Colors = UiStyle.Colors
@@ -225,7 +226,10 @@ local function showMatch(result: Types.MatchResult): ()
 
 	local again = UiStyle.button(panel, "PlayAgain", 100, UDim2.fromOffset(220, 48), true)
 	again.Text = Strings.Results.PlayAgain
-	again.Activated:Connect(closeMatch)
+	again.Activated:Connect(function()
+		closeMatch()
+		LobbyController.playAgain()
+	end)
 
 	gui.Parent = UiStyle.playerGui()
 	matchGui = gui

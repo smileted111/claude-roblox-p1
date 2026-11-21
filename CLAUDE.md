@@ -22,6 +22,7 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 
 - `ServerStorage`, `Workspace`, `Lighting`, `StarterGui`는 Rojo가 관리하지 않는다. Studio에서 만든 맵이 Rojo 동기화로 지워지지 않게 하기 위해서다.
 - 스테이지 맵은 `ServerStorage.Maps.<StageId>` (예: `ServerStorage.Maps.Stage1`) 폴더에 둔다.
+- 로비는 `Workspace.Lobby` (스폰·같이 하기·혼자 하기 발판). 스테이지 맵과 겹치지 않게 z 460~540에 있다.
 
 ## 맵 규칙 (CollectionService 태그)
 
@@ -38,6 +39,7 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 | `ItemSpawn` | 아이템 생성 위치 |
 | `Plank` / `Door` | 환경 장치. 판자 Model = `Board`(세워 둔 판자) + `FallenPose`(넘어진 자리, 투명). 문 Model = `Panel`(닫힌 문짝) + `OpenPose`(열린 자리, 투명) |
 | `DarkZone` | 어두운 구역 (투명·충돌 없음 상자. 그림자 괴물용) |
+| `LobbyTogether` / `LobbySolo` | 로비(`Workspace.Lobby`)의 같이 하기 구역 발판 / 혼자 하기 발판 |
 
 - 맵 생성 스크립트: `tools/mapgen/` (Stage2·3 블록 맵을 다시 만들 때 `common.luau` 뒤에 스테이지 파일을 붙여 Studio MCP로 실행).
 
