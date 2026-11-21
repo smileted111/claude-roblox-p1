@@ -1,10 +1,13 @@
 --!strict
 -- 생존자 아이템 5종 (GDD 6.3). 아이템 칸 수는 Survivor.InventorySlots.
 -- 아이템마다 쓰는 필드만 채운다. "임시"라고 적은 값은 GDD에 수치가 없어 정한 초기값이다.
+-- 맵에 놓는 방법(ItemSpawn 중 몇 곳, 줍는 거리)은 Config.MapObjects.ItemPickup.
 
 local Types = require(script.Parent.Parent.Types)
 
 export type ItemDef = {
+	SpawnWeight: number, -- 스테이지 시작 때 이 아이템이 뽑힐 가중치. 0이면 아직 맵에 놓지 않음
+	Color: Color3, -- 맵에 놓인 아이템과 HUD 칸의 색
 	Duration: number?, -- 효과 지속 시간 (초)
 	Radius: number?, -- 효과 반경 (스터드)
 	Range: number?, -- 빛이 닿거나 던질 수 있는 거리 (스터드)
@@ -15,24 +18,35 @@ export type ItemDef = {
 local Items: { [Types.ItemId]: ItemDef } = {
 	-- 손전등: 그림자를 멈춤 (멈추는 시간은 Monsters.Shadow.FlashlightFreezeTime)
 	Flashlight = {
+		SpawnWeight = 0, -- S3-4에서 추가
+		Color = Color3.fromRGB(255, 240, 150), -- 임시
 		Range = 40, -- 임시
 		Battery = 30, -- 임시
 	},
 	-- 붕대: 부상 → 정상. 수치 없음
-	Bandage = {},
+	Bandage = {
+		SpawnWeight = 3, -- 임시
+		Color = Color3.fromRGB(240, 240, 240), -- 임시
+	},
 	-- 연막탄: 5초간 주변 시야 차단 (추격자·괴물 모두)
 	SmokeBomb = {
+		SpawnWeight = 2, -- 임시
+		Color = Color3.fromRGB(150, 150, 165), -- 임시
 		Duration = 5,
 		Radius = 12, -- 임시
 	},
 	-- 알람시계: 던진 곳에 소리를 내서 괴물을 유인
 	AlarmClock = {
+		SpawnWeight = 0, -- S3-4에서 추가
+		Color = Color3.fromRGB(255, 200, 60), -- 임시
 		Range = 40, -- 임시: 던지는 거리
 		Radius = 60, -- 임시: 소리가 들리는 거리
 		Duration = 5, -- 임시: 울리는 시간
 	},
 	-- 에너지 드링크: 스태미나 즉시 회복
 	EnergyDrink = {
+		SpawnWeight = 3, -- 임시
+		Color = Color3.fromRGB(90, 220, 255), -- 임시
 		StaminaRestoreFraction = 1,
 	},
 }

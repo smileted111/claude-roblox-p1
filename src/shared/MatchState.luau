@@ -24,6 +24,8 @@
 --   Spectating     boolean?                관전 화면을 보는 중 (SpectateService). 잡힘 연출이 끝난 뒤부터 스테이지가 끝날 때까지
 --   SpectateTarget number?                 관전 대상의 UserId (SpectateService). 관전 중이라도 볼 대상이 없으면 nil
 --   RepairProgress number?                 지금 고치는 발전기의 진행 0~1 (ObjectiveService). 고치는 중이 아니면 nil
+--   Item1, Item2   Types.ItemId?           아이템 칸 (ItemService). 비면 nil
+--   Stunned        boolean?                기절 중 (판자에 맞은 추격자, MovementService). 움직이지도 공격하지도 못함
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -48,7 +50,13 @@ local Attribute = table.freeze({
 	Spectating = "Spectating",
 	SpectateTarget = "SpectateTarget",
 	RepairProgress = "RepairProgress",
+	Item1 = "Item1",
+	Item2 = "Item2",
+	Stunned = "Stunned",
 })
+
+-- 아이템 칸 번호 → Attribute 이름 (칸 수는 Config.Survivor.InventorySlots)
+local ITEM_SLOT_ATTRIBUTES = { Attribute.Item1, Attribute.Item2 }
 
 local function readString(instance: Instance, name: string): string?
 	local value = instance:GetAttribute(name)
@@ -103,6 +111,19 @@ end
 
 function MatchState.getRepairProgress(player: Player): number?
 	return readNumber(player, Attribute.RepairProgress)
+end
+
+function MatchState.getItemSlotAttribute(slot: number): string?
+	return ITEM_SLOT_ATTRIBUTES[slot]
+end
+
+function MatchState.getItem(player: Player, slot: number): Types.ItemId?
+	local name = ITEM_SLOT_ATTRIBUTES[slot]
+	return if name then readString(player, name) :: Types.ItemId? else nil
+end
+
+function MatchState.isStunned(player: Player): boolean
+	return player:GetAttribute(Attribute.Stunned) == true
 end
 
 function MatchState.getRole(player: Player): Types.Role?

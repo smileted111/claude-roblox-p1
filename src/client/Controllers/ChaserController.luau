@@ -9,13 +9,18 @@
 -- 위치 표시: ChaserMarker 리모트(발전기 소리, 감시자 경보)를 받으면 그 위치에 duration초 동안 표시 (Util/WorldMarker).
 -- 괴물 위치 (GDD 7장, 질문지 Q2-8): 추격자일 때 Workspace.Monsters의 괴물마다 벽 너머에서도 보이는 아이콘(색 점 + 이름).
 --   서버가 괴물 모델을 추격자에게 항상 스트리밍하므로(MonsterService) 맵 어디서든 보인다.
+-- 연막 (GDD 6.3): 추격자 화면에서는 연막 구역(ItemState.SmokeZoneTag, 반경 Attribute Radius) 안의 생존자 캐릭터와
+--   이름표를 가린다 (LocalTransparencyModifier). 괴물의 시야에서 빼는 것은 서버(ItemService.isConcealed).
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Assets = require(ReplicatedStorage.Shared.Config.Assets)
+local ItemState = require(ReplicatedStorage.Shared.ItemState)
 local CatchState = require(ReplicatedStorage.Shared.CatchState)
 local Chasers = require(ReplicatedStorage.Shared.Config.Chasers)
 local HideSpotState = require(ReplicatedStorage.Shared.HideSpotState)
@@ -205,6 +210,87 @@ local function watchMonsterFolder(folder: Instance): ()
 	refreshMonsterIcons()
 end
 
+-- 연막 속 생존자 가리기 ------------------------------------------------------------------------------------------
+
+type Concealed = {
+	character: Model,
+	displayDistance: Enum.HumanoidDisplayDistanceType?,
+}
+
+local concealed: { [Player]: Concealed } = {}
+
+local function setCharacterHidden(character: Model, hidden: boolean): ()
+	for _, descendant in character:GetDescendants() do
+		if descendant:IsA("BasePart") or descendant:IsA("Decal") then
+			descendant.LocalTransparencyModifier = if hidden then 1 else 0
+		end
+	end
+end
+
+local function reveal(player: Player): ()
+	local entry = concealed[player]
+	if not entry then
+		return
+	end
+	concealed[player] = nil
+	setCharacterHidden(entry.character, false)
+	local humanoid = entry.character:FindFirstChildOfClass("Humanoid")
+	if humanoid and entry.displayDistance then
+		humanoid.DisplayDistanceType = entry.displayDistance
+	end
+end
+
+local function conceal(player: Player, character: Model): ()
+	local entry = concealed[player]
+	if entry and entry.character == character then
+		return
+	end
+	reveal(player)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	concealed[player] = {
+		character = character,
+		displayDistance = if humanoid then humanoid.DisplayDistanceType else nil,
+	}
+	setCharacterHidden(character, true)
+	if humanoid then
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	end
+end
+
+local function updateSmoke(): ()
+	local zones = CollectionService:GetTagged(ItemState.SmokeZoneTag)
+	local active = MatchState.getRole(localPlayer) == "Chaser" and #zones > 0
+	if not active then
+		if next(concealed) then
+			for player in concealed do
+				reveal(player)
+			end
+		end
+		return
+	end
+	for _, player in Players:GetPlayers() do
+		local inSmoke = false
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if player ~= localPlayer and MatchState.getRole(player) == "Survivor" and root and root:IsA("BasePart") then
+			for _, zone in zones do
+				local radius = zone:GetAttribute(ItemState.Attribute.Radius)
+				if zone:IsA("BasePart") and typeof(radius) == "number" then
+					if (root.Position - zone.Position).Magnitude <= radius then
+						inSmoke = true
+						break
+					end
+				end
+			end
+		end
+		if inSmoke and character then
+			conceal(player, character)
+		else
+			reveal(player)
+		end
+	end
+end
+
 -- -------------------------------------------------------------------------------------------------------------
 
 local function onTouchTapInWorld(_position: Vector2, processedByUI: boolean): ()
@@ -236,6 +322,11 @@ function ChaserController.Start(): ()
 		watchMonsterFolder(existing)
 	end
 	localPlayer:GetAttributeChangedSignal(Attribute.Role):Connect(refreshMonsterIcons)
+
+	RunService.Heartbeat:Connect(updateSmoke)
+	Players.PlayerRemoving:Connect(function(player: Player)
+		concealed[player] = nil
+	end)
 
 	localPlayer:GetAttributeChangedSignal(Attribute.Role):Connect(refreshOpenPrompts)
 	ReplicatedStorage:GetAttributeChangedSignal(Attribute.Phase):Connect(refreshOpenPrompts)

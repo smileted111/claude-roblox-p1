@@ -35,7 +35,7 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 | `Generator` | 목표 장치 |
 | `Exit` | 출구 (Attribute `ExitId`) |
 | `ItemSpawn` | 아이템 생성 위치 |
-| `Plank` / `Door` | 환경 장치 |
+| `Plank` / `Door` | 환경 장치. 판자 Model = `Board`(세워 둔 판자) + `FallenPose`(넘어진 자리, 투명). 문 Model = `Panel`(닫힌 문짝) + `OpenPose`(열린 자리, 투명) |
 | `DarkZone` | 어두운 구역 (투명·충돌 없음 상자. 그림자 괴물용) |
 
 - 맵 생성 스크립트: `tools/mapgen/` (Stage2·3 블록 맵을 다시 만들 때 `common.luau` 뒤에 스테이지 파일을 붙여 Studio MCP로 실행).

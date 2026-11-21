@@ -126,6 +126,7 @@ local Strings = {
 		Interact = "상호작용",
 		AttackReady = "공격 가능",
 		Repairing = "수리 중 %d%%",
+		Stunned = "기절!",
 		ExitOpen = "출구 열림!",
 		Exit = "출구",
 		Repaired = "작동 중",

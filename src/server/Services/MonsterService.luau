@@ -28,7 +28,8 @@
 --   시야(Sight): SightRange 안, 앞쪽 SightAngle 안(추격 중에는 각도를 보지 않음), 눈(Head)에서 생존자의
 --     몸통이나 머리까지 레이캐스트가 벽(충돌하는 파트)에 막히지 않아야 한다.
 --   소리(Sound): server/Util/NoiseBus의 소리 사건이 min(HearingRange, 소리 반경) 안이면 Behavior.onNoise.
---   대상은 숨지 않은 정상·부상 생존자뿐이다. 추격자는 감지·공격하지 않는다 (GDD 2장, 질문지 Q2-7).
+--   대상은 숨지 않고 연막 안에 있지 않은(ItemService.isConcealed) 정상·부상 생존자뿐이다.
+--   추격자는 감지·공격하지 않는다 (GDD 2장, 질문지 Q2-7).
 --   거리를 먼저 검사하므로 생존자에게서 먼 괴물은 레이캐스트 없이 이동만 한다 (GDD 4.4).
 --
 -- 길찾기: 괴물마다 Path 하나. 경로 계산은 괴물마다 PathRecomputeInterval초 이상 간격으로만 한다.
@@ -61,6 +62,7 @@ local Watcher = require(script.Parent.Parent.Monsters.Watcher)
 local NoiseBus = require(script.Parent.Parent.Util.NoiseBus)
 local CatchService = require(script.Parent.CatchService)
 local HideService = require(script.Parent.HideService)
+local ItemService = require(script.Parent.ItemService)
 local RoleService = require(script.Parent.RoleService)
 
 type AIState = Types.MonsterAIState
@@ -417,7 +419,8 @@ end
 local function collectTargets(): { Target }
 	local targets: { Target } = {}
 	for _, player in RoleService.getActiveSurvivors() do
-		local parts = if HideService.isHidden(player) then nil else CharacterParts.get(player)
+		local concealed = HideService.isHidden(player) or ItemService.isConcealed(player)
+		local parts = if concealed then nil else CharacterParts.get(player)
 		if parts then
 			local head = parts.character:FindFirstChild("Head")
 			table.insert(targets, {

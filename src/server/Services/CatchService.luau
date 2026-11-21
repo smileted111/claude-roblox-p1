@@ -41,6 +41,7 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 local HideService = require(script.Parent.HideService)
+local MovementService = require(script.Parent.MovementService)
 local RecordService = require(script.Parent.RecordService)
 local RoleService = require(script.Parent.RoleService)
 
@@ -120,6 +121,9 @@ end
 
 local function onChaserAttack(chaser: Player): ()
 	if MatchState.getRole(chaser) ~= "Chaser" or not CatchState.canHitInPhase(MatchState.getPhase()) then
+		return
+	end
+	if MovementService.isStunned(chaser) then
 		return
 	end
 	local now = os.clock()

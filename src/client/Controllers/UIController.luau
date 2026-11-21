@@ -8,9 +8,10 @@
 --               추격 단계 남은 시간이 Config.Ui.TimerWarningTime 이하면 시계를 강조색으로.
 --   그 아래      역할 공개 카드와 알림(Notice 리모트, Strings.Notices)을 세로로 쌓는다.
 --               알림은 Config.Ui.NoticeDuration초 뒤 사라진다
---   아래 가운데  생존자: 상태(정상/부상), 스태미나 바, 아이템 2칸(빈칸. S2-4에서 채움).
+--   아래 가운데  생존자: 상태(정상/부상), 스태미나 바, 아이템 2칸(이름·색. 누르면 사용, 숫자키 1·2는 SurvivorController).
 --               발전기를 고치는 동안 그 위에 수리 진행 바 (Player Attribute RepairProgress)
---               추격자: 공격 쿨다운 바 (ChaserController가 공격할 때 UIController.startAttackCooldown을 부름)
+--               추격자: 공격 쿨다운 바 (ChaserController가 공격할 때 UIController.startAttackCooldown을 부름).
+--               판자에 맞아 기절하면 "기절!" (Player Attribute Stunned)
 --               휴대폰에서 왼쪽 아래 이동 스틱, 오른쪽 아래 점프·달리기 버튼과 겹치지 않게 가운데에 좁게 둔다.
 --   가운데       역할 공개: RoleReveal 리모트를 받으면 후보 이름이 돌다가(Config.Ui.RoleReveal.SpinTime)
 --               추격자 이름에서 멈추고, 내 역할과 목표 한 줄(Strings.RoleGoals)을 ResultHoldTime초 보여준다.
@@ -29,10 +30,13 @@ local Strings = require(ReplicatedStorage.Shared.Strings)
 local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Ui = require(ReplicatedStorage.Shared.Config.Ui)
+local Items = require(ReplicatedStorage.Shared.Config.Items)
 local GeneratorBillboards = require(script.Parent.Parent.Util.GeneratorBillboards)
+local SurvivorController = require(script.Parent.SurvivorController)
 local UiStyle = require(script.Parent.Parent.Util.UiStyle)
 
 local Colors = UiStyle.Colors
+local ATTACK_READY_SLACK = 0.05 -- 트윈이 끝난 시각과 쿨다운 끝 시각의 차이를 봐줌 (초)
 local Attribute = MatchState.Attribute
 local localPlayer = Players.LocalPlayer
 
@@ -357,6 +361,33 @@ local function renderSurvivor(): ()
 	survivorView.staminaFill.BackgroundColor3 = if stamina < config.MinToStartRun
 		then Colors.Warning
 		else Colors.Stamina
+
+	for slot, button in survivorView.slots do
+		local itemId = MatchState.getItem(localPlayer, slot)
+		button.Text = if itemId then Strings.Items[itemId] else ""
+		local stroke = button:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Color = if itemId then Items[itemId].Color else Colors.Accent
+		end
+	end
+end
+
+local function renderChaser(): ()
+	local view = hud
+	if not view then
+		return
+	end
+	local chaserView = view.chaser
+	if MatchState.isStunned(localPlayer) then
+		chaserView.attackLabel.Text = Strings.Hud.Stunned
+		chaserView.attackLabel.TextColor3 = Colors.Warning
+	elseif os.clock() >= attackReadyAt - ATTACK_READY_SLACK then
+		chaserView.attackLabel.Text = Strings.Hud.AttackReady
+		chaserView.attackLabel.TextColor3 = Colors.Text
+	else
+		chaserView.attackLabel.Text = Strings.Hud.Attack
+		chaserView.attackLabel.TextColor3 = Colors.Subtext
+	end
 end
 
 local function renderRepair(): ()
@@ -385,8 +416,6 @@ function UIController.startAttackCooldown(duration: number): ()
 	end
 	chaserView.attackFill.Size = UDim2.fromScale(0, 1)
 	chaserView.attackFill.BackgroundColor3 = Colors.Disabled
-	chaserView.attackLabel.Text = Strings.Hud.Attack
-	chaserView.attackLabel.TextColor3 = Colors.Subtext
 	local tween = TweenService:Create(
 		chaserView.attackFill,
 		TweenInfo.new(duration, Enum.EasingStyle.Linear),
@@ -394,12 +423,12 @@ function UIController.startAttackCooldown(duration: number): ()
 	)
 	attackTween = tween
 	tween.Completed:Connect(function(playbackState: Enum.PlaybackState)
-		if playbackState == Enum.PlaybackState.Completed and os.clock() >= attackReadyAt - 0.05 then
+		if playbackState == Enum.PlaybackState.Completed and os.clock() >= attackReadyAt - ATTACK_READY_SLACK then
 			chaserView.attackFill.BackgroundColor3 = Colors.Accent
-			chaserView.attackLabel.Text = Strings.Hud.AttackReady
-			chaserView.attackLabel.TextColor3 = Colors.Text
+			renderChaser()
 		end
 	end)
+	renderChaser()
 	tween:Play()
 end
 
@@ -588,8 +617,17 @@ function UIController.Start(): ()
 	GeneratorBillboards.start()
 	ReplicatedStorage:GetAttributeChangedSignal(Attribute.Phase):Connect(onPhaseChanged)
 	localPlayer:GetAttributeChangedSignal(Attribute.Spectating):Connect(renderTop)
-	for _, name in { Attribute.Role, Attribute.SurvivorState, Attribute.Stamina } do
+	for _, name in { Attribute.Role, Attribute.SurvivorState, Attribute.Stamina, Attribute.Item1, Attribute.Item2 } do
 		localPlayer:GetAttributeChangedSignal(name):Connect(renderSurvivor)
+	end
+	localPlayer:GetAttributeChangedSignal(Attribute.Stunned):Connect(renderChaser)
+	local view = hud
+	if view then
+		for slot, button in view.survivor.slots do
+			button.Activated:Connect(function()
+				SurvivorController.useItem(slot)
+			end)
+		end
 	end
 
 	Remotes.get("Notice").OnClientEvent:Connect(onNotice)

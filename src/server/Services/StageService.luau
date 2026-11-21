@@ -5,7 +5,8 @@
 --   역할 공개  Config.Match.RoleRevealTime   추격자를 뽑고 룰렛 신호(RoleReveal)를 보냄. 솔로는 생략 (GDD 3.1)
 --   준비       Config.Match.PreparationTime  맵을 Workspace.CurrentMap에 복제하고 조명을 Config.Stages[id].Lighting으로.
 --                                            생존자는 SurvivorSpawn, 추격자는 ChaserSpawn에 배치.
---                                            ChaserGate는 닫아 둠. 숨는 곳(HideService)·발전기와 출구(ObjectiveService) 준비
+--                                            ChaserGate는 닫아 둠. 숨는 곳(HideService)·발전기와 출구(ObjectiveService)·
+--                                            아이템(ItemService)·판자와 문(BarrierService) 준비
 --                                            괴물 생성(MonsterService). 괴물은 추격 단계부터 움직인다
 --   추격       Config.Stages[id].TimeLimit   ChaserGate를 엶
 --   결과       Config.Match.StageResultTime  결과를 RecordService에 기록하고 StageResult 리모트로 보냄.
@@ -30,7 +31,9 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
+local BarrierService = require(script.Parent.BarrierService)
 local HideService = require(script.Parent.HideService)
+local ItemService = require(script.Parent.ItemService)
 local MonsterService = require(script.Parent.MonsterService)
 local ObjectiveService = require(script.Parent.ObjectiveService)
 local RecordService = require(script.Parent.RecordService)
@@ -304,6 +307,8 @@ end
 local function finish(): ()
 	MonsterService.clear()
 	ObjectiveService.clearMap()
+	ItemService.clearMap()
+	BarrierService.clearMap()
 	HideService.clearMap()
 	StageService.unloadMap()
 	applyLighting(LightingConfig.Lobby, "대기 장소")
@@ -412,6 +417,8 @@ function StageService.runStage(stageId: Types.StageId): ()
 		run.map = map
 		HideService.setupMap(map)
 		ObjectiveService.setupMap(map, stageId)
+		ItemService.setupMap(map)
+		BarrierService.setupMap(map)
 		MonsterService.spawnForStage(map, stageId, #run.survivors, run.hadChaser)
 		setGateOpen(run, false)
 		placeParticipants(run, map)

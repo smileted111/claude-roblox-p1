@@ -41,6 +41,26 @@ export type ExitConfig = {
 
 export type PlankConfig = {
 	ChaserStunTime: number, -- 넘어진 판자에 맞은 추격자의 기절 시간 (초)
+	PromptDistance: number, -- "넘어뜨리기" 프롬프트가 보이는 거리 (스터드)
+	DistanceSlack: number, -- 서버 거리 검사의 여유 (스터드)
+	FallTime: number, -- 넘어지는 데 걸리는 시간 (초)
+	HitMargin: number, -- 넘어진 판자 자리에서 이만큼 넓힌 곳에 있는 추격자가 맞음 (스터드)
+}
+
+export type DoorConfig = {
+	PromptDistance: number, -- "열기"·"닫기" 프롬프트가 보이는 거리 (스터드)
+	DistanceSlack: number, -- 서버 거리 검사의 여유 (스터드)
+	SwingTime: number, -- 열리고 닫히는 데 걸리는 시간 (초)
+	ToggleCooldown: number, -- 한 문을 다시 열고 닫을 수 있기까지 (초)
+	StartOpen: boolean, -- 스테이지 시작 때 열려 있는가
+}
+
+export type ItemPickupConfig = {
+	SpawnFraction: number, -- ItemSpawn 중 아이템을 놓는 비율 (0~1, 반올림)
+	PromptDistance: number, -- "줍기" 프롬프트가 보이는 거리 (스터드)
+	DistanceSlack: number, -- 서버 거리 검사의 여유 (스터드)
+	Size: number, -- 맵에 놓인 아이템 상자 크기 (스터드)
+	Height: number, -- 바닥 표시 위로 띄우는 높이 (스터드)
 }
 
 export type ChaserGateConfig = {
@@ -53,6 +73,8 @@ export type MapObjectsConfig = {
 	Generator: GeneratorConfig,
 	Exit: ExitConfig,
 	Plank: PlankConfig,
+	Door: DoorConfig,
+	ItemPickup: ItemPickupConfig,
 }
 
 local MapObjects: MapObjectsConfig = {
@@ -96,6 +118,24 @@ local MapObjects: MapObjectsConfig = {
 	},
 	Plank = {
 		ChaserStunTime = 2,
+		PromptDistance = 7, -- 임시
+		DistanceSlack = 4, -- 임시
+		FallTime = 0.25, -- 임시
+		HitMargin = 2.5, -- 임시
+	},
+	Door = {
+		PromptDistance = 7, -- 임시
+		DistanceSlack = 4, -- 임시
+		SwingTime = 0.3, -- 임시
+		ToggleCooldown = 0.6, -- 임시
+		StartOpen = true, -- 임시
+	},
+	ItemPickup = {
+		SpawnFraction = 0.6, -- 임시: ItemSpawn 10곳이면 6곳
+		PromptDistance = 7, -- 임시
+		DistanceSlack = 4, -- 임시
+		Size = 1.4, -- 임시
+		Height = 1.5, -- 임시
 	},
 }
 

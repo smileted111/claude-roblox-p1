@@ -5,6 +5,7 @@
 --   생존자  걷기 Config.Survivor.WalkSpeed, 달리기 RunSpeed. 부상이면 둘 다 × InjuredSpeedMultiplier. 숨어 있으면 0
 --   추격자  Config.Chasers[Config.Match.DefaultChaser].WalkSpeed (추격자 종류 선택은 S3-3)
 --   그 외   대기 장소 등. Config.Survivor.WalkSpeed, 달리기 없음
+--   기절    누구든 0 (판자에 맞은 추격자, MovementService.stun). Player Attribute Stunned
 --
 -- 스태미나 (Config.Survivor.Stamina)
 --   생존자가 달리기 의사를 보내고 실제로 움직이는(MoveDirection) 동안 RunDrainPerSecond씩 준다.
@@ -35,6 +36,7 @@ type RunState = {
 	stamina: number,
 	lastRunAt: number, -- 마지막으로 달린 시각 (os.clock). 회복 지연 계산용
 	nextNoiseAt: number, -- 다음 달리는 소리를 낼 시각 (os.clock)
+	stunnedUntil: number, -- 기절이 끝나는 시각 (os.clock)
 	shownStamina: number?, -- 마지막으로 Attribute에 쓴 값
 }
 
@@ -58,7 +60,10 @@ local function canRun(player: Player): boolean
 	return MatchState.getRole(player) == "Survivor" and not MatchState.isHidden(player)
 end
 
-local function speedFor(player: Player, running: boolean): number
+local function speedFor(player: Player, state: RunState, running: boolean, now: number): number
+	if now < state.stunnedUntil then
+		return 0
+	end
 	local role = MatchState.getRole(player)
 	if role == "Chaser" then
 		return Chasers[Match.DefaultChaser].WalkSpeed
@@ -90,6 +95,7 @@ end
 local function refill(player: Player, state: RunState): ()
 	state.wantsToRun = false
 	state.running = false
+	state.stunnedUntil = 0
 	state.stamina = StaminaConfig.Max
 	publish(player, state)
 end
@@ -127,8 +133,13 @@ local function update(player: Player, state: RunState, deltaTime: number, now: n
 	state.running = running
 	publish(player, state)
 
+	local stunned = now < state.stunnedUntil
+	if MatchState.isStunned(player) ~= stunned then
+		player:SetAttribute(Attribute.Stunned, if stunned then true else nil)
+	end
+
 	if humanoid then
-		local speed = speedFor(player, running)
+		local speed = speedFor(player, state, running, now)
 		if math.abs(humanoid.WalkSpeed - speed) > SPEED_EPSILON then
 			humanoid.WalkSpeed = speed
 		end
@@ -145,6 +156,7 @@ local function onPlayerAdded(player: Player): ()
 		stamina = StaminaConfig.Max,
 		lastRunAt = 0,
 		nextNoiseAt = 0,
+		stunnedUntil = 0,
 		shownStamina = nil,
 	}
 	states[player] = state
@@ -156,6 +168,29 @@ local function onPlayerAdded(player: Player): ()
 	player.CharacterAdded:Connect(function()
 		refill(player, state)
 	end)
+end
+
+-- seconds초 동안 움직이지 못하게 한다 (판자에 맞은 추격자). 추격자 공격도 막힌다 (CatchService가 isStunned를 봄).
+function MovementService.stun(player: Player, seconds: number): ()
+	local state = states[player]
+	if state then
+		state.stunnedUntil = math.max(state.stunnedUntil, os.clock() + seconds)
+		player:SetAttribute(Attribute.Stunned, true)
+	end
+end
+
+function MovementService.isStunned(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and os.clock() < state.stunnedUntil
+end
+
+-- 스태미나를 최대치의 fraction만큼 채운다 (에너지 드링크).
+function MovementService.restoreStamina(player: Player, fraction: number): ()
+	local state = states[player]
+	if state then
+		state.stamina = math.min(StaminaConfig.Max, state.stamina + StaminaConfig.Max * fraction)
+		publish(player, state)
+	end
 end
 
 function MovementService.Init(): ()

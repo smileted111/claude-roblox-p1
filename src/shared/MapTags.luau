@@ -12,8 +12,8 @@ local MapTags = table.freeze({
 	Generator = "Generator", -- 목표 장치
 	Exit = "Exit", -- 출구 (Attribute ExitId)
 	ItemSpawn = "ItemSpawn", -- 아이템 생성 위치
-	Plank = "Plank", -- 판자
-	Door = "Door", -- 문
+	Plank = "Plank", -- 판자 (Model: Board 파트 + 넘어진 자리 FallenPose 파트)
+	Door = "Door", -- 문 (Model: Panel 파트 + 열린 자리 OpenPose 파트)
 	DarkZone = "DarkZone", -- 어두운 구역 (보이지 않고 부딪히지 않는 상자. 그림자 괴물이 거의 투명해짐, S3-4)
 })
 
