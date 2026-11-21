@@ -42,6 +42,7 @@ local DataService = require(script.Parent.DataService)
 local HideService = require(script.Parent.HideService)
 local ItemService = require(script.Parent.ItemService)
 local MonsterService = require(script.Parent.MonsterService)
+local MovementService = require(script.Parent.MovementService)
 local ObjectiveService = require(script.Parent.ObjectiveService)
 local RecordService = require(script.Parent.RecordService)
 local RoleService = require(script.Parent.RoleService)
@@ -221,6 +222,7 @@ local function placeAt(player: Player, spawnPart: BasePart): ()
 	end
 	local standHeight = spawnPart.Size.Y / 2 + humanoid.HipHeight + rootPart.Size.Y / 2
 	character:PivotTo(spawnPart.CFrame * CFrame.new(0, standHeight, 0))
+	MovementService.markTeleported(player)
 end
 
 local function shuffled<T>(list: { T }): { T }

@@ -15,6 +15,11 @@
 -- 스태미나와 달리는 중인지는 Player Attribute(MatchState.Attribute.Stamina, Running)로 공개한다.
 -- 달리는 동안 Config.Survivor.RunNoiseInterval초마다 소리 사건(server/Util/NoiseBus, 반경 RunNoiseRadius)을 낸다.
 --   사냥개가 이 소리에 반응한다 (GDD 4.1).
+--
+-- 이동 거리 검사 (Config.MovementCheck, docs/release-review.md 코드 #1): 스테이지의 생존자·추격자만.
+--   서버가 정한 속도보다 훨씬 멀리 가면 마지막으로 인정한 위치로 되돌린다 (속도 조작·순간이동 핵).
+--   서버가 캐릭터를 옮기는 곳(스테이지 배치, 숨기·나오기, 판자에 밀림, 망령 순간이동)은 markTeleported를 불러
+--   잠깐 검사를 쉬고 새 위치부터 다시 잰다. 캐릭터가 새로 생기거나 역할이 바뀔 때도 같다.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,12 +28,24 @@ local RunService = game:GetService("RunService")
 local Chasers = require(ReplicatedStorage.Shared.Config.Chasers)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
+local MovementCheck = require(ReplicatedStorage.Shared.Config.MovementCheck)
 local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
 local NoiseBus = require(script.Parent.Parent.Util.NoiseBus)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 
 -- WalkSpeed는 float로 저장되어 14.4 같은 값이 정확히 같지 않으므로 이 차이 이상일 때만 바꾼다.
 local SPEED_EPSILON = 0.01
+
+type MoveCheck = {
+	position: Vector3?, -- 마지막으로 인정한 위치. nil이면 다음 검사에서 새로 잡는다
+	at: number, -- 마지막 검사 시각 (os.clock)
+	budget: number, -- 허용 속도로 갈 수 있었지만 아직 가지 않은 거리 (스터드)
+	speed: number, -- 이번 구간에 서버가 허용한 가장 빠른 속도
+	previousSpeed: number, -- 지난 구간의 값 (속도가 줄어든 것이 클라이언트에 늦게 닿는 동안을 봐줌)
+	graceUntil: number, -- 이때까지 검사하지 않는다 (os.clock)
+	suspicious: number, -- 기록 기준만 넘은 횟수 (LogInterval마다 출력하고 지움)
+	loggedAt: number, -- 마지막으로 출력한 시각 (os.clock)
+}
 
 type RunState = {
 	wantsToRun: boolean, -- 클라이언트가 보낸 달리기 의사
@@ -40,6 +57,7 @@ type RunState = {
 	boostUntil: number, -- 속도 증가가 끝나는 시각 (os.clock)
 	boostMultiplier: number,
 	shownStamina: number?, -- 마지막으로 Attribute에 쓴 값
+	check: MoveCheck,
 }
 
 local Attribute = MatchState.Attribute
@@ -48,6 +66,7 @@ local StaminaConfig = Survivor.Stamina
 local MovementService = {}
 
 local states: { [Player]: RunState } = {}
+local nextCheckAt = 0 -- 다음 이동 거리 검사 시각 (os.clock)
 
 local function getLivingHumanoid(player: Player): Humanoid?
 	local character = player.Character
@@ -96,7 +115,16 @@ local function publish(player: Player, state: RunState): ()
 	end
 end
 
+-- 이동 거리 검사를 TeleportGrace초 쉬고 새 위치부터 다시 잰다.
+local function resetCheck(state: RunState): ()
+	local check = state.check
+	check.position = nil
+	check.budget = 0
+	check.graceUntil = os.clock() + MovementCheck.TeleportGrace
+end
+
 local function refill(player: Player, state: RunState): ()
+	resetCheck(state)
 	state.wantsToRun = false
 	state.running = false
 	state.stunnedUntil = 0
@@ -145,9 +173,74 @@ local function update(player: Player, state: RunState, deltaTime: number, now: n
 
 	if humanoid then
 		local speed = speedFor(player, state, running, now)
+		-- 이동 거리 검사는 바꾸기 전 값과 새 값 중 빠른 쪽을 허용한다 (클라이언트에 늦게 닿는 동안).
+		state.check.speed = math.max(state.check.speed, speed, humanoid.WalkSpeed)
 		if math.abs(humanoid.WalkSpeed - speed) > SPEED_EPSILON then
 			humanoid.WalkSpeed = speed
 		end
+	end
+end
+
+-- Interval초마다 부른다. 서버가 허용한 속도보다 훨씬 멀리 갔으면 되돌린다 (위 설명과 Config.MovementCheck).
+local function checkMovement(player: Player, state: RunState, now: number): ()
+	local check = state.check
+	local allowedSpeed = math.max(check.speed, check.previousSpeed)
+	check.previousSpeed = check.speed
+	check.speed = 0
+	local role = MatchState.getRole(player)
+	local humanoid = getLivingHumanoid(player)
+	local rootPart = humanoid and humanoid.RootPart
+	local character = humanoid and humanoid.Parent
+	if
+		not rootPart
+		or not character
+		or not character:IsA("Model")
+		or (role ~= "Survivor" and role ~= "Chaser")
+		or now < check.graceUntil
+	then
+		check.position = nil
+		return
+	end
+	local position = rootPart.Position
+	local last = check.position
+	if not last then
+		check.position = position
+		check.at = now
+		check.budget = 0
+		return
+	end
+	local elapsed = now - check.at
+	check.at = now
+	check.budget = math.min(check.budget + allowedSpeed * elapsed, allowedSpeed * MovementCheck.MaxBudgetTime)
+	local moved = Vector3.new(position.X - last.X, 0, position.Z - last.Z).Magnitude
+	local limit = check.budget * MovementCheck.CorrectMultiplier + MovementCheck.Margin
+	if moved > limit then
+		-- 되돌린다. 인정한 위치는 그대로 두어 다음 검사도 그 자리에서 잰다.
+		warn(
+			string.format(
+				"[Move] %s 이동 거리 초과: %.1f스터드/%.2f초 (허용 %.1f, 속도 %.1f) → 되돌림",
+				player.Name,
+				moved,
+				elapsed,
+				limit,
+				allowedSpeed
+			)
+		)
+		character:PivotTo(CFrame.new(last) * rootPart.CFrame.Rotation)
+		rootPart.AssemblyLinearVelocity = Vector3.zero
+		return
+	end
+	if moved > check.budget * MovementCheck.LogMultiplier + MovementCheck.Margin then
+		check.suspicious += 1
+	end
+	check.budget = math.max(0, check.budget - moved)
+	check.position = position
+	if check.suspicious > 0 and now - check.loggedAt >= MovementCheck.LogInterval then
+		print(
+			`[Move] {player.Name} 빠른 이동 {check.suspicious}회 (기록만, 최근 {MovementCheck.LogInterval}초)`
+		)
+		check.suspicious = 0
+		check.loggedAt = now
 	end
 end
 
@@ -165,6 +258,16 @@ local function onPlayerAdded(player: Player): ()
 		boostUntil = 0,
 		boostMultiplier = 1,
 		shownStamina = nil,
+		check = {
+			position = nil,
+			at = 0,
+			budget = 0,
+			speed = 0,
+			previousSpeed = 0,
+			graceUntil = 0,
+			suspicious = 0,
+			loggedAt = 0,
+		},
 	}
 	states[player] = state
 	publish(player, state)
@@ -175,6 +278,14 @@ local function onPlayerAdded(player: Player): ()
 	player.CharacterAdded:Connect(function()
 		refill(player, state)
 	end)
+end
+
+-- 서버가 캐릭터를 옮겼다 (PivotTo 등). 이동 거리 검사가 되돌리지 않게 잠깐 쉬고 새 위치부터 다시 잰다.
+function MovementService.markTeleported(player: Player): ()
+	local state = states[player]
+	if state then
+		resetCheck(state)
+	end
 end
 
 -- seconds초 동안 움직이지 못하게 한다 (판자에 맞은 추격자). 추격자 공격도 막힌다 (CatchService가 isStunned를 봄).
@@ -239,6 +350,12 @@ function MovementService.Start(): ()
 		local now = os.clock()
 		for player, state in states do
 			update(player, state, deltaTime, now)
+		end
+		if MovementCheck.Enabled and now >= nextCheckAt then
+			nextCheckAt = now + MovementCheck.Interval
+			for player, state in states do
+				checkMovement(player, state, now)
+			end
 		end
 	end)
 end

@@ -11,6 +11,8 @@ export type AgentConfig = {
 
 export type MonsterAIConfig = {
 	TickInterval: number, -- AI 갱신 간격 (초). 괴물마다 시작 시점을 나눠 서버 부하를 분산한다
+	FarDistance: number, -- 모든 생존자·추격자에게서 이보다 먼 괴물은 단순 이동만 한다 (스터드, GDD 4.4)
+	FarTickInterval: number, -- 먼 괴물의 AI 갱신 간격 (초). 시야 판정은 하지 않는다
 	PathRecomputeInterval: number, -- 길찾기 경로를 다시 계산하는 최소 간격 (초)
 	MaxConcurrentPaths: number, -- 모든 괴물을 합쳐 동시에 계산하는 길찾기 수. 넘으면 다음 갱신으로 미룬다
 	Agent: AgentConfig,
@@ -35,6 +37,8 @@ export type MonsterAIConfig = {
 
 local MonsterAI: MonsterAIConfig = {
 	TickInterval = 0.2, -- GDD 4.4
+	FarDistance = 150, -- 임시: 가장 먼 시야(감시자 100) + 먼 갱신 간격 동안 달리는 거리(24)보다 크게. 동작이 바뀌지 않는다
+	FarTickInterval = 1, -- 임시 (docs/release-review.md P1)
 	PathRecomputeInterval = 0.5, -- docs/studio-workflow.md S1-6
 	MaxConcurrentPaths = 4, -- 임시 (docs/release-review.md P2)
 	Agent = {

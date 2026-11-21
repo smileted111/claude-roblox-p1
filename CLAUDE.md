@@ -51,7 +51,7 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 - 괴물 종류별 동작은 `src/server/Monsters/<Name>.luau` (`MonsterTypes.Behavior`), 공통 부분은 MonsterService.
 - 서버 권한: 피격·잡힘·아이템·목표 진행·역할은 서버만 결정한다. 클라이언트 요청은 거리·쿨다운·상태를 검사하고, 원격 호출에는 빈도 제한을 둔다.
 - RemoteEvent/RemoteFunction은 `src/shared/Remotes.luau` 한 곳에서 정의한다. 클라이언트가 보낸 위치·방향은 `RemoteHandler.isFiniteVector3`로 NaN·무한대를 거른다.
-- 캐릭터를 새로 불러올 때는 `server/Util/CharacterLoader.load`(pcall)를 쓴다.
+- 캐릭터를 새로 불러올 때는 `server/Util/CharacterLoader.load`(pcall)를 쓴다. 서버가 캐릭터를 옮기면(PivotTo) `MovementService.markTeleported(player)`를 불러 이동 거리 검사가 되돌리지 않게 한다.
 - 수치(속도, 시간, 괴물 수 등)는 코드에 직접 쓰지 않고 `src/shared/Config/`의 데이터 테이블에 둔다. 값은 GDD에 적힌 초기값을 쓴다.
 - 플레이어에게 보이는 문구는 `src/shared/Localization/ko.luau`(한국어 원본, 키·타입 기준)와 `en.luau`(영어)에 **같은 키로** 넣고, 코드는 `Strings`(기기 언어의 표)로 쓴다. `en.luau`는 `ko`와 같은 타입이라 키가 빠지면 타입 검사가 실패한다. `%d`·`%s`는 두 언어가 같은 순서여야 한다 (Studio 플레이 때 LanguageService가 경고).
 - 서버가 플레이어에게 직접 보이는 글자(Kick 메시지, 알림의 인자)는 `LanguageService.stringsFor(player)`를 쓴다. 서버가 만드는 프롬프트·표지판 글자는 한국어 원문으로 두면 클라이언트(`Util/WorldTextLocalizer`)가 바꾼다.

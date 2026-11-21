@@ -33,6 +33,9 @@
 --   대상은 숨지 않고 연막 안에 있지 않은(ItemService.isConcealed) 정상·부상 생존자뿐이다.
 --   추격자는 감지·공격하지 않는다 (GDD 2장, 질문지 Q2-7).
 --   거리를 먼저 검사하므로 생존자에게서 먼 괴물은 레이캐스트 없이 이동만 한다 (GDD 4.4).
+-- 먼 괴물 (GDD 4.4): 모든 생존자·추격자에게서 FarDistance보다 멀면 FarTickInterval마다만 갱신하고 대상 목록을 비워
+--   시야 판정을 건너뛴다 (순찰 이동·경로 따라가기는 그대로). FarDistance가 가장 먼 시야보다 커서 보이는 동작은 같다.
+--   소리(onNoise)는 갱신과 따로라 먼 괴물도 듣는다. 스테이지가 끝나면 전체 갱신 중 먼 갱신 횟수를 출력한다.
 --
 -- 길찾기: 괴물마다 Path 하나. 경로 계산은 괴물마다 PathRecomputeInterval초 이상 간격으로만 한다.
 --   ComputeAsync는 멈추므로 따로 실행하고, 결과가 올 때까지는 이전 경로를 따라간다.
@@ -57,6 +60,7 @@ local Monsters = require(ReplicatedStorage.Shared.Config.Monsters)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 local Strings = require(ReplicatedStorage.Shared.Strings)
+local Survivor = require(ReplicatedStorage.Shared.Config.Survivor)
 local Types = require(ReplicatedStorage.Shared.Types)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
 local Giant = require(script.Parent.Parent.Monsters.Giant)
@@ -116,6 +120,8 @@ local serial = 0
 local darkZones: { BasePart } = {} -- 지금 맵의 DarkZone 상자
 local computingPaths = 0 -- 지금 계산 중인 경로 수 (모든 괴물 합계)
 local pathStats = { computed = 0, deferred = 0 } -- 이번 스테이지의 길찾기 계산·미룸 횟수
+local tickStats = { total = 0, far = 0 } -- 이번 스테이지의 AI 갱신 횟수와 그중 먼 괴물 갱신
+local NO_TARGETS: { Target } = {} -- 먼 괴물에게 주는 빈 대상 목록 (바꾸지 않는다)
 local api: MonsterTypes.Api
 
 -- 시야 검사: 캐릭터와 괴물은 빼고, 충돌하는 파트만 시야를 가리는 것으로 본다 (열린 대기실 문, 바닥 표시 등은 통과).
@@ -945,6 +951,33 @@ local function isGone(monster: Monster): boolean
 	return not monster.rootPart:IsDescendantOf(Workspace) or monster.humanoid.Health <= 0
 end
 
+-- 먼 괴물 판정의 기준이 되는 위치: 남은 생존자(숨은 사람 포함)와 추격자
+local function observerPositions(): { Vector3 }
+	local positions: { Vector3 } = {}
+	for _, player in RoleService.getActiveSurvivors() do
+		local parts = CharacterParts.get(player)
+		if parts then
+			table.insert(positions, parts.rootPart.Position)
+		end
+	end
+	for _, chaser in RoleService.getChasers() do
+		local parts = CharacterParts.get(chaser)
+		if parts then
+			table.insert(positions, parts.rootPart.Position)
+		end
+	end
+	return positions
+end
+
+local function isFar(position: Vector3, observers: { Vector3 }): boolean
+	for _, observer in observers do
+		if (observer - position).Magnitude <= Config.FarDistance then
+			return false
+		end
+	end
+	return true
+end
+
 local function step(): ()
 	local now = os.clock()
 	local due: { Monster } = {}
@@ -959,14 +992,18 @@ local function step(): ()
 
 	local active = MonsterState.canActInPhase(MatchState.getPhase())
 	local targets: { Target } = {}
+	local observers: { Vector3 } = {}
 	if active then
 		targets = collectTargets()
 		refreshSightFilter()
+		observers = observerPositions()
 	end
 	for _, monster in due do
-		-- 시작 시점을 나눈 간격이 유지되도록 TickInterval 단위로 넘긴다.
+		local far = active and isFar(monster.rootPart.Position, observers)
+		-- 시작 시점을 나눈 간격이 유지되도록 갱신 간격 단위로 넘긴다.
+		local interval = if far then Config.FarTickInterval else Config.TickInterval
 		while monster.nextTickAt <= now do
-			monster.nextTickAt += Config.TickInterval
+			monster.nextTickAt += interval
 		end
 		local dt = now - monster.lastTickAt
 		monster.lastTickAt = now
@@ -978,7 +1015,13 @@ local function step(): ()
 				table.remove(monsters, index)
 			end
 		else
-			tick(monster, now, dt, active, targets)
+			if active then
+				tickStats.total += 1
+				if far then
+					tickStats.far += 1
+				end
+			end
+			tick(monster, now, dt, active, if far then NO_TARGETS else targets)
 		end
 	end
 end
@@ -1166,10 +1209,13 @@ function MonsterService.clear(): ()
 	if count > 0 then
 		print(
 			`[Monster] 괴물 {count}마리 제거 · 길찾기 {pathStats.computed}회 (동시 상한으로 미룸 {pathStats.deferred}회)`
+				.. ` · AI 갱신 {tickStats.total}회 (먼 괴물 {tickStats.far}회)`
 		)
 	end
 	pathStats.computed = 0
 	pathStats.deferred = 0
+	tickStats.total = 0
+	tickStats.far = 0
 end
 
 -- 불러온 맵의 MonsterSpawn에 이번 스테이지의 괴물을 만든다. 추격 단계가 되어야 움직인다.
@@ -1271,7 +1317,19 @@ function MonsterService.spawnForStage(
 	end
 end
 
-function MonsterService.Init(): () end
+function MonsterService.Init(): ()
+	-- 먼 괴물 단순화가 보이는 동작을 바꾸지 않으려면 FarDistance가 가장 먼 시야보다 충분히 커야 한다.
+	local farthestSight = 0
+	for _, def in Monsters do
+		farthestSight = math.max(farthestSight, def.SightRange)
+	end
+	local needed = farthestSight + Survivor.RunSpeed * Config.FarTickInterval
+	if Config.FarDistance < needed then
+		warn(
+			`[Monster] Config.MonsterAI.FarDistance({Config.FarDistance})가 가장 먼 시야 + 달리기 거리({needed})보다 작아 먼 괴물이 생존자를 늦게 볼 수 있습니다`
+		)
+	end
+end
 
 function MonsterService.Start(): ()
 	NoiseBus.subscribe(onNoise)

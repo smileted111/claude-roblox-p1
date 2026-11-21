@@ -152,6 +152,8 @@ local function onUseSkill(player: Player, lookDirection: unknown): ()
 		print(`[Chaser] {player.Name} {Strings.Skills[def.Kind]}: 효과 없음 (쿨다운 없음)`)
 		return
 	end
+	-- 망령 순간이동처럼 스킬이 캐릭터를 옮겼을 수 있어 이동 거리 검사를 새로 시작한다.
+	MovementService.markTeleported(player)
 	readyAt[player] = now + def.Cooldown
 	player:SetAttribute(Attribute.SkillReadyAt, Workspace:GetServerTimeNow() + def.Cooldown)
 	print(`[Chaser] {player.Name} {Strings.Skills[def.Kind]} 사용 (쿨다운 {def.Cooldown}초)`)

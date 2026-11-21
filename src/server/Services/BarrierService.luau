@@ -109,6 +109,10 @@ local function pushOut(rootPart: BasePart, plank: Plank, side: number): ()
 	local character = rootPart.Parent
 	if character and character:IsA("Model") then
 		character:PivotTo(CFrame.new(target) * rootPart.CFrame.Rotation)
+		local player = Players:GetPlayerFromCharacter(character)
+		if player then
+			MovementService.markTeleported(player)
+		end
 	end
 end
 

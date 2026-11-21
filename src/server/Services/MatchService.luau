@@ -48,6 +48,23 @@ local function spawnInLobby(player: Player): ()
 	CharacterLoader.load(player, nil, "로비")
 end
 
+-- 스테이지 사이에 참가자를 로비에 다시 만들고, 모두 끝날 때까지(최대 LobbyRespawnTimeout초) 기다린다.
+-- 기다리지 않으면 혼자 하기(역할 공개 없이 바로 배치)에서 다음 스테이지 배치가 옛 캐릭터를 옮긴 뒤
+-- 새 캐릭터가 로비에 생겨 생존자가 로비에 남는다.
+local function respawnAllInLobby(players: { Player }): ()
+	local pending = #players
+	for _, player in players do
+		task.spawn(function()
+			spawnInLobby(player)
+			pending -= 1
+		end)
+	end
+	local deadline = os.clock() + Match.LobbyRespawnTimeout
+	while pending > 0 and os.clock() < deadline do
+		task.wait()
+	end
+end
+
 -- 캐릭터가 죽으면 RespawnTime 뒤 상황에 맞는 곳에 다시 만든다.
 local function watchCharacter(player: Player, character: Model): ()
 	local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid")
@@ -193,9 +210,7 @@ local function playStages(): ()
 			return
 		end
 		-- 잡혀서 캐릭터가 없는 사람도 다음 스테이지 전에 로비로 돌아온다.
-		for _, player in activeParticipants() do
-			task.spawn(spawnInLobby, player)
-		end
+		respawnAllInLobby(activeParticipants())
 	end
 
 	local result = RecordService.finishMatch()

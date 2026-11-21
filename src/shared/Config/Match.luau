@@ -24,6 +24,7 @@ export type MatchConfig = {
 	QueueZoneHeight: number, -- 같이 하기 발판 위로 이 높이까지 서 있으면 대기열 (스터드)
 	SoloPromptDistance: number, -- 혼자 하기 발판 프롬프트가 보이는 거리 (스터드, 발판 가운데에서)
 	SoloPromptDistanceSlack: number, -- 서버 거리 검사의 여유 (스터드)
+	LobbyRespawnTimeout: number, -- 스테이지 사이에 참가자를 로비에 다시 만들 때 기다리는 최대 시간 (초)
 	SoloRewardMultiplier: number, -- 솔로 보상 배율
 	PhaseTickInterval: number, -- 단계 타이머가 남은 시간을 갱신하고 조기 종료 조건을 확인하는 간격 (초)
 }
@@ -48,6 +49,7 @@ local Match: MatchConfig = {
 	QueueZoneHeight = 10, -- 임시
 	SoloPromptDistance = 10, -- 임시
 	SoloPromptDistanceSlack = 4, -- 임시: 다른 프롬프트의 DistanceSlack과 비슷하게
+	LobbyRespawnTimeout = 10, -- 임시
 	SoloRewardMultiplier = 0.7,
 	PhaseTickInterval = 0.2, -- 임시
 }

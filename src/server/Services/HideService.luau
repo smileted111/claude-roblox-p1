@@ -30,6 +30,7 @@ local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local CharacterParts = require(ReplicatedStorage.Shared.Util.CharacterParts)
 local PromptUtil = require(ReplicatedStorage.Shared.Util.PromptUtil)
+local MovementService = require(script.Parent.MovementService)
 local RoleService = require(script.Parent.RoleService)
 
 type CharacterParts = CharacterParts.CharacterParts
@@ -165,6 +166,7 @@ local function release(player: Player, reason: string): ()
 		and spot.model:IsDescendantOf(Workspace)
 	if canPlace then
 		parts.character:PivotTo(standCFrame(spot, parts, spot.body.Size.Z / 2 + Config.ExitDistance))
+		MovementService.markTeleported(player)
 	end
 	parts.rootPart.Anchored = false
 	-- 고정을 풀면 서버가 물리를 잠깐 맡으므로 바로 플레이어에게 돌려줘 끊김 없이 움직이게 한다.
@@ -199,6 +201,7 @@ local function hide(player: Player, spot: Spot, parts: CharacterParts): ()
 	setCharacterVisible(entry, false)
 	parts.rootPart.Anchored = true
 	parts.character:PivotTo(standCFrame(spot, parts, 0))
+	MovementService.markTeleported(player)
 	player:SetAttribute(Attribute.Hidden, true)
 	spot.model:SetAttribute(SpotAttribute.OccupantUserId, player.UserId)
 
