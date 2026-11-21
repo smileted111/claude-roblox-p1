@@ -58,6 +58,7 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 - 피·신체 훼손 표현을 넣지 않는다 (GDD 12장).
 - 조작 입력은 `InputController.bind(동작, 함수)`로 묶는다 (키는 `src/shared/Config/Input.luau`의 `Bindings`, 휴대폰 화면 버튼도 함께). 컨트롤러에서 ContextActionService·UserInputService로 키를 직접 묶지 않는다.
 - 누르는 UI 버튼은 높이 `UiStyle.MinButtonHeight`(56) 이상으로 만든다 (휴대폰 UIScale 0.8에서 44점 이상).
+- 시야를 가리지 않게 화면 가운데(위 가운데 포함)에는 계속 떠 있는 UI를 두지 않는다. 상태·시간은 오른쪽 위 작은 패널, 위 가운데는 알림·역할 공개처럼 잠깐 뜨는 것만 (사용자 요청 2026-11-21).
 
 ## 단계 완료 절차
 

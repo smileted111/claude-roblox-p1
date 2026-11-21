@@ -60,24 +60,27 @@ local function createGui(): SpectateGui
 	gui.Enabled = false
 	UiStyle.addScale(gui)
 
-	-- 위: 대상 정보
+	-- 오른쪽 위: 대상 정보 (HUD 상태 패널 자리. 시야를 가리지 않게 가운데에 두지 않는다)
 	local panel = UiStyle.panel(gui, "Info", true)
-	panel.AnchorPoint = Vector2.new(0.5, 0)
-	panel.Position = UDim2.new(0.5, 0, 0, 10)
-	panel.Size = UDim2.fromOffset(380, 0)
+	panel.AnchorPoint = Vector2.new(1, 0)
+	panel.Position = UDim2.new(1, -12, 0, 8)
+	panel.Size = UDim2.fromOffset(250, 0)
 	panel.AutomaticSize = Enum.AutomaticSize.Y
-	UiStyle.padding(panel, 9, 14)
+	UiStyle.padding(panel, 6, 10)
 	UiStyle.list(panel, Enum.FillDirection.Vertical, 2)
 
 	local title = UiStyle.label(panel, "Title", 1, 18)
 	title.Font = UiStyle.BoldFont
 	title.TextColor3 = UiStyle.Colors.Accent
 	title.Text = Strings.Spectate.Title
-	local nameLabel = UiStyle.label(panel, "TargetName", 2, 32)
+	local nameLabel = UiStyle.label(panel, "TargetName", 2, 26)
 	nameLabel.Font = UiStyle.BoldFont
-	local statusLabel = UiStyle.label(panel, "TargetStatus", 3, 22)
+	local statusLabel = UiStyle.label(panel, "TargetStatus", 3, 20)
 	statusLabel.TextColor3 = UiStyle.Colors.Subtext
-	local infoLabel = UiStyle.label(panel, "MatchInfo", 4, 20)
+	local infoLabel = UiStyle.label(panel, "MatchInfo", 4, 18)
+	infoLabel.TextWrapped = true
+	infoLabel.TextTruncate = Enum.TextTruncate.None
+	infoLabel.AutomaticSize = Enum.AutomaticSize.Y
 
 	-- 아래: 대상 바꾸기, 로비로 돌아가기
 	local bottom = UiStyle.container(gui, "Controls")

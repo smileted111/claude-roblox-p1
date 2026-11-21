@@ -2,11 +2,13 @@
 -- UIController: 기본 HUD·역할 공개·알림 (GDD 1.3, 2.1, 11장, 13.2). StarterGui 없이 여기서 ScreenGui를 만든다.
 --
 -- 화면 (ScreenGui "Hud", 크기는 UiStyle.addScale이 화면에 맞춰 줄인다)
---   위 가운데    스테이지 이름 / 단계(대기·역할 공개·준비·추격·결과) / 남은 시간(크게) / 남은 생존자 수 /
---               목표 진행(발전기 n/전체, 다 고치면 "출구 열림!").
---               관전 중(SpectateController)과 최종 결과 단계(ResultController)에는 숨긴다.
+-- 시야를 가리지 않게 화면 가운데(위 가운데 포함)에는 계속 떠 있는 UI를 두지 않는다 (CLAUDE.md). 잠깐 뜨는 것만 위 가운데.
+--   오른쪽 위    작은 상태 패널: 스테이지 이름 / 단계(대기·역할 공개·준비·추격·결과) / 남은 시간 / 남은 생존자 수 /
+--               목표 진행(발전기 n/전체, 다 고치면 "출구 열림!"). 로비에서는 같이 하기 대기 인원.
+--               관전 중(SpectateController가 같은 자리에 관전 패널)과 최종 결과 단계(ResultController)에는 숨긴다.
 --               추격 단계 남은 시간이 Config.Ui.TimerWarningTime 이하면 시계를 강조색으로.
---   그 아래      역할 공개 카드와 알림(Notice 리모트, Strings.Notices)을 세로로 쌓는다.
+--               Roblox 기본 플레이어 목록(같은 자리)은 끈다. 플레이어 목록은 Roblox 메뉴(Esc)의 사람 탭에서 볼 수 있다.
+--   위 가운데    잠깐 뜨는 것만: 역할 공개 카드와 알림(Notice 리모트, Strings.Notices)을 세로로 쌓는다.
 --               알림은 Config.Ui.NoticeDuration초 뒤 사라진다
 --   아래 가운데  생존자: 상태(정상/부상), 스태미나 바, 아이템 2칸(이름·색. 누르면 사용, 숫자키 1·2는 SurvivorController).
 --               발전기를 고치는 동안 그 위에 수리 진행 바 (Player Attribute RepairProgress)
@@ -26,6 +28,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
@@ -121,25 +124,34 @@ local attackReadyAt = 0 -- os.clock
 --------------------------------------------------------------------------------
 -- 화면 만들기
 
+-- 줄이 넘치면 잘라내지 않고 아래로 늘린다 (영어 스테이지 이름, 로비 대기 안내).
+local function wrap(label: TextLabel): ()
+	label.TextWrapped = true
+	label.TextTruncate = Enum.TextTruncate.None
+	label.AutomaticSize = Enum.AutomaticSize.Y
+end
+
 local function createTop(gui: ScreenGui): TopView
 	local frame = UiStyle.panel(gui, "Top", true)
-	frame.AnchorPoint = Vector2.new(0.5, 0)
-	frame.Position = UDim2.new(0.5, 0, 0, 8)
-	frame.Size = UDim2.fromOffset(300, 0)
+	frame.AnchorPoint = Vector2.new(1, 0)
+	frame.Position = UDim2.new(1, -12, 0, 8)
+	frame.Size = UDim2.fromOffset(210, 0)
 	frame.AutomaticSize = Enum.AutomaticSize.Y
-	UiStyle.padding(frame, 8, 14)
+	UiStyle.padding(frame, 6, 10)
 	UiStyle.list(frame, Enum.FillDirection.Vertical, 0)
 
-	local stageLabel = UiStyle.label(frame, "Stage", 1, 20)
+	local stageLabel = UiStyle.label(frame, "Stage", 1, 18)
 	stageLabel.TextColor3 = Colors.Subtext
-	local phaseLabel = UiStyle.label(frame, "Phase", 2, 22)
+	wrap(stageLabel)
+	local phaseLabel = UiStyle.label(frame, "Phase", 2, 20)
 	phaseLabel.Font = UiStyle.BoldFont
 	phaseLabel.TextColor3 = Colors.Accent
-	local timerLabel = UiStyle.label(frame, "Timer", 3, 46)
+	local timerLabel = UiStyle.label(frame, "Timer", 3, 32)
 	timerLabel.Font = UiStyle.BoldFont
-	timerLabel.TextSize = 44
-	local infoLabel = UiStyle.label(frame, "Info", 4, 22)
-	local objectiveLabel = UiStyle.label(frame, "Objective", 5, 22)
+	timerLabel.TextSize = 30
+	local infoLabel = UiStyle.label(frame, "Info", 4, 20)
+	wrap(infoLabel)
+	local objectiveLabel = UiStyle.label(frame, "Objective", 5, 20)
 	objectiveLabel.Font = UiStyle.BoldFont
 	return {
 		frame = frame,
@@ -151,11 +163,11 @@ local function createTop(gui: ScreenGui): TopView
 	}
 end
 
--- 위 패널 아래의 세로 목록: 역할 공개 카드, 그 아래 알림. 둘이 함께 떠도 겹치지 않는다.
+-- 위 가운데의 세로 목록 (잠깐 뜨는 것만): 역할 공개 카드, 그 아래 알림. 둘이 함께 떠도 겹치지 않는다.
 local function createCenter(gui: ScreenGui): Frame
 	local frame = UiStyle.container(gui, "Center")
 	frame.AnchorPoint = Vector2.new(0.5, 0)
-	frame.Position = UDim2.new(0.5, 0, 0, 158)
+	frame.Position = UDim2.new(0.5, 0, 0, 8)
 	frame.Size = UDim2.fromOffset(560, 0)
 	frame.AutomaticSize = Enum.AutomaticSize.Y
 	local layout = UiStyle.list(frame, Enum.FillDirection.Vertical, 10)
@@ -319,7 +331,7 @@ local function createHud(): Hud
 end
 
 --------------------------------------------------------------------------------
--- 위 가운데: 단계·시간·남은 생존자
+-- 오른쪽 위: 단계·시간·남은 생존자
 
 local function renderTop(): ()
 	local view = hud
@@ -708,6 +720,8 @@ end
 function UIController.Init(): () end
 
 function UIController.Start(): ()
+	-- 오른쪽 위 상태 패널과 겹치는 Roblox 기본 플레이어 목록을 끈다 (Esc 메뉴의 사람 탭에는 그대로 있다).
+	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
 	hud = createHud()
 
 	for _, name in
