@@ -455,6 +455,8 @@ local function renderChaser(): ()
 	end
 	local key = InputController.hint("Attack")
 	chaserView.attackLabel.Text = if key then string.format(Strings.Input.WithKey, text, key) else text
+	-- 휴대폰 공격 버튼: 기절·쿨다운 중이면 흐리게
+	InputController.setTouchDimmed("Attack", text ~= Strings.Hud.AttackReady)
 end
 
 local function renderRepair(): ()

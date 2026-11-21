@@ -28,6 +28,7 @@ local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Types = require(ReplicatedStorage.Shared.Types)
+local CharacterLoader = require(script.Parent.Parent.Util.CharacterLoader)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 local AchievementService = require(script.Parent.AchievementService)
@@ -44,9 +45,7 @@ local MatchService = {}
 local participants: { [Player]: boolean } = {}
 
 local function spawnInLobby(player: Player): ()
-	if player.Parent == Players then
-		player:LoadCharacterAsync()
-	end
+	CharacterLoader.load(player, nil, "로비")
 end
 
 -- 캐릭터가 죽으면 RespawnTime 뒤 상황에 맞는 곳에 다시 만든다.

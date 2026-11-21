@@ -12,6 +12,7 @@ export type AgentConfig = {
 export type MonsterAIConfig = {
 	TickInterval: number, -- AI 갱신 간격 (초). 괴물마다 시작 시점을 나눠 서버 부하를 분산한다
 	PathRecomputeInterval: number, -- 길찾기 경로를 다시 계산하는 최소 간격 (초)
+	MaxConcurrentPaths: number, -- 모든 괴물을 합쳐 동시에 계산하는 길찾기 수. 넘으면 다음 갱신으로 미룬다
 	Agent: AgentConfig,
 	WaypointReachDistance: number, -- 경로의 중간 지점에 이만큼 가까워지면 다음 지점으로 (스터드, 수평 거리)
 	ArriveDistance: number, -- 순찰 지점·마지막으로 본 위치에 도착했다고 보는 거리 (스터드, 수평 거리)
@@ -35,6 +36,7 @@ export type MonsterAIConfig = {
 local MonsterAI: MonsterAIConfig = {
 	TickInterval = 0.2, -- GDD 4.4
 	PathRecomputeInterval = 0.5, -- docs/studio-workflow.md S1-6
+	MaxConcurrentPaths = 4, -- 임시 (docs/release-review.md P2)
 	Agent = {
 		Radius = 2, -- 임시
 		Height = 6, -- 임시: 배회자 모델 키 약 5.7

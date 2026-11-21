@@ -5,7 +5,7 @@
 --   같이 하기 (LobbyTogether 태그 발판): 발판 위(Config.Match.QueueZoneHeight)에 서 있는 사람이 대기열이다.
 --     MatchService가 대기열 인원으로 매치를 시작한다. 혼자 Config.Match.SoloOfferWaitTime초 있으면
 --     "혼자 시작할까요?"를 묻는다 (SoloOffer 리모트, 답은 LobbyRequest AcceptSolo·DeclineSolo).
---   혼자 하기 (LobbySolo 태그 발판): "혼자 하기" 프롬프트 → TeleportService:ReserveServer로 이 플레이스의 예약 서버를 만들어
+--   혼자 하기 (LobbySolo 태그 발판): "혼자 하기" 프롬프트(서버가 발판 거리를 다시 검사) → TeleportService:ReserveServer로 이 플레이스의 예약 서버를 만들어
 --     TeleportData {Solo = true}와 함께 보낸다. 그 서버는 혼자 하기 서버다 (중간 합류 불가: 두 번째 사람은 내보냄).
 --   Studio에서는 다른 서버로 보낼 수 없어서, 이 서버에서 그 사람 혼자 매치를 시작한다 (takeStudioSoloRequest).
 -- 혼자 하기 서버에서 "로비로 돌아가기"를 누르면 일반 서버로 보낸다 (teleportToPublic).
@@ -29,7 +29,6 @@ local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 local LanguageService = require(script.Parent.LanguageService)
 
 local LOBBY_FOLDER = "Lobby" -- Workspace.Lobby
-local SOLO_PROMPT_DISTANCE = 10
 
 local LobbyService = {}
 
@@ -226,10 +225,17 @@ local function setupSoloPads(): ()
 		prompt.Name = "SoloPrompt"
 		prompt.ActionText = Strings.Lobby.Solo
 		prompt.HoldDuration = 0.5
-		prompt.MaxActivationDistance = SOLO_PROMPT_DISTANCE
+		prompt.MaxActivationDistance = Match.SoloPromptDistance
 		prompt.RequiresLineOfSight = false
 		prompt.Enabled = not soloServer
 		prompt.Triggered:Connect(function(player: Player)
+			-- 다른 프롬프트처럼 서버가 보는 위치로 거리를 다시 잰다 (docs/release-review.md 코드 #4).
+			local parts = CharacterParts.get(player)
+			local reach = Match.SoloPromptDistance + Match.SoloPromptDistanceSlack
+			if not parts or (parts.rootPart.Position - pad.Position).Magnitude > reach then
+				print(`[Lobby] {player.Name} 혼자 하기 거절: 발판에서 멂`)
+				return
+			end
 			LobbyService.requestSolo(player)
 		end)
 		prompt.Parent = pad

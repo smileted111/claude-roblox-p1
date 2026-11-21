@@ -22,6 +22,8 @@ export type MatchConfig = {
 	SoloOfferWaitTime: number, -- 같이 하기 대기 중 혼자면 솔로를 제안하기까지 (초)
 	SoloStartDelay: number, -- 혼자 하기 서버에 들어온 뒤 매치를 시작하기까지 (초)
 	QueueZoneHeight: number, -- 같이 하기 발판 위로 이 높이까지 서 있으면 대기열 (스터드)
+	SoloPromptDistance: number, -- 혼자 하기 발판 프롬프트가 보이는 거리 (스터드, 발판 가운데에서)
+	SoloPromptDistanceSlack: number, -- 서버 거리 검사의 여유 (스터드)
 	SoloRewardMultiplier: number, -- 솔로 보상 배율
 	PhaseTickInterval: number, -- 단계 타이머가 남은 시간을 갱신하고 조기 종료 조건을 확인하는 간격 (초)
 }
@@ -44,6 +46,8 @@ local Match: MatchConfig = {
 	SoloOfferWaitTime = 30,
 	SoloStartDelay = 5, -- 임시
 	QueueZoneHeight = 10, -- 임시
+	SoloPromptDistance = 10, -- 임시
+	SoloPromptDistanceSlack = 4, -- 임시: 다른 프롬프트의 DistanceSlack과 비슷하게
 	SoloRewardMultiplier = 0.7,
 	PhaseTickInterval = 0.2, -- 임시
 }

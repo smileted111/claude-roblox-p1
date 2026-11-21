@@ -1,12 +1,12 @@
 --!strict
 -- ChaserController: 추격자 조작 — 근접 공격·고유 스킬·열어보기 (GDD 6.1, 7장, 13.2).
 --
--- 공격: PC 마우스 왼쪽 클릭, 게임패드 R2(InputController가 묶음), 휴대폰은 화면 탭(UI가 아닌 곳). 추격 단계의 추격자만.
+-- 공격: PC 마우스 왼쪽 클릭, 게임패드 R2, 휴대폰 공격 버튼(InputController가 묶음) 또는 화면 탭(UI가 아닌 곳). 추격 단계의 추격자만.
 --   이 컨트롤러는 쿨다운(Config.Chasers.AttackCooldown) 동안 다시 보내지 않고, 휘두르는 애니메이션과 효과음,
 --   HUD 쿨다운 바(UIController)만 맡는다.
 --   맞았는지, 쿨다운이 지났는지는 서버(CatchService)가 다시 판정한다 (ChaserAttack 리모트).
 -- 숨는 곳의 "열어보기" 프롬프트를 추격자에게만, 추격 단계에서만 켠다. 누르는 시간(ChaserOpenTime)과 판정은 서버(HideService).
--- 스킬: E·게임패드 Y·휴대폰 화면 버튼(InputController, Config.Input.Bindings). 카메라가 보는 수평 방향을 UseSkill로 보내고(망령 순간이동 방향)
+-- 스킬: Q·게임패드 Y·휴대폰 화면 버튼(InputController, Config.Input.Bindings). 카메라가 보는 수평 방향을 UseSkill로 보내고(망령 순간이동 방향)
 --   판정·효과·쿨다운은 서버(ChaserService). 쿨다운은 Player Attribute SkillReadyAt으로 받아 HUD(UIController)가 보여준다.
 --   흔적 보기(추적자): Footprints 리모트로 받은 생존자 발 위치에 빛나는 발자국을 Lifetime초 동안 찍는다 (이 화면에만).
 -- 위치 표시: ChaserMarker 리모트(발전기 소리, 감시자 경보)를 받으면 그 위치에 duration초 동안 표시 (Util/WorldMarker).

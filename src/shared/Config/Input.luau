@@ -1,7 +1,8 @@
 --!strict
 -- 입력 키와 휴대폰 화면 버튼 (GDD 11장, 질문지 Q10-2 모바일 + PC). 입력은 client/Controllers/InputController가
 -- ContextActionService로 묶는다.
--- 추격자 스킬 키가 E라서(docs/studio-workflow.md S3-3) 상호작용(ProximityPrompt) 키는 Roblox 기본 E 대신 F를 쓴다.
+-- 상호작용(ProximityPrompt)은 Roblox 기본과 같은 E, 추격자 스킬은 Q (docs/release-review.md D6. S3-3에서는 스킬 E·상호작용 F였다).
+--   Q는 관전 중(이전 대상)에도 쓰지만 추격자와 관전자는 동시에 될 수 없어 겹치지 않는다.
 -- 게임패드 (S3-5): 달리기 L3, 공격 R2, 아이템 LB/RB, 스킬 Y, 관전 대상 LB/RB, 상호작용 X.
 
 local Types = require(script.Parent.Parent.Types)
@@ -27,7 +28,7 @@ export type InputConfig = {
 }
 
 local Input: InputConfig = {
-	InteractKey = Enum.KeyCode.F,
+	InteractKey = Enum.KeyCode.E,
 	InteractGamepad = Enum.KeyCode.ButtonX,
 	Bindings = {
 		Run = { Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift, Enum.KeyCode.ButtonL3 },
@@ -35,7 +36,7 @@ local Input: InputConfig = {
 		Item1 = { Enum.KeyCode.One, Enum.KeyCode.ButtonL1 },
 		Item2 = { Enum.KeyCode.Two, Enum.KeyCode.ButtonR1 },
 		Attack = { Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2 },
-		Skill = { Enum.KeyCode.E, Enum.KeyCode.ButtonY },
+		Skill = { Enum.KeyCode.Q, Enum.KeyCode.ButtonY },
 		-- ←/→는 Roblox 기본 카메라 회전 키라 관전 중에는 높은 우선순위로 가로챈다 (SpectateController)
 		SpectatePrevious = { Enum.KeyCode.Q, Enum.KeyCode.Left, Enum.KeyCode.ButtonL1 },
 		SpectateNext = { Enum.KeyCode.E, Enum.KeyCode.Right, Enum.KeyCode.ButtonR1 },
@@ -59,13 +60,14 @@ local Input: InputConfig = {
 		ButtonB = "B",
 	},
 	-- 휴대폰: Roblox 점프 버튼(작은 화면 지름 70, 태블릿 120) 둘레에 놓아 오른손 엄지로 닿게 한다.
-	-- 달리기와 스킬은 같은 자리 (생존자만 달리고, 추격자만 스킬을 쓴다).
+	-- 달리기와 스킬, 아이템과 공격은 같은 자리 (생존자만 달리고 아이템을 쓰고, 추격자만 스킬과 공격을 쓴다).
 	Touch = {
 		ButtonSize = 64, -- 임시
 		Offsets = {
 			Run = Vector2.new(-90, 0), -- 임시: 점프 버튼 왼쪽
 			Skill = Vector2.new(-90, 0), -- 임시: 점프 버튼 왼쪽
 			Item = Vector2.new(-78, -73), -- 임시: 왼쪽 위
+			Attack = Vector2.new(-78, -73), -- 임시: 왼쪽 위
 			Interact = Vector2.new(0, -95), -- 임시: 점프 버튼 위
 		},
 		LargeScreenMinSide = 500,

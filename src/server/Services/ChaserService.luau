@@ -29,6 +29,7 @@ local Hunter = require(script.Parent.Parent.Chasers.Hunter)
 local Puppeteer = require(script.Parent.Parent.Chasers.Puppeteer)
 local Tracker = require(script.Parent.Parent.Chasers.Tracker)
 local Wraith = require(script.Parent.Parent.Chasers.Wraith)
+local CharacterLoader = require(script.Parent.Parent.Util.CharacterLoader)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 local DataService = require(script.Parent.DataService)
 local LanguageService = require(script.Parent.LanguageService)
@@ -120,11 +121,12 @@ local api: ChaserTypes.SkillApi = {
 }
 
 local function onUseSkill(player: Player, lookDirection: unknown): ()
-	if typeof(lookDirection) ~= "Vector3" then
+	if not RemoteHandler.isFiniteVector3(lookDirection) then
 		return
 	end
-	local flat = Vector3.new(lookDirection.X, 0, lookDirection.Z)
-	if flat.Magnitude < 1e-3 or flat.Magnitude ~= flat.Magnitude then
+	local look = lookDirection :: Vector3
+	local flat = Vector3.new(look.X, 0, look.Z)
+	if flat.Magnitude < 1e-3 then
 		return
 	end
 	if not api.isActive(player) or MovementService.isStunned(player) then
@@ -172,7 +174,7 @@ local function onRoleChanged(player: Player): ()
 	end
 end
 
--- 추격자 전용 외형으로 캐릭터를 새로 불러온다 (멈춤). 모델이 없으면 평소 아바타로 불러온다.
+-- 추격자 전용 외형으로 캐릭터를 새로 불러온다 (멈춤). 모델이 없으면 평소 아바타로 불러온다. 실패하면 nil.
 function ChaserService.loadCharacter(player: Player): Model?
 	local chaserType = MatchState.getChaserType(player) or selectedChaser(player)
 	local models = ServerStorage:FindFirstChild(MODELS_FOLDER)
@@ -180,14 +182,12 @@ function ChaserService.loadCharacter(player: Player): Model?
 	local humanoid = template and template:FindFirstChildOfClass("Humanoid")
 	local description = humanoid and humanoid:FindFirstChildOfClass("HumanoidDescription")
 	if description then
-		player:LoadCharacterWithHumanoidDescriptionAsync(description:Clone())
-	else
-		warn(
-			`[Chaser] ServerStorage.{MODELS_FOLDER}.{chaserType}의 HumanoidDescription이 없어 아바타로 불러옵니다`
-		)
-		player:LoadCharacterAsync()
+		return CharacterLoader.load(player, description:Clone(), `추격자 외형 {chaserType}`)
 	end
-	return player.Character
+	warn(
+		`[Chaser] ServerStorage.{MODELS_FOLDER}.{chaserType}의 HumanoidDescription이 없어 아바타로 불러옵니다`
+	)
+	return CharacterLoader.load(player, nil, "추격자")
 end
 
 --------------------------------------------------------------------------------

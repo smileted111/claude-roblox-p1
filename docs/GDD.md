@@ -315,19 +315,31 @@ src/
   server/          -- ServerScriptService
     Services/
       MatchService      -- 매치 시작·종료, 스테이지 순서
-      StageService      -- 맵 불러오기, 타이머, 목표 장치, 출구
+      StageService      -- 맵 불러오기, 타이머, 스테이지 진행
+      ObjectiveService  -- 목표 장치(발전기), 출구
       RoleService       -- 추격자 선정, 역할 배정
-      MonsterService    -- 괴물 생성·AI
+      MonsterService    -- 괴물 생성·AI 공통 (종류별 동작은 Monsters/<Name>)
+      ChaserService     -- 추격자 종류·스킬(Chasers/<Name>)·외형, 로비의 추격자 선택·해금
       CatchService      -- 피격·부상·잡힘 판정
+      MovementService   -- 이동 속도·스태미나
+      HideService       -- 숨는 곳
+      BarrierService    -- 판자·문
       SpectateService   -- 관전 상태·대상 관리
       ItemService       -- 아이템 배치·사용
+      RecordService     -- 스테이지·매치 기록, 라스트 서바이버
+      LobbyService      -- 같이 하기 대기열, 혼자 하기
       DataService       -- 저장 (ProfileStore)
       ShopService       -- 게임패스·상품
+      AchievementService -- 배지
+      LanguageService   -- 현지화 표, 플레이어별 언어
+    Util/              -- 리모트 입구(빈도 제한), 단계 타이머, 소리 사건, 캐릭터 불러오기 등
   client/          -- StarterPlayerScripts
     Controllers/
       InputController, UIController, CameraController,
-      SpectateController, SoundController, ChaserController, SurvivorController
+      SpectateController, SoundController, ChaserController, SurvivorController,
+      LobbyController, ResultController, ShopController
 ```
+- 처음 목록 밖 모듈은 한 서비스가 너무 커지지 않게 나눈 것이다 (2026-11-21 출시 점검 D9에서 표에 반영).
 
 ### 13.3 원칙
 - 피격·잡힘·아이템·목표 진행은 모두 **서버가 판정**한다. 클라이언트는 입력과 연출만 맡는다.

@@ -33,6 +33,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 local Strings = require(ReplicatedStorage.Shared.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
+local CharacterLoader = require(script.Parent.Parent.Util.CharacterLoader)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
 local BarrierService = require(script.Parent.BarrierService)
 local ChaserService = require(script.Parent.ChaserService)
@@ -193,13 +194,12 @@ function StageService.unloadMap(): ()
 	end
 end
 
--- 살아 있는 캐릭터를 돌려준다. 없거나 죽었으면 새로 만든다 (LoadCharacterAsync는 멈춤).
+-- 살아 있는 캐릭터를 돌려준다. 없거나 죽었으면 새로 만든다 (멈춤). 만들지 못하면 nil.
 local function ensureCharacter(player: Player): Model?
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if not character or not humanoid or humanoid.Health <= 0 then
-		player:LoadCharacterAsync()
-		character = player.Character
+		return CharacterLoader.load(player, nil, "스테이지 배치")
 	end
 	return character
 end
@@ -363,7 +363,7 @@ function StageService.respawn(player: Player): ()
 	end
 	local run = current
 	if not run or not isInMatch(run, player) then
-		player:LoadCharacterAsync()
+		CharacterLoader.load(player, nil, "로비")
 		return
 	end
 	local role = MatchState.getRole(player)
@@ -374,7 +374,7 @@ function StageService.respawn(player: Player): ()
 	if spawnPart then
 		placeAt(player, spawnPart)
 	else
-		player:LoadCharacterAsync()
+		CharacterLoader.load(player, nil, "로비")
 	end
 	print(`[Stage] {player.Name} 다시 생성 ({role})`)
 end

@@ -118,7 +118,7 @@ export type InputPlatform = "KeyboardMouse" | "Gamepad" | "Touch"
 export type BadgeKey = "FirstEscape" | "FirstLastSurvivor" | "SoloClear" | "CatchAll"
 
 -- 휴대폰 화면 버튼 (GDD 11장: 달리기, 상호작용, 아이템, 스킬)
-export type TouchButtonId = "Run" | "Interact" | "Item" | "Skill"
+export type TouchButtonId = "Run" | "Interact" | "Item" | "Skill" | "Attack"
 
 -- 잠깐 띄우는 알림 문구의 키 (Strings.Notices)
 export type NoticeKey =

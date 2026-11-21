@@ -36,6 +36,8 @@
 --
 -- 길찾기: 괴물마다 Path 하나. 경로 계산은 괴물마다 PathRecomputeInterval초 이상 간격으로만 한다.
 --   ComputeAsync는 멈추므로 따로 실행하고, 결과가 올 때까지는 이전 경로를 따라간다.
+--   모든 괴물을 합쳐 동시에 MaxConcurrentPaths개까지만 계산하고, 넘으면 다음 갱신으로 미룬다 (서버 비용 상한).
+--   스테이지가 끝나면 계산·미룬 횟수를 출력한다 (성능 확인용).
 --   경로 중간 지점은 갱신 때와 MoveToFinished 때 넘긴다.
 
 local Players = game:GetService("Players")
@@ -112,6 +114,8 @@ local monsterFolder: Folder? = nil
 local heartbeatConnection: RBXScriptConnection? = nil
 local serial = 0
 local darkZones: { BasePart } = {} -- 지금 맵의 DarkZone 상자
+local computingPaths = 0 -- 지금 계산 중인 경로 수 (모든 괴물 합계)
+local pathStats = { computed = 0, deferred = 0 } -- 이번 스테이지의 길찾기 계산·미룸 횟수
 local api: MonsterTypes.Api
 
 -- 시야 검사: 캐릭터와 괴물은 빼고, 충돌하는 파트만 시야를 가리는 것으로 본다 (열린 대기실 문, 바닥 표시 등은 통과).
@@ -358,11 +362,14 @@ local function requestPath(monster: Monster, goal: Vector3, now: number): ()
 	monster.forceRepath = false
 	monster.lastPathAt = now
 	local start = monster.rootPart.Position
+	computingPaths += 1
+	pathStats.computed += 1
 
 	task.spawn(function()
 		local ok = pcall(function()
 			monster.path:ComputeAsync(start, goal)
 		end)
+		computingPaths = math.max(0, computingPaths - 1)
 		monster.computing = false
 		if not monster.alive or request ~= monster.pathRequest then
 			return
@@ -388,7 +395,11 @@ local function travelTo(monster: Monster, goal: Vector3, now: number, directWhil
 	local goalChanged = current == nil or (current - goal).Magnitude > Config.GoalChangeTolerance
 	local canCompute = not monster.computing and now - monster.lastPathAt >= Config.PathRecomputeInterval
 	if (goalChanged or monster.forceRepath) and canCompute then
-		requestPath(monster, goal, now)
+		if computingPaths < Config.MaxConcurrentPaths then
+			requestPath(monster, goal, now)
+		else
+			pathStats.deferred += 1
+		end
 	end
 	if directWhileNoPath and #monster.waypoints == 0 then
 		monster.humanoid:MoveTo(goal)
@@ -1153,8 +1164,12 @@ function MonsterService.clear(): ()
 	end
 	table.clear(darkZones)
 	if count > 0 then
-		print(`[Monster] 괴물 {count}마리 제거`)
+		print(
+			`[Monster] 괴물 {count}마리 제거 · 길찾기 {pathStats.computed}회 (동시 상한으로 미룸 {pathStats.deferred}회)`
+		)
 	end
+	pathStats.computed = 0
+	pathStats.deferred = 0
 end
 
 -- 불러온 맵의 MonsterSpawn에 이번 스테이지의 괴물을 만든다. 추격 단계가 되어야 움직인다.

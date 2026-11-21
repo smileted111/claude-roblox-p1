@@ -441,7 +441,7 @@ local function onUseItem(player: Player, slot: unknown, aim: unknown): ()
 	if not itemId or not Items[itemId] or not parts then
 		return
 	end
-	local aimPosition: Vector3? = if typeof(aim) == "Vector3" and aim == aim then aim else nil
+	local aimPosition: Vector3? = if RemoteHandler.isFiniteVector3(aim) then aim :: Vector3 else nil
 	local result = applyItem(player, itemId, parts, aimPosition)
 	if result == "Used" then
 		setSlot(player, slot, nil)

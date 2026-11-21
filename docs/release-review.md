@@ -1,7 +1,7 @@
 # 출시 전 점검 (S3-9)
 
 점검일: 2026-11-21. 기준 커밋: S3-8 이후 (`src/` 전체, Studio 플레이스).
-**표의 문제는 아직 고치지 않았다.** 고칠 항목 번호를 알려주면 그것만 고친다 (docs/studio-workflow.md S3-9).
+처리 결과는 맨 아래 "5. 처리 기록"에 적는다 (2026-11-21 사용자가 추천대로 승인: 1차 #2·#3·#4·P2·D2·D6·D9, 2차 P1·#1).
 
 ## 1. 배지 (구현함)
 
@@ -61,3 +61,18 @@
 | D8 | 보류 | progress.md: S1-9·S2-6 사용자 플레이테스트, S3-8 정식 맵 꾸미기. |
 | D9 | 구조 | GDD 13.2 목록 밖 모듈: Record·Objective·Barrier·Lobby·Chaser·Language·Achievement Service, Lobby·Result·Shop Controller (각 파일 머리에 이유를 적음). GDD 13.2 표를 갱신할지 결정 필요. |
 | D10 | 일치 | 스테이지 1~3 괴물·발전기·제한 시간(GDD 4.2), 인원 보정(4.3), 괴물 5종·추격자 4종, 아이템 5종, 관전, 솔로 70% 보상, 결과·라스트 서바이버, 저장·상점·현지화는 GDD대로. |
+
+## 5. 처리 기록
+
+| 항목 | 결과 | 커밋 |
+|---|---|---|
+| 코드 #2 | `RemoteHandler.isFiniteVector3`로 조준 위치·스킬 방향의 NaN·무한대를 거름 | 1차 |
+| 코드 #3 | `server/Util/CharacterLoader.load`(pcall)로 6곳 교체 | 1차 |
+| 코드 #4 | 혼자 하기 프롬프트에 서버 거리 검사 (`Config.Match.SoloPromptDistance` + Slack) | 1차 |
+| P2 | 동시 길찾기 상한 `Config.MonsterAI.MaxConcurrentPaths` 4, 스테이지 끝에 계산·미룸 횟수 출력 | 1차 |
+| D2 | 추격자 최대 카메라 거리 `Config.Camera.ChaserMaxZoom` 14 (CameraController) | 1차 |
+| D6 | 상호작용 키 E, 추격자 스킬 Q. VIP +20%는 번 코인에만 (그대로). 휴대폰 추격자 공격 버튼 추가 | 1차 |
+| D9 | GDD 13.2 코드 구조 표 갱신 | 1차 |
+| P3 | 보류 (S2-6 플레이테스트 뒤) | |
+| D3~D5 | 보류 (에셋·기획 필요. 심장 박동 소리는 출시 전 권장) | |
+| S3-8 조명 | 보류 (맵 꾸밀 때) | |

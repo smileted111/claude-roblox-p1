@@ -5,12 +5,13 @@
 --   Config.Input.Bindings의 키를 ContextActionService에 묶는다. 처리 함수는 누름(true)·뗌(false)을 받는다.
 --   달리기·아이템(SurvivorController), 공격·스킬(ChaserController), 관전 대상 바꾸기(SpectateController).
 --   UI가 먼저 받은 입력(버튼 클릭 등)은 ContextActionService가 넘기지 않는다.
--- 휴대폰 화면 버튼 (ScreenGui "TouchControls", 터치 입력일 때만): 오른쪽 아래 점프 버튼 둘레에 4개 (GDD 11장).
---   달리기·아이템·스킬은 그 동작이 묶여 있을 때만 보인다 (생존자: 달리기·아이템, 추격자: 스킬).
+-- 휴대폰 화면 버튼 (ScreenGui "TouchControls", 터치 입력일 때만): 오른쪽 아래 점프 버튼 둘레 (GDD 11장).
+--   달리기·아이템·스킬·공격은 그 동작이 묶여 있을 때만 보인다 (생존자: 달리기·아이템, 추격자: 스킬·공격).
+--   한 사람에게 보이는 버튼은 상호작용을 합쳐 4개 이하다 (공격은 아이템 자리, 스킬은 달리기 자리).
 --   아이템 버튼은 아이템이 있는 첫 칸을 쓴다 (특정 칸은 HUD 아이템 칸을 누른다).
 --   상호작용은 지금 보이는 ProximityPrompt(숨기·수리·치료·줍기·판자·문·열어보기·혼자 하기)가 있을 때만 보이고,
 --   가장 가까운 프롬프트를 InputHoldBegin/InputHoldEnd로 누른다 (길게 누르는 프롬프트는 버튼을 누르고 있으면 된다).
---   추격자 공격은 화면(UI가 아닌 곳)을 탭한다 (ChaserController).
+--   추격자 공격은 공격 버튼이나 화면(UI가 아닌 곳) 탭 (ChaserController).
 --   버튼 크기는 실제 점 단위라 UIScale로 줄이지 않는다 (Config.Input.Touch, 지름 64 ≥ 터치 영역 최소 44).
 -- 플랫폼: 마지막 입력 종류로 키보드·마우스 / 게임패드 / 터치를 정한다. 바뀌면 onPlatformChanged 구독자에게 알린다.
 --   hint(동작)는 지금 플랫폼의 키 이름이다 (HUD 키 안내). 터치는 화면 버튼이 있으니 nil (공격만 "화면 탭").
@@ -39,19 +40,21 @@ type TouchButton = {
 local ACTION_PREFIX = "Input" -- ContextActionService 동작 이름 앞에 붙인다
 local FORCE_PLATFORM_ATTRIBUTE = "ForceInputPlatform" -- Studio 시험용
 local TOUCH_REFRESH_INTERVAL = 0.2 -- 상호작용 버튼 이름(가까운 프롬프트)을 다시 맞추는 간격 (초)
-local TOUCH_BUTTON_ORDER: { Types.TouchButtonId } = { "Run", "Skill", "Item", "Interact" }
+local TOUCH_BUTTON_ORDER: { Types.TouchButtonId } = { "Run", "Skill", "Item", "Attack", "Interact" }
 
 -- 화면 버튼이 부르는 동작. 상호작용은 동작이 아니라 프롬프트를 누른다.
 local TOUCH_ACTIONS: { [Types.TouchButtonId]: Types.InputAction } = {
 	Run = "Run",
 	Item = "Item",
 	Skill = "Skill",
+	Attack = "Attack",
 }
 
 local DEFAULT_LABELS: { [Types.TouchButtonId]: string } = {
 	Run = Strings.Hud.Run,
 	Item = Strings.Hud.Item,
 	Skill = Strings.Hud.Skill,
+	Attack = Strings.Hud.Attack,
 	Interact = Strings.Hud.Interact,
 }
 
