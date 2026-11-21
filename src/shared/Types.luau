@@ -114,6 +114,9 @@ export type InputAction = "Run" | "Item" | "Item1" | "Item2" | "Attack" | "Skill
 -- 지금 쓰는 입력 장치 (마지막 입력 종류로 정함). 화면의 키 안내와 휴대폰 버튼 표시를 바꾼다
 export type InputPlatform = "KeyboardMouse" | "Gamepad" | "Touch"
 
+-- 배지 (GDD 9장, Config.Badges)
+export type BadgeKey = "FirstEscape" | "FirstLastSurvivor" | "SoloClear" | "CatchAll"
+
 -- 휴대폰 화면 버튼 (GDD 11장: 달리기, 상호작용, 아이템, 스킬)
 export type TouchButtonId = "Run" | "Interact" | "Item" | "Skill"
 

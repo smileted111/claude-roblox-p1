@@ -30,6 +30,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Types = require(ReplicatedStorage.Shared.Types)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
 local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
+local AchievementService = require(script.Parent.AchievementService)
 local DataService = require(script.Parent.DataService)
 local LobbyService = require(script.Parent.LobbyService)
 local RecordService = require(script.Parent.RecordService)
@@ -203,6 +204,7 @@ local function playStages(): ()
 		return
 	end
 	DataService.grantMatch(result)
+	AchievementService.onMatchResult(result)
 	local active = activeParticipants()
 	if #active > 0 then
 		logMatchResult(result)

@@ -36,6 +36,7 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local PhaseTimer = require(script.Parent.Parent.Util.PhaseTimer)
 local BarrierService = require(script.Parent.BarrierService)
 local ChaserService = require(script.Parent.ChaserService)
+local AchievementService = require(script.Parent.AchievementService)
 local DataService = require(script.Parent.DataService)
 local HideService = require(script.Parent.HideService)
 local ItemService = require(script.Parent.ItemService)
@@ -480,6 +481,7 @@ function StageService.runStage(stageId: Types.StageId, participants: { Player })
 	-- 결과
 	local result = recordResult(run, if outcome == "TimeUp" then "TimeUp" else "NoSurvivorsLeft")
 	DataService.grantStage(result)
+	AchievementService.onStageResult(result)
 	fireParticipants(run, "StageResult", result)
 	local anyoneLeft = false
 	for _, player in run.participants do
