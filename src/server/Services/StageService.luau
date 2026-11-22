@@ -4,9 +4,10 @@
 -- 한 스테이지: 역할 공개 → 준비 → 추격 → 결과 (MatchService가 runStage로 부름)
 --   역할 공개  Config.Match.RoleRevealTime   추격자를 뽑고 룰렛 신호(RoleReveal)를 보냄. 솔로는 생략 (GDD 3.1)
 --   (로딩)                                   맵을 불러와 참가자를 옮기는 동안 Loading = "Stage" (참가자 화면에 로딩 화면,
---                                            client LoadingController). 모두 옮기면(최대 Config.Loading.PlacementTimeout초) 끈다.
---                                            스테이지가 끝나 맵을 지울 때 Loading = "Lobby"를 켜고 MatchService가 로비에
---                                            다시 만든 뒤 끈다.
+--                                            client LoadingController). 켠 뒤 Config.Loading.CoverTime초 기다려 화면이 다
+--                                            덮은 다음 옮기고, 모두 옮기면(최대 Config.Loading.PlacementTimeout초) 끈다.
+--                                            스테이지가 끝나 맵을 지울 때 Loading = "Lobby"를 켜고 (같이 CoverTime초 기다림)
+--                                            MatchService가 로비에 다시 만든 뒤 끈다.
 --   준비       Config.Match.PreparationTime  맵을 Workspace.CurrentMap에 복제한다. 매치 화면 모드가 캐주얼이면
 --                                            맵 색을 파스텔로 바꾼다 (Util/MapStyler). 조명은 클라이언트(VisualModeController)가 바꾼다.
 --                                            카메라 높이 제한(바닥 윗면 + Config.Camera.StageCeilingHeight)을 CameraCeiling으로 공개.
@@ -353,6 +354,7 @@ end
 local function finish(): ()
 	-- 맵을 지우고 로비에 다시 만들 때까지 참가자 화면에 로딩 화면 (MatchService가 다 만든 뒤 끈다).
 	ReplicatedStorage:SetAttribute(Attribute.Loading, "Lobby" :: Types.LoadingKind)
+	task.wait(Loading.CoverTime) -- 로딩 화면이 다 덮은 뒤에 맵을 지운다
 	MonsterService.clear()
 	ObjectiveService.clearMap()
 	ItemService.clearMap()
@@ -475,6 +477,7 @@ function StageService.runStage(stageId: Types.StageId, participants: { Player },
 	-- 준비: 생존자는 흩어지고 추격자는 대기실에 갇혀 있음
 	if outcome == "TimeUp" then
 		ReplicatedStorage:SetAttribute(Attribute.Loading, "Stage" :: Types.LoadingKind)
+		task.wait(Loading.CoverTime) -- 로딩 화면이 다 덮은 뒤에 옮긴다
 		local map = loadMap(stageId)
 		run.map = map
 		HideService.setupMap(map)
