@@ -1,19 +1,25 @@
 --!strict
--- VoteService: 스테이지마다 맵 투표, 첫 스테이지는 화면 모드 투표도 (2026-11-21 사용자 요청). GDD 3.1.1, 12장. GDD 13.2 목록 밖에 추가.
+-- VoteService: 스테이지마다 맵·게임 모드 투표, 첫 스테이지는 화면 모드 투표도 (2026-11-21·22 사용자 요청). GDD 3.1.1, 12장.
+-- GDD 13.2 목록 밖에 추가.
 --
 -- MatchService가 참가자가 정해진 뒤(같이 하기·혼자 하기) 스테이지마다 VoteService.run을 부른다.
 --   투표 단계(Phase Voting)를 Config.Match.VoteTime초 동안 연다. 참가자(Player Attribute Voter)만 CastVote 리모트로
 --   맵(이번 매치에서 아직 플레이하지 않은 맵만)과 화면 모드(withMode일 때)를 고른다. 다시 보내면 표를 바꾼다.
+--   게임 모드(Config.GameModes.Modes)는 참가자가 Config.Match.MinPlayersForChaser명 이상일 때(추격자가 있는 스테이지) 맵과 같은
+--   방식으로 스테이지마다 고른다 (2026-11-22 사용자 요청). 참가자 수가 Config.GameModes.MinPlayers보다 적은 모드(얼음땡은
+--   3명부터)는 칸에 나오지 않는다 (VoteGameModes). 혼자면 칸이 없고 결과는 nil (서바이벌 규칙).
 --   추격자 희망: 참가자가 Config.Match.MinPlayersForChaser명 이상이면 "추격자 희망"을 켜고 끈다(CastVote "Chaser", 누를
 --   때마다 바뀜). 켠 사람 목록을 돌려주면 이번 스테이지 추격자는 그중 무작위 (RoleService.pickChaser).
 --   참가자가 모두 나가면 일찍 끝낸다.
 -- 결과: 가장 많이 투표된 맵·화면 모드. 같은 표가 여럿이면 그중 무작위 (아무도 투표하지 않으면 모든 항목 중 무작위).
--- 공개: ReplicatedStorage VoteMaps·VotePlayed·VoteMapCounts·VoteModeCounts, Player Voter·VoteMap·VoteMode·WantsChaser
+-- 공개: ReplicatedStorage VoteMaps·VotePlayed·VoteMapCounts·VoteModeCounts·VoteGameModeCounts,
+--   Player Voter·VoteMap·VoteMode·VoteGameMode·WantsChaser
 --   (MatchState). 투표가 끝나면 모두 지운다.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local GameModes = require(ReplicatedStorage.Shared.Config.GameModes)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Strings = require(ReplicatedStorage.Shared.Strings)
@@ -28,9 +34,11 @@ type Ballot = {
 	voters: { [Player]: boolean },
 	maps: { Types.StageId }, -- 고를 수 있는 맵
 	withMode: boolean,
-	withChaser: boolean, -- 추격자 희망을 받는가 (참가자가 MinPlayersForChaser명 이상)
+	withChaser: boolean, -- 추격자 희망·게임 모드를 받는가 (참가자가 MinPlayersForChaser명 이상)
 	mapVotes: { [Player]: Types.StageId },
 	modeVotes: { [Player]: Types.VisualMode },
+	gameModes: { Types.GameMode }, -- 고를 수 있는 게임 모드 (withChaser일 때만)
+	gameModeVotes: { [Player]: Types.GameMode },
 	chaserWish: { [Player]: boolean },
 }
 
@@ -38,6 +46,7 @@ type Ballot = {
 export type Result = {
 	stageId: Types.StageId,
 	mode: Types.VisualMode?, -- withMode일 때만
+	gameMode: Types.GameMode?, -- 참가자가 MinPlayersForChaser명 이상일 때만
 	chaserWishers: { Player }, -- 추격자 희망을 켠 참가자 (UserId순)
 }
 
@@ -85,6 +94,12 @@ local function publish(ballot: Ballot): ()
 			MatchState.encodeCounts(VisualModes.Modes :: { any }, countVotes(ballot.modeVotes))
 		)
 	end
+	if ballot.withChaser then
+		ReplicatedStorage:SetAttribute(
+			Attribute.VoteGameModeCounts,
+			MatchState.encodeCounts(ballot.gameModes :: { any }, countVotes(ballot.gameModeVotes))
+		)
+	end
 end
 
 local function onCastVote(player: Player, kind: unknown, value: unknown): ()
@@ -106,6 +121,17 @@ local function onCastVote(player: Player, kind: unknown, value: unknown): ()
 		end
 		ballot.modeVotes[player] = mode
 		player:SetAttribute(Attribute.VoteMode, mode)
+	elseif kind == "GameMode" then
+		local gameMode = value :: Types.GameMode
+		if
+			not ballot.withChaser
+			or not table.find(ballot.gameModes, gameMode)
+			or ballot.gameModeVotes[player] == gameMode
+		then
+			return
+		end
+		ballot.gameModeVotes[player] = gameMode
+		player:SetAttribute(Attribute.VoteGameMode, gameMode)
 	elseif kind == "Chaser" then
 		-- 누를 때마다 켜고 끈다 (두 번 누르면 해제).
 		if not ballot.withChaser then
@@ -127,9 +153,19 @@ local function clear(ballot: Ballot): ()
 		player:SetAttribute(Attribute.Voter, nil)
 		player:SetAttribute(Attribute.VoteMap, nil)
 		player:SetAttribute(Attribute.VoteMode, nil)
+		player:SetAttribute(Attribute.VoteGameMode, nil)
 		player:SetAttribute(Attribute.WantsChaser, nil)
 	end
-	for _, name in { Attribute.VoteMaps, Attribute.VotePlayed, Attribute.VoteMapCounts, Attribute.VoteModeCounts } do
+	for _, name in
+		{
+			Attribute.VoteMaps,
+			Attribute.VotePlayed,
+			Attribute.VoteMapCounts,
+			Attribute.VoteModeCounts,
+			Attribute.VoteGameModes,
+			Attribute.VoteGameModeCounts,
+		}
+	do
 		ReplicatedStorage:SetAttribute(name, nil)
 	end
 	current = nil
@@ -143,7 +179,8 @@ local function describe(keys: { string }, counts: { [string]: number }): string
 	return table.concat(parts, " · ")
 end
 
--- 투표를 열고 끝날 때까지 기다린다. 고른 맵, (withMode면) 화면 모드, 추격자 희망자를 돌려준다.
+-- 투표를 열고 끝날 때까지 기다린다. 고른 맵, (withMode면) 화면 모드, (참가자가 2명 이상이면) 게임 모드, 추격자 희망자를
+-- 돌려준다.
 -- maps: 고를 수 있는 맵 (1개 이상), played: 이번 매치에서 이미 플레이한 맵 (화면에 흐리게 보여줌).
 function VoteService.run(
 	voters: { Player },
@@ -155,13 +192,24 @@ function VoteService.run(
 	if current then
 		clear(current)
 	end
+	local withChaser = #voters >= Match.MinPlayersForChaser
+	local gameModes: { Types.GameMode } = {}
+	if withChaser then
+		for _, gameMode in GameModes.Modes do
+			if #voters >= GameModes.MinPlayers[gameMode] then
+				table.insert(gameModes, gameMode)
+			end
+		end
+	end
 	local ballot: Ballot = {
 		voters = {},
 		maps = table.clone(maps),
 		withMode = withMode,
-		withChaser = #voters >= Match.MinPlayersForChaser,
+		withChaser = withChaser,
+		gameModes = gameModes,
 		mapVotes = {},
 		modeVotes = {},
+		gameModeVotes = {},
 		chaserWish = {},
 	}
 	current = ballot
@@ -172,6 +220,10 @@ function VoteService.run(
 	-- 클라이언트가 Phase를 받았을 때 투표 내용이 이미 있도록 단계보다 먼저 쓴다.
 	ReplicatedStorage:SetAttribute(Attribute.VoteMaps, MatchState.encodeList(maps :: { any }))
 	ReplicatedStorage:SetAttribute(Attribute.VotePlayed, MatchState.encodeList(played :: { any }))
+	ReplicatedStorage:SetAttribute(
+		Attribute.VoteGameModes,
+		if withChaser then MatchState.encodeList(gameModes :: { any }) else nil
+	)
 	publish(ballot)
 
 	PhaseTimer.run("Voting", Match.VoteTime, function(): boolean
@@ -196,6 +248,15 @@ function VoteService.run(
 		modeLog = ` · 화면 모드 {mode} ({describe(VisualModes.Modes :: { any }, modeCounts)}`
 			.. (if modeTies > 1 then `, 동점 {modeTies}개 중 무작위)` else ")")
 	end
+	local gameMode: Types.GameMode? = nil
+	local gameModeLog = ""
+	if ballot.withChaser then
+		local gameCounts = countVotes(ballot.gameModeVotes)
+		local gameKey, gameTies = pickTop(ballot.gameModes :: { any }, gameCounts)
+		gameMode = gameKey :: Types.GameMode
+		gameModeLog = ` · 게임 모드 {gameMode} ({describe(ballot.gameModes :: { any }, gameCounts)}`
+			.. (if gameTies > 1 then `, 동점 {gameTies}개 중 무작위)` else ")")
+	end
 	local wishers: { Player } = {}
 	for player in ballot.chaserWish do
 		if player.Parent == Players then
@@ -209,11 +270,12 @@ function VoteService.run(
 		`[Vote] 맵 {stageId} ({Strings.Stages[stageId]}) · 표 {describe(maps :: { any }, mapCounts)}`
 			.. (if mapTies > 1 then ` (동점 {mapTies}개 중 무작위)` else "")
 			.. modeLog
+			.. gameModeLog
 			.. (if ballot.withChaser then ` · 추격자 희망 {#wishers}명` else "")
 			.. (if #played > 0 then ` · 플레이한 맵 {table.concat(played :: { any }, ", ")}` else "")
 	)
 	clear(ballot)
-	return { stageId = stageId, mode = mode, chaserWishers = wishers }
+	return { stageId = stageId, mode = mode, gameMode = gameMode, chaserWishers = wishers }
 end
 
 function VoteService.Init(): () end
@@ -225,6 +287,7 @@ function VoteService.Start(): ()
 		if ballot and ballot.voters[player] then
 			ballot.mapVotes[player] = nil
 			ballot.modeVotes[player] = nil
+			ballot.gameModeVotes[player] = nil
 			ballot.chaserWish[player] = nil
 			publish(ballot)
 		end

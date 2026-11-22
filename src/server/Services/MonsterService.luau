@@ -874,7 +874,9 @@ local function defaultSummon(monster: Monster, position: Vector3, now: number, s
 	setState(monster, "Suspicious", `부름: {source}`)
 end
 
--- position에 가까운 움직이는 괴물 count마리를 seconds초 동안 position으로 부른다 (조종자 스킬, GDD 7.1). 부른 수를 돌려준다.
+-- position에 가까운 움직이는 괴물 count마리를 seconds초 동안 position으로 부른다. 부른 수를 돌려준다.
+-- 조종자 스킬이 위치 감지로 바뀌어(2026-11-22) 지금 부르는 곳은 없다. 괴물과 추격자가 함께 나오는 스테이지
+-- (Config.Match.MonstersWithChasers)에 부르기 스킬을 다시 넣을 때 쓴다.
 function MonsterService.summon(position: Vector3, count: number, seconds: number, source: string): number
 	if not MonsterState.canActInPhase(MatchState.getPhase()) then
 		return 0

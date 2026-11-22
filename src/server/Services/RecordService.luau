@@ -3,7 +3,8 @@
 --
 -- MatchService가 매치를 시작할 때 startMatch, StageService가 스테이지마다 startStage → finishStage,
 -- 매치가 끝나면 MatchService가 finishMatch를 부른다. 매치 진행 상황은 저장하지 않는다 (GDD 13.3).
--- 스테이지 중 기여는 각 서비스가 알린다: addCatch(CatchService), addHeal(CatchService), addGeneratorProgress(S2-2).
+-- 스테이지 중 기여는 각 서비스가 알린다: addCatch(CatchService), addHeal(CatchService, 쓰러진 동료를 살린 것도 치료 1회),
+-- addGeneratorProgress(S2-2).
 --
 -- 점수 (Config.Score): 생존 또는 탈출, 발전기 수리 기여, 치료, 추격자로 잡은 수와 승리.
 -- 라스트 서바이버 (GDD 3.4, 질문지 Q1-5): 매치의 모든 스테이지에 참가했고(늦게 들어오거나 나가지 않음),
@@ -181,19 +182,21 @@ function RecordService.addGeneratorProgress(player: Player, amount: number): ()
 end
 
 -- 스테이지 결과를 기록하고 클라이언트에 보낼 결과를 돌려준다.
+-- chasers: 처음 뽑힌 추격자들 (솔로면 빈 배열). chaserWon: 남은 추격자가 있고 성공한 생존자가 없음.
 function RecordService.finishStage(
 	stageId: Types.StageId,
 	entries: { StageEntry },
-	chaser: Player?,
+	chasers: { Player },
 	chaserWon: boolean
 ): Types.StageResult
+	local solo = #chasers == 0
 	local record = current
 	local stageIndex = 1
 	if record then
 		record.stageCount += 1
 		stageIndex = record.stageCount
 		record.stageIds[stageIndex] = stageId
-		if not chaser then
+		if solo then
 			record.soloStages += 1
 		end
 	end
@@ -203,7 +206,7 @@ function RecordService.finishStage(
 		local player = entry.player
 		local stats = statsFor(player)
 		local score = stageScore(entry.outcome, stats, chaserWon)
-		local coins = stageCoins(entry.outcome, stats, chaserWon, chaser == nil, vipMultiplier(player))
+		local coins = stageCoins(entry.outcome, stats, chaserWon, solo, vipMultiplier(player))
 		table.insert(players, {
 			userId = player.UserId,
 			name = player.DisplayName,
@@ -243,12 +246,16 @@ function RecordService.finishStage(
 		return a.userId < b.userId
 	end)
 	table.clear(stageStats)
+	local chaserUserIds: { number } = {}
+	for _, chaser in chasers do
+		table.insert(chaserUserIds, chaser.UserId)
+	end
 
 	return {
 		stageId = stageId,
 		stageIndex = stageIndex,
-		solo = chaser == nil,
-		chaserUserId = if chaser then chaser.UserId else nil,
+		solo = solo,
+		chaserUserIds = chaserUserIds,
 		chaserWon = chaserWon,
 		players = players,
 	}

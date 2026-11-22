@@ -246,6 +246,10 @@ local function onHideTriggered(player: Player, spot: Spot): ()
 	if MatchState.getRole(player) ~= "Survivor" or not HideSpotState.canHideInPhase(MatchState.getPhase()) then
 		return
 	end
+	local state = MatchState.getSurvivorState(player)
+	if state ~= "Normal" and state ~= "Injured" then
+		return -- 쓰러지거나 감옥에 갇힌 생존자는 숨지 못한다
+	end
 	if os.clock() < (nextHideAllowedAt[player] or 0) then
 		return
 	end

@@ -12,18 +12,22 @@
 --               Roblox 기본 플레이어 목록(같은 자리)은 끈다. 플레이어 목록은 Roblox 메뉴(Esc)의 사람 탭에서 볼 수 있다.
 --   위 가운데    잠깐 뜨는 것만: 역할 공개 카드와 알림(Notice 리모트, Strings.Notices)을 세로로 쌓는다.
 --               알림은 Config.Ui.NoticeDuration초 뒤 사라진다
---   아래 가운데  생존자: 상태(정상/부상), 스태미나 바, 아이템 2칸(이름·색. 누르면 사용, 숫자키 1·2는 SurvivorController).
+--   아래 가운데  생존자: 상태(정상/부상/쓰러짐 + 살릴 수 있는 남은 초), 스태미나 바, 아이템 2칸(이름·색. 누르면 사용,
+--               숫자키 1·2는 SurvivorController).
 --               발전기를 고치는 동안 그 위에 수리 진행 바 (Player Attribute RepairProgress).
 --               스테이지 중 코인이 늘면(수리 10%마다 1코인 등, Player Attribute Coins) 그 위로 금색 "+n 코인"이 떠오른다
 --               추격자: 공격 쿨다운 바 (ChaserController가 공격할 때 UIController.startAttackCooldown을 부름).
---               판자에 맞아 기절하면 "기절!" (Player Attribute Stunned). 그 아래 고유 스킬 이름과 쿨다운 (SkillReadyAt)
+--               판자에 맞아 기절하면 "기절!", 공격에 성공해 멈추면 "멈춤" (Player Attribute Stunned의 이유).
+--               그 아래 고유 스킬 이름과 쿨다운 (SkillReadyAt)
 --               휴대폰에서 왼쪽 아래 이동 스틱, 오른쪽 아래 점프·화면 버튼(InputController)과 겹치지 않게 가운데에 좁게 둔다.
 --   키 안내 (S3-5): 지금 플랫폼(InputController.getPlatform)에 맞는 키를 붙인다. 아이템 칸 왼쪽 위(1·2 / LB·RB),
 --               생존자 상태 줄 오른쪽([Shift] 달리기 / [L3] 달리기), 추격자 공격·스킬 줄 끝([클릭]·[E] / [R2]·[Y]).
 --               휴대폰은 화면 버튼에 이름이 있어 키 안내를 숨기고, 공격만 [화면 탭]. 화면 버튼의 흐림(스태미나 부족,
 --               스킬 쿨다운)과 스킬 버튼의 남은 초도 여기서 맞춘다.
 --   가운데       역할 공개: RoleReveal 리모트를 받으면 후보 이름이 돌다가(Config.Ui.RoleReveal.SpinTime)
---               추격자 이름에서 멈추고, 내 역할과 목표 한 줄(Strings.RoleGoals)을 ResultHoldTime초 보여준다.
+--               게임 모드(ReplicatedStorage GameMode)에 맞는 역할 이름(경찰과 도둑이면 경찰·도둑, Strings.GameModeTexts)으로
+--               추격자 이름들(여럿이면 쉼표로 이음)에서 멈추고, 내 역할과 목표 한 줄(Strings.RoleGoals)을
+--               ResultHoldTime초 보여준다.
 --               솔로는 룰렛이 없으므로 준비 단계가 시작될 때 솔로 안내와 역할·목표를 보여준다.
 -- 발전기 위 진행 바는 Util/GeneratorBillboards가 만든다.
 -- 값은 모두 서버가 정한 Attribute(MatchState)를 읽어 보여주기만 한다.
@@ -45,6 +49,8 @@ local Ui = require(ReplicatedStorage.Shared.Config.Ui)
 local Chasers = require(ReplicatedStorage.Shared.Config.Chasers)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
+local GameModes = require(ReplicatedStorage.Shared.Config.GameModes)
+local JailBillboards = require(script.Parent.Parent.Util.JailBillboards)
 local GeneratorBillboards = require(script.Parent.Parent.Util.GeneratorBillboards)
 local WorldTextLocalizer = require(script.Parent.Parent.Util.WorldTextLocalizer)
 local InputController = require(script.Parent.InputController)
@@ -120,6 +126,7 @@ local UIController = {}
 
 local hud: Hud? = nil
 local revealToken = 0 -- 올릴 때마다 진행 중인 역할 공개 연출을 멈춘다
+local shownDownedSeconds: number? = nil -- 쓰러짐 상태 줄에 마지막으로 보여준 남은 초
 local noticeSerial = 0
 local attackTween: Tween? = nil
 local attackReadyAt = 0 -- os.clock
@@ -302,6 +309,11 @@ local function createReveal(center: Frame): RevealView
 	titleLabel.TextColor3 = Colors.Accent
 	local nameLabel = UiStyle.label(frame, "Name", 2, 52)
 	nameLabel.Font = UiStyle.BoldFont
+	-- 추격자가 여럿이면 이름이 길어져 칸에 맞게 줄인다.
+	nameLabel.TextScaled = true
+	local nameSize = Instance.new("UITextSizeConstraint")
+	nameSize.MaxTextSize = 48
+	nameSize.Parent = nameLabel
 	local roleLabel = UiStyle.label(frame, "Role", 3, 40)
 	roleLabel.Font = UiStyle.BoldFont
 	local goalLabel = UiStyle.label(frame, "Goal", 4, 24)
@@ -402,6 +414,26 @@ local function renderTop(): ()
 end
 
 --------------------------------------------------------------------------------
+-- 게임 모드별 문구 (Strings.GameModeTexts). 추격자가 없는 스테이지(혼자)·스테이지 밖이면 기본 모드
+
+local function modeTexts()
+	return Strings.GameModeTexts[MatchState.getGameMode() or GameModes.Default]
+end
+
+-- 역할 공개의 목표 한 줄. 혼자 하기(게임 모드 없음)는 Strings.RoleGoals
+local function goalText(role: Types.Role): string
+	if role == "Spectator" or MatchState.getGameMode() == nil then
+		return Strings.RoleGoals[role]
+	end
+	local texts = modeTexts()
+	if role == "Chaser" then
+		return texts.ChaserGoal
+	end
+	-- 경찰과 도둑 문구의 %d는 구출 시간. 서바이벌 문구에는 없어서 그대로 나온다
+	return (string.format(texts.SurvivorGoal, GameModes.Jail.RescueTime))
+end
+
+--------------------------------------------------------------------------------
 -- 아래 가운데: 생존자·추격자
 
 local function renderSurvivor(): ()
@@ -417,10 +449,27 @@ local function renderSurvivor(): ()
 		return
 	end
 	local state: Types.SurvivorState = MatchState.getSurvivorState(localPlayer) or "Normal"
-	local injured = state == "Injured"
-	survivorView.statusLabel.Text = `{Strings.Roles.Survivor} · {Strings.SurvivorStates[state]}`
-	survivorView.statusLabel.TextColor3 = if injured then Colors.Warning else Colors.Text
-	survivorView.statusStroke.Color = if injured then Colors.Warning else Colors.Good
+	local hurt = state == "Injured" or state == "Downed" or state == "Jailed"
+	local stuck = state == "Downed" or state == "Jailed"
+	local stateText = Strings.SurvivorStates[state]
+	local downedUntil = MatchState.getDownedUntil(localPlayer)
+	shownDownedSeconds = nil
+	if state == "Downed" and downedUntil then
+		shownDownedSeconds = math.max(0, math.ceil(downedUntil - Workspace:GetServerTimeNow()))
+		stateText = string.format(Strings.Hud.DownedStatus, stateText, shownDownedSeconds)
+	end
+	survivorView.statusLabel.Text = `{modeTexts().SurvivorName} · {stateText}`
+	local frozen = state == "Frozen" -- 얼음땡: 잡히지 않는 상태라 얼음색
+	survivorView.statusLabel.TextColor3 = if stuck
+		then Colors.Accent
+		elseif frozen then Colors.Stamina
+		elseif hurt then Colors.Warning
+		else Colors.Text
+	survivorView.statusStroke.Color = if stuck
+		then Colors.Accent
+		elseif frozen then Colors.Stamina
+		elseif hurt then Colors.Warning
+		else Colors.Good
 
 	local config = Survivor.Stamina
 	local stamina = MatchState.getStamina(localPlayer) or config.Max
@@ -462,8 +511,9 @@ local function renderChaser(): ()
 	end
 	local chaserView = view.chaser
 	local text: string
-	if MatchState.isStunned(localPlayer) then
-		text = Strings.Hud.Stunned
+	local stunReason = MatchState.getStunReason(localPlayer)
+	if stunReason then
+		text = if stunReason == "AttackHit" then Strings.Hud.HitPaused else Strings.Hud.Stunned
 		chaserView.attackLabel.TextColor3 = Colors.Warning
 	elseif os.clock() >= attackReadyAt - ATTACK_READY_SLACK then
 		text = Strings.Hud.AttackReady
@@ -521,6 +571,18 @@ local function renderRepair(): ()
 	if progress then
 		view.repair.label.Text = string.format(Strings.Hud.Repairing, math.floor(progress * 100))
 		view.repair.fill.Size = UDim2.fromScale(math.clamp(progress, 0, 1), 1)
+	end
+end
+
+-- 쓰러져 있으면 상태 줄의 남은 초가 바뀔 때 다시 그린다. 매 프레임 부른다.
+local function renderDownedTimer(): ()
+	local downedUntil = MatchState.getDownedUntil(localPlayer)
+	if not downedUntil or MatchState.getSurvivorState(localPlayer) ~= "Downed" then
+		return
+	end
+	local seconds = math.max(0, math.ceil(downedUntil - Workspace:GetServerTimeNow()))
+	if seconds ~= shownDownedSeconds then
+		renderSurvivor()
 	end
 end
 
@@ -686,24 +748,27 @@ local function showRoleResult(title: string, name: string?, role: Types.Role, to
 	reveal.nameLabel.Text = name or ""
 	reveal.nameLabel.TextColor3 = Colors.Accent
 	reveal.roleLabel.Visible = true
-	reveal.roleLabel.Text = if role == "Chaser"
-		then Strings.RoleReveal.YouAreChaser
-		else Strings.RoleReveal.YouAreSurvivor
+	local texts = modeTexts()
+	reveal.roleLabel.Text = if role == "Chaser" then texts.YouAreChaser else texts.YouAreSurvivor
 	reveal.goalLabel.Visible = true
-	reveal.goalLabel.Text = Strings.RoleGoals[role]
+	reveal.goalLabel.Text = goalText(role)
 	task.delay(Ui.RoleReveal.ResultHoldTime, hideReveal, token)
 end
 
--- 후보 이름이 점점 느리게 돌다가 추격자 이름에서 멈춘다 (GDD 2.1).
-local function playRoulette(chaserUserId: number, candidateUserIds: { number }): ()
+-- 후보 이름이 점점 느리게 돌다가 추격자 이름(여럿이면 쉼표로 이음)에서 멈춘다 (GDD 2.1).
+local function playRoulette(chaserUserIds: { number }, candidateUserIds: { number }): ()
 	local view = hud
 	if not view then
 		return
 	end
 	revealToken += 1
 	local token = revealToken
-	local chaser = Players:GetPlayerByUserId(chaserUserId)
-	local chaserName = if chaser then chaser.DisplayName else "?"
+	local chaserNames: { string } = {}
+	for _, userId in chaserUserIds do
+		local chaser = Players:GetPlayerByUserId(userId)
+		table.insert(chaserNames, if chaser then chaser.DisplayName else "?")
+	end
+	local chaserName = table.concat(chaserNames, ", ")
 	local names: { string } = {}
 	for _, userId in candidateUserIds do
 		local player = Players:GetPlayerByUserId(userId)
@@ -738,8 +803,8 @@ local function playRoulette(chaserUserId: number, candidateUserIds: { number }):
 		task.wait(interval)
 		elapsed += interval
 	end
-	local isMe = chaserUserId == localPlayer.UserId
-	showRoleResult(Strings.RoleReveal.ChaserTitle, chaserName, if isMe then "Chaser" else "Survivor", token)
+	local isMe = table.find(chaserUserIds, localPlayer.UserId) ~= nil
+	showRoleResult(modeTexts().ChaserTitle, chaserName, if isMe then "Chaser" else "Survivor", token)
 end
 
 local function onPhaseChanged(): ()
@@ -784,8 +849,11 @@ function UIController.Start(): ()
 	lastCoins = MatchState.getCoins(localPlayer)
 	localPlayer:GetAttributeChangedSignal(Attribute.Coins):Connect(onCoinsChanged)
 	GeneratorBillboards.start()
+	JailBillboards.start()
 	WorldTextLocalizer.start()
 	ReplicatedStorage:GetAttributeChangedSignal(Attribute.Phase):Connect(onPhaseChanged)
+	-- 역할 이름(생존자·도둑·도망자)이 게임 모드를 따른다
+	ReplicatedStorage:GetAttributeChangedSignal(Attribute.GameMode):Connect(renderSurvivor)
 	localPlayer:GetAttributeChangedSignal(Attribute.Spectating):Connect(renderTop)
 	for _, name in
 		{
@@ -800,12 +868,16 @@ function UIController.Start(): ()
 	do
 		localPlayer:GetAttributeChangedSignal(name):Connect(renderSurvivor)
 	end
+	localPlayer:GetAttributeChangedSignal(Attribute.DownedUntil):Connect(renderSurvivor)
 	localPlayer:GetAttributeChangedSignal(Attribute.Stunned):Connect(renderChaser)
 	InputController.onPlatformChanged(function()
 		renderSurvivor()
 		renderChaser()
 	end)
-	RunService.Heartbeat:Connect(renderSkill)
+	RunService.Heartbeat:Connect(function()
+		renderSkill()
+		renderDownedTimer()
+	end)
 	local view = hud
 	if view then
 		for slot, button in view.survivor.slots do
@@ -816,17 +888,23 @@ function UIController.Start(): ()
 	end
 
 	Remotes.get("Notice").OnClientEvent:Connect(onNotice)
-	Remotes.get("RoleReveal").OnClientEvent:Connect(function(chaserUserId: unknown, candidateUserIds: unknown)
-		if typeof(chaserUserId) ~= "number" or typeof(candidateUserIds) ~= "table" then
-			return
-		end
+	local function numbers(list: unknown): { number }
 		local ids: { number } = {}
-		for _, userId in candidateUserIds :: { unknown } do
-			if typeof(userId) == "number" then
-				table.insert(ids, userId)
+		if typeof(list) == "table" then
+			for _, userId in list :: { unknown } do
+				if typeof(userId) == "number" then
+					table.insert(ids, userId)
+				end
 			end
 		end
-		task.spawn(playRoulette, chaserUserId, ids)
+		return ids
+	end
+	Remotes.get("RoleReveal").OnClientEvent:Connect(function(chaserUserIds: unknown, candidateUserIds: unknown)
+		local chasers = numbers(chaserUserIds)
+		if #chasers == 0 then
+			return
+		end
+		task.spawn(playRoulette, chasers, numbers(candidateUserIds))
 	end)
 
 	renderTop()

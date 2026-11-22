@@ -34,7 +34,7 @@ local RemoteHandler = require(script.Parent.Parent.Util.RemoteHandler)
 local DataService = require(script.Parent.DataService)
 local LanguageService = require(script.Parent.LanguageService)
 local HideService = require(script.Parent.HideService)
-local MonsterService = require(script.Parent.MonsterService)
+local ItemService = require(script.Parent.ItemService)
 local MovementService = require(script.Parent.MovementService)
 local RoleService = require(script.Parent.RoleService)
 
@@ -92,8 +92,18 @@ local api: ChaserTypes.SkillApi = {
 	boost = function(player: Player, multiplier: number, seconds: number): ()
 		MovementService.boost(player, multiplier, seconds)
 	end,
-	summonMonsters = function(position: Vector3, count: number, seconds: number, source: string): number
-		return MonsterService.summon(position, count, seconds, source)
+	revealSurvivors = function(player: Player, seconds: number): number
+		local remote = Remotes.get("ChaserMarker")
+		local shown = 0
+		for _, survivor in RoleService.getActiveSurvivors() do
+			local hidden = HideService.isHidden(survivor) or ItemService.isConcealed(survivor)
+			local parts = if hidden then nil else CharacterParts.get(survivor)
+			if parts then
+				remote:FireClient(player, parts.rootPart.Position, seconds, "SkillReveal" :: Types.MarkerReason)
+				shown += 1
+			end
+		end
+		return shown
 	end,
 	survivorFootPositions = function(): { Vector3 }
 		local positions: { Vector3 } = {}

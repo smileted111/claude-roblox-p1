@@ -1,9 +1,12 @@
 --!strict
 -- ObjectiveService: 발전기 수리와 출구·탈출 (GDD 3.1, 3.2, 6.2). GDD 13.2에서 StageService가 맡던 목표 장치·출구를 나눈 서비스.
+-- 화면에 보이는 이름은 "에너지 코어"다 (2026-11-22 사용자 요청). 코드·태그·Attribute 이름은 Generator 그대로 둔다.
 --
 -- StageService가 준비 단계에서 맵을 불러오면 setupMap, 스테이지가 끝나면 clearMap을 부른다.
 --
 -- 발전기 (Generator 태그 Part 또는 Model. 모양·Attribute는 ObjectiveState)
+--   몸체 가운데에 빛나는 큰 번개 모양(Config.MapObjects.Generator.Bolt)을 붙인다. 몸체를 앞뒤로 뚫고 지나가
+--   넓은 두 면에 모두 보이고, 다 고치면 RepairedColor로 바뀐다 (2026-11-22 사용자 요청). 맵과 함께 지워진다.
 --   윗면에 "수리" 프롬프트(HoldDuration 0)를 만들고, 누르고 있는 동안(Triggered ~ TriggerEnded) 고친다.
 --   진행은 서버가 관리하고 손을 떼도 그대로 남는다. 혼자 Config.MapObjects.Generator.RepairTimeSolo초,
 --   2명 이상이면 RepairTimeGroup초에 다 고친다. 기여(진행을 고친 사람 수로 나눔)는 RecordService에 기록한다.
@@ -46,6 +49,7 @@ type Repairer = {
 type Generator = {
 	instance: Instance,
 	body: BasePart,
+	bolt: { BasePart }, -- 가운데 번개 모양
 	attachment: Attachment,
 	prompt: ProximityPrompt,
 	progress: number,
@@ -233,6 +237,9 @@ local function completeGenerator(generator: Generator): ()
 	table.clear(generator.repairers)
 	generator.prompt.Enabled = false
 	generator.body.Color = GeneratorConfig.RepairedColor
+	for _, part in generator.bolt do
+		part.Color = GeneratorConfig.Bolt.RepairedColor
+	end
 	generator.instance:SetAttribute(GeneratorAttribute.Repaired, true)
 	publishGenerator(generator)
 	publishCounts()
@@ -329,6 +336,47 @@ local function step(dt: number): ()
 	end
 end
 
+-- 몸체 가운데에 번개 모양을 만든다: 왼쪽 아래로 긋고, 오른쪽으로 꺾고, 다시 왼쪽 아래로 긋는 굵은 선 3개.
+-- 좌표는 높이 1 기준(Config.MapObjects.Generator.Bolt.Strokes)이고 몸체 높이 × HeightFraction을 곱한다.
+-- 수평으로 더 넓은 쪽 면에 그리고, 얇은 쪽으로 몸체를 뚫고 나와(DepthMargin) 앞뒤 두 면에 모두 보이게 한다.
+local function addBolt(body: BasePart): { BasePart }
+	local config = GeneratorConfig.Bolt
+	local size = body.Size
+	-- 앞뒤가 Z축이면 그대로, X축이 더 얇으면 90도 돌려 X축을 앞뒤로 쓴다.
+	local wideIsX = size.X >= size.Z
+	local basis = if wideIsX then body.CFrame else body.CFrame * CFrame.Angles(0, math.rad(90), 0)
+	local depth = (if wideIsX then size.Z else size.X) + config.DepthMargin * 2
+	local scale = size.Y * config.HeightFraction
+	local thickness = config.Thickness * scale
+
+	local folder = Instance.new("Model")
+	folder.Name = "EnergyBolt"
+	local parts: { BasePart } = {}
+	for index, stroke in config.Strokes do
+		local from = Vector3.new(stroke[1], stroke[2], 0) * scale
+		local to = Vector3.new(stroke[3], stroke[4], 0) * scale
+		local offset = to - from
+		-- 선 방향을 파트의 Y축으로: Z축을 중심으로 돌린다 ((-sin, cos) = 방향).
+		local angle = math.atan2(-offset.X, offset.Y)
+		local part = Instance.new("Part")
+		part.Name = `Stroke{index}`
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		part.Massless = true
+		part.Material = Enum.Material.Neon
+		part.Color = config.Color
+		part.Size = Vector3.new(thickness, offset.Magnitude + thickness, depth)
+		part.CFrame = basis * CFrame.new((from + to) / 2) * CFrame.Angles(0, 0, angle)
+		part.Parent = folder
+		table.insert(parts, part)
+	end
+	folder.Parent = body
+	return parts
+end
+
 local function addGenerator(instance: Instance): ()
 	local body = ObjectiveState.getBody(instance)
 	if not body then
@@ -354,6 +402,7 @@ local function addGenerator(instance: Instance): ()
 	local generator: Generator = {
 		instance = instance,
 		body = body,
+		bolt = addBolt(body),
 		attachment = attachment,
 		prompt = prompt,
 		progress = 0,

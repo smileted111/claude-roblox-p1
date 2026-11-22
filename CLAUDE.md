@@ -40,9 +40,10 @@ Roblox 비대칭 추격 생존 게임. 기획의 기준은 `docs/GDD.md`, 확정
 | `ItemSpawn` | 아이템 생성 위치 |
 | `Plank` / `Door` | 환경 장치. 판자 Model = `Board`(세워 둔 판자) + `FallenPose`(넘어진 자리, 투명). 문 Model = `Panel`(닫힌 문짝) + `OpenPose`(열린 자리, 투명) |
 | `DarkZone` | 어두운 구역 (투명·충돌 없음 상자. 그림자 괴물용) |
+| `Jail` | 경찰과 도둑 모드의 감옥 (Model: 막힌 우리 + 투명 파트 `Inside`·`ReleasePoint`·`RescueZone`, `shared/JailState`). 다른 모드에서는 맵에서 지움 |
 | `LobbyTogether` / `LobbySolo` | 로비(`Workspace.Lobby`)의 같이 하기 구역 발판 / 혼자 하기 발판 |
 
-- 맵 생성 스크립트: `tools/mapgen/` (`common.luau` 뒤에 Stage2·3·4, `Barriers`(판자·문), `Props`(맵마다 소품 10개)를 붙여 Studio MCP로 실행. `Lobby.luau`는 혼자 실행).
+- 맵 생성 스크립트: `tools/mapgen/` (`common.luau` 뒤에 Stage2·3·4, `Barriers`(판자·문), `Props`(맵마다 소품 10개), `Jails`(감옥)를 붙여 Studio MCP로 실행. `Lobby.luau`는 혼자 실행).
 - 소품은 맵의 `Props` 폴더(소품마다 Model). 부딪히는 부분은 바닥에서 높이 6 이하, 숨는 곳(옷장 높이 8)에서 12스터드 이상 떨어뜨린다 — 밟고 벽(14) 위로 올라가지 못하게. 더 높은 부분과 벽에 거는 것은 부딪히지 않는 장식.
 - 카메라 높이 제한: 스테이지 안에서는 카메라가 바닥 윗면 + `Config.Camera.StageCeilingHeight`(11) 위로 못 간다 (`CameraController`). 맵 바닥 윗면은 y = 1로 둔다 (SurvivorSpawn 아랫면으로 계산).
 - 캐주얼 화면 모드는 맵 색을 바꾼다 (`shared/Util/MapStyler`): 벽은 이름 `Wall` 또는 `Walls` 폴더 안, 바닥은 이름 `Floor`로 둔다. Neon·투명 파트·글자판은 그대로.

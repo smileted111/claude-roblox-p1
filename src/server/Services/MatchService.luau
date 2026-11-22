@@ -8,7 +8,7 @@
 --         Studio에서 혼자 하기를 고르면 이 서버에서 그 사람 혼자 매치를 시작한다 (예약 서버로 보낼 수 없어서).
 --   대기 (혼자 하기 서버): 들어온 사람 혼자 SoloStartDelay초 뒤 시작한다. 매치가 끝나면 다시 시작한다.
 --   매치: 참가자만 진행한다 (Player Attribute InMatch). 시작할 때 추격자 횟수(RoleService)와 매치 기록(RecordService)을
---         새로 시작하고, 스테이지마다 맵 투표(VoteService, Config.Match.VoteTime초) 뒤 StageService.runStage(맵, 참가자,
+--         새로 시작하고, 스테이지마다 맵·게임 모드 투표(VoteService, Config.Match.VoteTime초) 뒤 StageService.runStage(맵, 참가자,
 --         추격자 희망자)를 부른다 (투표 창의 "추격자 희망"을 켠 사람이 있으면 그중 무작위로 추격자).
 --         투표할 수 있는 맵은 Config.Match.MapPool 중 이번 매치에서 아직 플레이하지 않은 것 (2026-11-21 사용자 요청).
 --         추격자는 스테이지마다 새로 뽑고, 잡혔던 사람도 다음 스테이지에 돌아온다.
@@ -174,9 +174,14 @@ local function activeParticipants(): { Player }
 end
 
 -- 스테이지 한 판. 오류가 나면 false. 처리기는 오류가 난 자리에서 불려서 traceback에 원래 위치가 남는다.
-local function runStageSafely(stageId: Types.StageId, players: { Player }, chaserWishers: { Player }): boolean
+local function runStageSafely(
+	stageId: Types.StageId,
+	players: { Player },
+	chaserWishers: { Player },
+	gameMode: Types.GameMode?
+): boolean
 	local ok = xpcall(function(): ()
-		StageService.runStage(stageId, players, chaserWishers)
+		StageService.runStage(stageId, players, chaserWishers, gameMode)
 	end, function(message: unknown): ()
 		warn(
 			`[Match] 스테이지 진행 중 오류로 매치를 그만둡니다: {debug.traceback(tostring(message))}`
@@ -241,7 +246,11 @@ local function voteStage(index: number, active: { Player }, played: { Types.Stag
 		end
 	end
 	for _, player in voters do
-		notice:FireClient(player, "NextMap" :: Types.NoticeKey, LanguageService.stringsFor(player).Stages[stageId])
+		local strings = LanguageService.stringsFor(player)
+		notice:FireClient(player, "NextMap" :: Types.NoticeKey, strings.Stages[stageId])
+		if result.gameMode then
+			notice:FireClient(player, "NextGameMode" :: Types.NoticeKey, strings.GameModes[result.gameMode])
+		end
 	end
 	return result
 end
@@ -270,7 +279,7 @@ local function playStages(): ()
 		table.insert(played, stageId)
 		ReplicatedStorage:SetAttribute(Attribute.StageIndex, index)
 		print(`[Match] 스테이지 {index}/{Match.StagesPerMatch} · {stageId} · 참가자 {#active}명`)
-		if not runStageSafely(stageId, active, vote.chaserWishers) then
+		if not runStageSafely(stageId, active, vote.chaserWishers, vote.gameMode) then
 			RecordService.abortMatch()
 			return
 		end

@@ -16,8 +16,9 @@ export type MatchConfig = {
 	MapPool: { Types.StageId }, -- 투표로 고를 수 있는 맵 (투표 화면 순서). 한 매치에서 한 번 플레이한 맵은 다시 고를 수 없다
 	StagesPerMatch: number, -- 한 매치의 스테이지 수 (맵 수보다 많으면 맵이 떨어질 때 끝남)
 	VoteTime: number, -- 스테이지마다 맵(첫 스테이지는 화면 모드도) 투표 시간 (초)
-	ChaserCount: number, -- 스테이지마다 뽑는 추격자 수
+	PlayersPerChaser: number, -- 참가자 이만큼당 추격자 1명 (내림, 최소 1명). 스테이지마다 새로 뽑는다
 	MinPlayersForChaser: number, -- 이 인원 이상이면 추격자를 뽑음. 아래면 솔로 (괴물만)
+	MonstersWithChasers: boolean, -- 추격자가 있는 스테이지(같이 하기)에도 괴물을 내보내는가. false면 괴물은 솔로에만
 	DefaultChaser: Types.ChaserId, -- 추격자 종류. 로비에서 고르는 기능(S3-3) 전까지 모든 추격자가 이 종류
 	CaughtEffectTime: number, -- 잡힘 연출 뒤 관전 시작까지 (초)
 	SpectateSwitchDelay: number, -- 관전 대상이 잡히면 다음 대상으로 넘어가기까지 (초)
@@ -43,8 +44,9 @@ local Match: MatchConfig = {
 	MapPool = { "Stage1", "Stage2", "Stage3", "Stage4" }, -- 학교·폐병원·지하 연구소·놀이공원 (2026-11-21 사용자 요청)
 	StagesPerMatch = 3, -- GDD 1장: 3 스테이지
 	VoteTime = 10, -- 2026-11-21 사용자 요청
-	ChaserCount = 1,
+	PlayersPerChaser = 2, -- 2026-11-22 사용자 요청: 2명당 1명 (2·3명 → 1, 4·5명 → 2, 8명 → 4)
 	MinPlayersForChaser = 2,
+	MonstersWithChasers = false, -- 2026-11-22 사용자 요청: 같이 하기는 괴물 없이 플레이어끼리
 	DefaultChaser = "Hunter", -- 임시: 기본 해금 추격자 (GDD 7.1)
 	CaughtEffectTime = 2,
 	SpectateSwitchDelay = 1,

@@ -11,7 +11,6 @@ export type SkillDef = {
 	SpeedMultiplier: number?, -- 이동 속도 배율
 	Distance: number?, -- 이동 거리 (스터드)
 	WallMargin: number?, -- 순간이동이 벽에 막히면 벽에서 이만큼 앞에 멈춤 (스터드)
-	MonsterCount: number?, -- 부르는 괴물 수
 	Interval: number?, -- 발자국을 찍는 간격 (초)
 	Lifetime: number?, -- 찍은 발자국이 보이는 시간 (초)
 }
@@ -82,7 +81,8 @@ local Chasers: { [Types.ChaserId]: ChaserDef } = {
 			WallMargin = 2, -- 임시
 		},
 	},
-	-- 조종자 — 괴물 부르기: 가장 가까운 괴물 2마리를 내 위치로 부름
+	-- 조종자 — 위치 감지: 숨지 않은 생존자 위치가 잠깐 보임.
+	-- 2026-11-22 사용자 요청으로 괴물 부르기에서 바꿈 (같이 하기에 괴물이 없어져서)
 	Puppeteer = {
 		Unlock = "Coins",
 		UnlockCost = 500, -- 임시
@@ -92,10 +92,9 @@ local Chasers: { [Types.ChaserId]: ChaserDef } = {
 		AttackRange = ATTACK_RANGE,
 		AttackAngle = ATTACK_ANGLE,
 		Skill = {
-			Kind = "CallMonsters",
+			Kind = "RevealSurvivors",
 			Cooldown = 35,
-			MonsterCount = 2,
-			Duration = 10, -- 임시: 불린 괴물이 그 자리로 오는 동안 (못 오면 포기)
+			Duration = 3,
 		},
 	},
 }

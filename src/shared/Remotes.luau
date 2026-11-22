@@ -38,12 +38,14 @@ export type ClientEventName =
 	| "ChaserSelect"
 	| "SetVisualMode"
 	| "CastVote"
+	| "Freeze"
+	| "Thaw"
 
 export type EventName = ServerEventName | ClientEventName
 
 -- 각 줄: 이름 -- 받는 사람 (인자). 설명
 local SERVER_EVENTS: { ServerEventName } = {
-	"RoleReveal", -- 모두 (chaserUserId: number, candidateUserIds: {number}). 역할 공개 룰렛 시작. 솔로는 보내지 않음
+	"RoleReveal", -- 참가자 (chaserUserIds: {number}, candidateUserIds: {number}). 역할 공개 룰렛 시작. 솔로는 보내지 않음
 	"Notice", -- 한 명 또는 모두 (key: Types.NoticeKey, ...: string | number). Strings.Notices 문구를 잠깐 띄움
 	"ChaserMarker", -- 추격자 (position: Vector3, duration: number, reason: Types.MarkerReason). 생존자 위치 잠깐 표시
 	"StageResult", -- 참가자 (result: Types.StageResult). 스테이지 결과
@@ -64,8 +66,10 @@ local CLIENT_EVENTS: { ClientEventName } = {
 	"LobbyRequest", -- 로비에 있는 사람 (action: Types.LobbyAction). 같이 하기 구역으로 가기·솔로 제안 답
 	"ChaserSelect", -- 로비에 있는 사람 (action: "Select" | "Unlock", chaserId: Types.ChaserId). 추격자 종류 고르기·코인 해금
 	"SetVisualMode", -- 로비에 있는 사람 (mode: Types.VisualMode). 화면 모드(나이트·캐주얼) 고르기. 저장됨
-	"CastVote", -- 투표 참가자 (kind: Types.VoteKind, value: string). 맵(StageId)·화면 모드 투표는 다시 보내면 바꿈,
+	"CastVote", -- 투표 참가자 (kind: Types.VoteKind, value: string). 맵(StageId)·화면 모드·게임 모드 투표는 다시 보내면 바꿈,
 	-- "Chaser"(value "Toggle")는 추격자 희망을 켜고 끔 (VoteService)
+	"Freeze", -- 생존자 (). 얼음땡 모드의 얼음: 스스로 얼기 (FreezeService)
+	"Thaw", -- 생존자 (). 얼음땡 모드의 땡: 가장 가까운 언 동료를 풀기. 대상은 서버가 고른다 (FreezeService)
 }
 
 -- 관전자(역할 Spectator)도 보낼 수 있는 클라이언트 → 서버 리모트. 나머지는 관전자가 보내면 서버가 모두 거절한다 (GDD 8장).

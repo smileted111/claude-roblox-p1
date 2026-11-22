@@ -18,6 +18,16 @@ export type HideSpotConfig = {
 	BrokenColor: Color3, -- 거인이 부순 숨는 곳의 색 (더 숨을 수 없음)
 }
 
+-- 에너지 코어(발전기) 가운데의 번개 모양 (2026-11-22 사용자 요청, ObjectiveService.addBolt)
+export type GeneratorBoltConfig = {
+	Color: Color3, -- 고치기 전 번개 색 (Neon)
+	RepairedColor: Color3, -- 다 고친 뒤 번개 색
+	HeightFraction: number, -- 번개 크기: Strokes 좌표(높이 1 기준)에 몸체 높이 × 이 값을 곱한다
+	Thickness: number, -- 선 굵기 (Strokes와 같은 높이 1 기준)
+	DepthMargin: number, -- 몸체 앞뒤로 튀어나오는 두께 (스터드). 앞뒤 두 면에 모두 보이게
+	Strokes: { { number } }, -- 선 {x1, y1, x2, y2}. 가운데가 0, 높이 1 기준, x는 넓은 면의 오른쪽, y는 위
+}
+
 export type GeneratorConfig = {
 	RepairTimeSolo: number, -- 혼자 작동시키는 시간 (초)
 	RepairTimeGroup: number, -- 2명 이상이 함께 작동시키는 시간 (초)
@@ -29,6 +39,7 @@ export type GeneratorConfig = {
 	TickInterval: number, -- 수리 진행과 탈출을 확인하는 간격 (초)
 	ProgressPublishStep: number, -- 진행 Attribute를 이 단위로 반올림해 공개 (0~1)
 	RepairedColor: Color3, -- 다 고친 발전기 색
+	Bolt: GeneratorBoltConfig,
 }
 
 export type ExitConfig = {
@@ -68,8 +79,15 @@ export type ChaserGateConfig = {
 	OpenTransparency: number, -- 열린 대기실 문의 투명도 (1이면 안 보임). 열리면 통과할 수 있게 충돌도 끈다
 }
 
+-- 추격자가 여럿이면 ChaserSpawn을 돌아가며 쓰고, 한 자리에 여럿이면 그 Part의 오른쪽·왼쪽으로 Spacing씩 벌려 세운다.
+-- 맵마다 ChaserSpawn 좌우로 11스터드 이상 비어 있어 4명(0, +4, -4, +8)까지 들어간다 (2026-11-22 확인).
+export type ChaserSpawnConfig = {
+	Spacing: number, -- 같은 자리에 선 추격자 사이 거리 (스터드)
+}
+
 export type MapObjectsConfig = {
 	ChaserGate: ChaserGateConfig,
+	ChaserSpawn: ChaserSpawnConfig,
 	HideSpot: HideSpotConfig,
 	Generator: GeneratorConfig,
 	Exit: ExitConfig,
@@ -81,6 +99,9 @@ export type MapObjectsConfig = {
 local MapObjects: MapObjectsConfig = {
 	ChaserGate = {
 		OpenTransparency = 1, -- 임시
+	},
+	ChaserSpawn = {
+		Spacing = 4, -- 임시
 	},
 	HideSpot = {
 		BreathAfter = 20,
@@ -109,6 +130,20 @@ local MapObjects: MapObjectsConfig = {
 		TickInterval = 0.1, -- 임시
 		ProgressPublishStep = 0.01, -- 임시
 		RepairedColor = Color3.fromRGB(120, 230, 120), -- 임시
+		Bolt = {
+			Color = Color3.fromRGB(255, 214, 50), -- 임시
+			RepairedColor = Color3.fromRGB(170, 245, 255), -- 임시
+			HeightFraction = 0.8, -- 임시: 높이 5 몸체에서 번개 높이 약 4.9
+			Thickness = 0.15, -- 임시
+			DepthMargin = 0.15, -- 임시
+			-- 위아래 선을 가운데 꺾임 길이만큼 벌려야 한 줄 사선으로 보이지 않는다 (2026-11-22 화면 확인).
+			-- 몸체를 뚫고 지나가 한쪽 면은 ⚡, 반대쪽 면은 좌우가 뒤집힌 모양으로 보인다.
+			Strokes = {
+				{ 0.28, 0.5, -0.2, 0.03 }, -- 위: 오른쪽 위에서 왼쪽 아래로
+				{ -0.2, 0, 0.2, 0 }, -- 가운데: 오른쪽으로 꺾음
+				{ 0.2, -0.03, -0.28, -0.5 }, -- 아래: 다시 왼쪽 아래로
+			},
+		},
 	},
 	Exit = {
 		OpenCount = 1, -- 출구 2곳 중 1곳

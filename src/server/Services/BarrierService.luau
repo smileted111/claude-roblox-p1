@@ -147,7 +147,7 @@ local function onPush(player: Player, plank: Plank): ()
 				MatchState.getRole(other) == "Chaser"
 				and isInBox(plank.fallenCFrame, size, position, PlankConfig.HitMargin)
 			then
-				MovementService.stun(other, PlankConfig.ChaserStunTime)
+				MovementService.stun(other, PlankConfig.ChaserStunTime, "Plank")
 				table.insert(stunned, other.Name)
 				if isInBox(plank.fallenCFrame, size, position, 0.5) then
 					pushOut(parts.rootPart, plank, -pusherSide)

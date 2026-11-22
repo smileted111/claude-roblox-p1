@@ -75,12 +75,10 @@ local function skillDescription(chaserId: Types.ChaserId): string
 	local text: string
 	if skill.Kind == "Dash" then
 		text = string.format(template, skill.Duration or 0, math.round(((skill.SpeedMultiplier or 1) - 1) * 100))
-	elseif skill.Kind == "RevealFootprints" then
-		text = string.format(template, skill.Duration or 0)
 	elseif skill.Kind == "Blink" then
 		text = string.format(template, skill.Distance or 0)
-	else
-		text = string.format(template, skill.MonsterCount or 0)
+	else -- RevealFootprints, RevealSurvivors
+		text = string.format(template, skill.Duration or 0)
 	end
 	return `{Strings.Skills[skill.Kind]}: {text} · {string.format(Strings.Lobby.Cooldown, skill.Cooldown)}`
 end

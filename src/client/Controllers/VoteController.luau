@@ -4,20 +4,24 @@
 -- 투표 단계(Phase Voting) 동안 서버의 모든 플레이어에게 가운데 창을 띄운다 (Config.Match.VoteTime초 동안만 뜨는 창이라
 --   화면 가운데 규칙의 "잠깐 뜨는 것"에 해당하고, 투표는 로비에서 해서 시야를 가릴 위험이 없다).
 --   참가자(Player Attribute Voter)는 눌러서 투표하고(CastVote 리모트, 다시 누르면 바꿈), 그 밖의 사람은 현황만 본다.
---   제목 · 남은 시간 · "투표 n/m명" / 화면 모드 칸(첫 스테이지만, VoteModeCounts가 있을 때) / 맵 칸(Config.Match.MapPool 순서) /
+--   제목 · 남은 시간 · "투표 n/m명" / 모드 줄: 화면 모드 칸(첫 스테이지만, VoteModeCounts가 있을 때)과 게임 모드 칸(참가자가
+--   2명 이상일 때, VoteGameModes에 있는 것만 — 얼음땡은 3명부터, 2026-11-22 사용자 요청)을 한 줄에 나란히 (칸이 여럿이면 좁은
+--   칸으로 바꿔 휴대폰에서도 창 높이가 늘지 않게) / 맵 칸(Config.Match.MapPool 순서) /
 --   추격자 희망 줄(참가자가 Config.Match.MinPlayersForChaser명 이상일 때): 누르면 켜고 다시 누르면 끈다(CastVote "Chaser").
 --   켠 사람 수·얼굴이 보이고, 켠 사람 중 한 명이 이번 스테이지 추격자가 된다 (서버 RoleService.pickChaser).
 --   휴대폰(UIScale 0.8)에서도 첫 투표가 화면 높이에 들어가게 줄 높이를 줄였다.
 -- 실시간 현황: 칸마다 표 수, 참가자 수 대비 채워지는 막대(트윈), 그 칸을 고른 참가자 얼굴(최대 MAX_AVATARS, 넘으면 +n),
 --   가장 많은 표를 받은 칸은 금색 테두리와 ★. 내가 고른 칸은 초록 테두리. 플레이한 맵(VotePlayed)은 흐리게 "(플레이함)".
 --   표 수는 서버 집계(VoteMapCounts·VoteModeCounts), 누가 골랐는지는 각 플레이어의 Attribute VoteMap·VoteMode(모두에게 복제).
--- 머리 위 표시: 투표 중인 다른 참가자 캐릭터 머리 위에 지금 고른 맵(첫 투표는 모드도)을 띄운다. 고르기 전에는 "고르는 중...".
+-- 머리 위 표시: 투표 중인 다른 참가자 캐릭터 머리 위에 지금 고른 맵·게임 모드(첫 투표는 화면 모드도)를 띄운다.
+--   고르기 전에는 "고르는 중...".
 -- 판정·집계는 서버 VoteService.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local GameModes = require(ReplicatedStorage.Shared.Config.GameModes)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -34,6 +38,10 @@ local PANEL_WIDTH = 580
 local OPTION_WIDTH = 266
 local OPTION_HEIGHT = 58 -- MinButtonHeight(56) 이상
 local GRID_GAP = 8
+local CELL_GAP = 12 -- 칸 사이 가로 간격
+local CONTENT_WIDTH = PANEL_WIDTH - 36 -- 창 안쪽 폭 (좌우 여백 18)
+local COMPACT_WIDTH = 200 -- 칸 폭이 이보다 좁으면 좁은 칸 모양 (이름 한 줄 + 아래에 표 수·얼굴)
+local COMPACT_AVATARS = 2 -- 좁은 칸에 보이는 얼굴 수
 local CHASER_COLOR = Color3.fromRGB(235, 90, 90)
 local AVATAR_SIZE = 22
 local MAX_AVATARS = 5
@@ -51,6 +59,7 @@ type VoteOption = {
 	countLabel: TextLabel,
 	avatars: Frame,
 	shownRatio: number,
+	maxAvatars: number,
 }
 
 type VoteView = {
@@ -58,9 +67,13 @@ type VoteView = {
 	panel: Frame,
 	title: TextLabel,
 	hint: TextLabel,
+	modeHeader: Frame,
 	modeLabel: TextLabel,
+	gameModeLabel: TextLabel,
 	modeRow: Frame,
+	modeGrid: UIGridLayout,
 	modeOptions: { VoteOption },
+	gameModeOptions: { VoteOption },
 	mapOptions: { VoteOption },
 	chaserRow: Frame,
 	chaserOption: VoteOption,
@@ -161,7 +174,33 @@ local function makeOption(
 		countLabel = countLabel,
 		avatars = avatars,
 		shownRatio = 0,
+		maxAvatars = MAX_AVATARS,
 	}
+end
+
+-- 칸 모양: 보통(이름·표 수 한 줄, 아래에 얼굴) / 좁은 칸(이름 한 줄, 아래에 얼굴과 표 수)
+local function layoutOption(option: VoteOption, compact: boolean): ()
+	if compact then
+		option.nameLabel.Position = UDim2.fromOffset(8, 3)
+		option.nameLabel.Size = UDim2.new(1, -16, 0, 24)
+		option.nameLabel.TextSize = 16
+		option.countLabel.Position = UDim2.new(1, -8, 0, 30)
+		option.countLabel.Size = UDim2.fromOffset(40, 24)
+		option.countLabel.TextSize = 15
+		option.avatars.Position = UDim2.fromOffset(8, 31)
+		option.avatars.Size = UDim2.new(1, -56, 0, AVATAR_SIZE)
+		option.maxAvatars = COMPACT_AVATARS
+	else
+		option.nameLabel.Position = UDim2.fromOffset(12, 4)
+		option.nameLabel.Size = UDim2.new(1, -90, 0, 26)
+		option.nameLabel.TextSize = 19
+		option.countLabel.Position = UDim2.new(1, -12, 0, 4)
+		option.countLabel.Size = UDim2.fromOffset(80, 26)
+		option.countLabel.TextSize = 18
+		option.avatars.Position = UDim2.fromOffset(12, 31)
+		option.avatars.Size = UDim2.new(1, -24, 0, AVATAR_SIZE)
+		option.maxAvatars = MAX_AVATARS
+	end
 end
 
 local function sectionLabel(parent: Instance, name: string, order: number, text: string): TextLabel
@@ -173,18 +212,18 @@ local function sectionLabel(parent: Instance, name: string, order: number, text:
 	return label
 end
 
-local function optionGrid(parent: Instance, name: string, order: number, cellWidth: number?): Frame
+local function optionGrid(parent: Instance, name: string, order: number, cellWidth: number?): (Frame, UIGridLayout)
 	local grid = UiStyle.container(parent, name)
 	grid.LayoutOrder = order
 	grid.Size = UDim2.fromScale(1, 0)
 	grid.AutomaticSize = Enum.AutomaticSize.Y
 	local layout = Instance.new("UIGridLayout")
 	layout.CellSize = UDim2.fromOffset(cellWidth or OPTION_WIDTH, OPTION_HEIGHT)
-	layout.CellPadding = UDim2.fromOffset(12, GRID_GAP)
+	layout.CellPadding = UDim2.fromOffset(CELL_GAP, GRID_GAP)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = grid
-	return grid
+	return grid, layout
 end
 
 local function createView(castVote: RemoteEvent): VoteView
@@ -210,11 +249,22 @@ local function createView(castVote: RemoteEvent): VoteView
 	hint.TextTruncate = Enum.TextTruncate.None
 	hint.AutomaticSize = Enum.AutomaticSize.Y
 
-	local modeLabel = sectionLabel(panel, "ModeLabel", 4, Strings.Vote.ModeSection)
-	local modeRow = optionGrid(panel, "Modes", 5)
+	-- 모드 줄: 화면 모드 칸과 게임 모드 칸을 한 그리드에 (화면 모드가 먼저). 제목 두 개는 그 위에 칸 폭에 맞춰 나란히
+	local modeHeader = UiStyle.container(panel, "ModeHeader")
+	modeHeader.LayoutOrder = 4
+	modeHeader.Size = UDim2.new(1, 0, 0, 18)
+	local headerLayout = UiStyle.list(modeHeader, Enum.FillDirection.Horizontal, CELL_GAP)
+	headerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	local modeLabel = sectionLabel(modeHeader, "ModeLabel", 1, Strings.Vote.ModeSection)
+	local gameModeLabel = sectionLabel(modeHeader, "GameModeLabel", 2, Strings.Vote.GameModeSection)
+	local modeRow, modeGrid = optionGrid(panel, "Modes", 5)
 	local modeOptions: { VoteOption } = {}
 	for index, mode in VisualModes.Modes do
 		table.insert(modeOptions, makeOption(modeRow, mode, "Mode", index, castVote))
+	end
+	local gameModeOptions: { VoteOption } = {}
+	for index, gameMode in GameModes.Modes do
+		table.insert(gameModeOptions, makeOption(modeRow, gameMode, "GameMode", #VisualModes.Modes + index, castVote))
 	end
 
 	sectionLabel(panel, "MapLabel", 6, Strings.Vote.MapSection)
@@ -233,9 +283,13 @@ local function createView(castVote: RemoteEvent): VoteView
 		panel = panel,
 		title = title,
 		hint = hint,
+		modeHeader = modeHeader,
 		modeLabel = modeLabel,
+		gameModeLabel = gameModeLabel,
 		modeRow = modeRow,
+		modeGrid = modeGrid,
 		modeOptions = modeOptions,
+		gameModeOptions = gameModeOptions,
 		mapOptions = mapOptions,
 		chaserRow = chaserRow,
 		chaserOption = chaserOption,
@@ -260,7 +314,12 @@ local function voters(): { Player }
 end
 
 local function choiceOf(player: Player, kind: Types.VoteKind): string?
-	return if kind == "Map" then MatchState.getVoteMap(player) else MatchState.getVoteMode(player)
+	if kind == "Map" then
+		return MatchState.getVoteMap(player)
+	elseif kind == "GameMode" then
+		return MatchState.getVoteGameMode(player)
+	end
+	return MatchState.getVoteMode(player)
 end
 
 -- 그 칸을 고른 참가자 얼굴. 사진이 없으면(받는 중·Studio 시험 계정) 이름 첫 글자
@@ -271,11 +330,11 @@ local function drawAvatars(option: VoteOption, pickers: { Player }): ()
 		end
 	end
 	for index, player in pickers do
-		if index > MAX_AVATARS then
+		if index > option.maxAvatars then
 			local more = UiStyle.label(option.avatars, "More", index, AVATAR_SIZE)
 			more.Size = UDim2.fromOffset(36, AVATAR_SIZE)
 			more.TextSize = 14
-			more.Text = `+{#pickers - MAX_AVATARS}`
+			more.Text = `+{#pickers - option.maxAvatars}`
 			more.ZIndex = 3
 			break
 		end
@@ -377,6 +436,10 @@ local function tagText(player: Player, withMode: boolean): string
 	if map then
 		table.insert(parts, Strings.Stages[map])
 	end
+	local gameMode = MatchState.getVoteGameMode(player)
+	if gameMode then
+		table.insert(parts, Strings.GameModes[gameMode])
+	end
 	local mode = MatchState.getVoteMode(player)
 	if withMode and mode then
 		table.insert(parts, Strings.Modes[mode])
@@ -476,12 +539,43 @@ local function draw(): ()
 	ui.title.Text = `{Strings.Vote.Title} · {timeText} · <font color="#{GOLD:ToHex()}">{votedText}</font>`
 	ui.hint.Text = if isVoter then Strings.Vote.Hint else Strings.Vote.Watching
 
-	ui.modeLabel.Visible = modeCounts ~= nil
-	ui.modeRow.Visible = modeCounts ~= nil
-	if modeCounts then
-		drawGroup(ui.modeOptions, modeCounts, VisualModes.Modes :: { any }, {}, list, function(key: string): string
-			return Strings.Modes[key :: Types.VisualMode]
-		end)
+	-- 모드 줄: 보이는 칸 수에 맞춰 칸 폭을 정한다 (2칸이면 보통, 더 많으면 나눠서 좁은 칸)
+	local gameCounts = MatchState.getVoteGameModeCounts()
+	local gameModes = if gameCounts then MatchState.getVoteGameModes() else {}
+	local visualCount = if modeCounts then #ui.modeOptions else 0
+	local gameCount = #gameModes
+	local cellCount = visualCount + gameCount
+	ui.modeHeader.Visible = cellCount > 0
+	ui.modeRow.Visible = cellCount > 0
+	if cellCount > 0 then
+		local cellWidth = math.min(OPTION_WIDTH, math.floor((CONTENT_WIDTH - (cellCount - 1) * CELL_GAP) / cellCount))
+		local compact = cellWidth < COMPACT_WIDTH
+		ui.modeGrid.CellSize = UDim2.fromOffset(cellWidth, OPTION_HEIGHT)
+		local function groupWidth(count: number): number
+			return count * cellWidth + math.max(count - 1, 0) * CELL_GAP
+		end
+		ui.modeLabel.Visible = visualCount > 0
+		ui.modeLabel.Size = UDim2.fromOffset(groupWidth(visualCount), 18)
+		ui.gameModeLabel.Visible = gameCount > 0
+		ui.gameModeLabel.Size = UDim2.fromOffset(groupWidth(gameCount), 18)
+		for _, option in ui.modeOptions do
+			option.button.Visible = visualCount > 0
+			layoutOption(option, compact)
+		end
+		for _, option in ui.gameModeOptions do
+			option.button.Visible = table.find(gameModes, option.key :: Types.GameMode) ~= nil
+			layoutOption(option, compact)
+		end
+		if modeCounts then
+			drawGroup(ui.modeOptions, modeCounts, VisualModes.Modes :: { any }, {}, list, function(key: string): string
+				return Strings.Modes[key :: Types.VisualMode]
+			end)
+		end
+		if gameCounts then
+			drawGroup(ui.gameModeOptions, gameCounts, gameModes :: { any }, {}, list, function(key: string): string
+				return Strings.GameModes[key :: Types.GameMode]
+			end)
+		end
 	end
 	drawGroup(
 		ui.mapOptions,
@@ -528,7 +622,9 @@ end
 --------------------------------------------------------------------------------
 
 local function watchPlayer(player: Player): ()
-	for _, name in { Attribute.Voter, Attribute.VoteMap, Attribute.VoteMode, Attribute.WantsChaser } do
+	for _, name in
+		{ Attribute.Voter, Attribute.VoteMap, Attribute.VoteMode, Attribute.VoteGameMode, Attribute.WantsChaser }
+	do
 		player:GetAttributeChangedSignal(name):Connect(render)
 	end
 	player.CharacterAdded:Connect(function()
@@ -550,6 +646,8 @@ function VoteController.Start(): ()
 			Attribute.VotePlayed,
 			Attribute.VoteMapCounts,
 			Attribute.VoteModeCounts,
+			Attribute.VoteGameModes,
+			Attribute.VoteGameModeCounts,
 		}
 	do
 		ReplicatedStorage:GetAttributeChangedSignal(name):Connect(render)

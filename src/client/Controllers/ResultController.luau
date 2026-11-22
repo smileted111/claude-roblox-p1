@@ -3,7 +3,8 @@
 --
 -- 스테이지 결과 (StageResult 리모트, 결과 단계 동안)
 --   HUD 위 가운데 세로 목록(UIController.mountCenter)에 넣어 알림과 겹치지 않게 한다.
---   제목(스테이지 n · 맵 이름) / 승패 한 줄 (추격자 승리·생존자 승리, 솔로는 살아남음·잡힘) /
+--   제목(스테이지 n · 맵 이름) / 승패 한 줄 (추격자 승리·생존자 승리, 경찰과 도둑은 경찰 승리·도둑 승리
+--   (Strings.GameModeTexts, 결과 단계에도 ReplicatedStorage GameMode가 남아 있음), 솔로는 살아남음·잡힘) /
 --   플레이어 줄: 이름 · 결과(생존·탈출·잡힘·추격자 n명 잡음·나감) · 받은 코인
 -- 최종 결과 (MatchResult 리모트, 최종 결과 단계 동안. 따로 ScreenGui)
 --   라스트 서바이버 발표(이름이 튀어나오는 연출, 없으면 베스트 서바이버) / 표(이름, 스테이지별 결과, 잡은 수, 코인) /
@@ -14,6 +15,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local GameModes = require(ReplicatedStorage.Shared.Config.GameModes)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Strings = require(ReplicatedStorage.Shared.Strings)
@@ -92,9 +94,9 @@ local function headline(result: Types.StageResult): (string, Color3)
 			if success then Colors.Good else Colors.Accent
 	end
 	if result.chaserWon then
-		return Strings.Results.ChaserWins, Colors.Accent
+		return Strings.GameModeTexts[MatchState.getGameMode() or GameModes.Default].ChaserWins, Colors.Accent
 	end
-	return Strings.Results.SurvivorsWin, Colors.Good
+	return Strings.GameModeTexts[MatchState.getGameMode() or GameModes.Default].SurvivorsWin, Colors.Good
 end
 
 local function showStage(result: Types.StageResult): ()

@@ -4,6 +4,8 @@
 -- 상호작용(ProximityPrompt)은 Roblox 기본과 같은 E, 추격자 스킬은 Q (docs/release-review.md D6. S3-3에서는 스킬 E·상호작용 F였다).
 --   Q는 관전 중(이전 대상)에도 쓰지만 추격자와 관전자는 동시에 될 수 없어 겹치지 않는다.
 -- 게임패드 (S3-5): 달리기 L3, 공격 R2, 아이템 LB/RB, 스킬 Y, 관전 대상 LB/RB, 상호작용 X.
+-- 얼음땡 모드의 얼음 F·Y, 땡 G·B (2026-11-22). Y는 추격자 스킬과 같지만 얼음은 생존자만 써서 겹치지 않는다.
+--   얼음·땡은 모든 플랫폼에서 화면 오른쪽 아래 버튼으로도 누른다 (FreezeController).
 
 local Types = require(script.Parent.Parent.Types)
 
@@ -40,6 +42,8 @@ local Input: InputConfig = {
 		-- ←/→는 Roblox 기본 카메라 회전 키라 관전 중에는 높은 우선순위로 가로챈다 (SpectateController)
 		SpectatePrevious = { Enum.KeyCode.Q, Enum.KeyCode.Left, Enum.KeyCode.ButtonL1 },
 		SpectateNext = { Enum.KeyCode.E, Enum.KeyCode.Right, Enum.KeyCode.ButtonR1 },
+		Freeze = { Enum.KeyCode.F, Enum.KeyCode.ButtonY },
+		Thaw = { Enum.KeyCode.G, Enum.KeyCode.ButtonB },
 	},
 	KeyNames = {
 		LeftShift = "Shift",

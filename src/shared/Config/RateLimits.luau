@@ -22,6 +22,8 @@ local RateLimits: { [Remotes.ClientEventName]: RateLimitRule } = {
 	ChaserSelect = { MaxCalls = 4, Window = 2 },
 	SetVisualMode = { MaxCalls = 3, Window = 2 },
 	CastVote = { MaxCalls = 6, Window = 2 },
+	Freeze = { MaxCalls = 2, Window = 1 },
+	Thaw = { MaxCalls = 3, Window = 1 },
 }
 
 return RateLimits

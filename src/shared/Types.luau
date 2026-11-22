@@ -6,7 +6,11 @@
 export type Role = "Survivor" | "Chaser" | "Spectator"
 
 -- 생존자 상태 (GDD 2.2, 3.1). 정상 → 부상 → 잡힘. 출구로 나가면 탈출.
-export type SurvivorState = "Normal" | "Injured" | "Caught" | "Escaped"
+-- 쓰러짐 (2026-11-22 사용자 요청): 추격자가 있는 스테이지(같이 하기)에서 부상 상태로 맞으면 그 자리에 쓰러진다.
+--   동료가 붕대로 살리면 부상으로 일어나고, Config.Catch.Revive.DownedTime초 안에 못 살리면 잡힘.
+-- 감옥 (경찰과 도둑 모드, 2026-11-22 사용자 요청): 부상 상태로 맞으면 감옥에 갇힌다. 동료가 감옥 둘레에 5초 서 있으면 정상으로 풀려남.
+-- 얼음 (얼음땡 모드, 2026-11-22 사용자 요청): 스스로 얼면 움직이지 못하고 술래도 잡지 못한다. 다른 사람이 땡 하면 얼기 전 상태로.
+export type SurvivorState = "Normal" | "Injured" | "Downed" | "Jailed" | "Frozen" | "Caught" | "Escaped"
 
 -- 매치 단계 (GDD 3.1, 3.4). Voting: 스테이지마다 맵(첫 스테이지는 화면 모드도) 투표 (VoteService)
 export type MatchPhase = "Waiting" | "Voting" | "RoleReveal" | "Preparation" | "Chase" | "StageResult" | "MatchResult"
@@ -30,14 +34,17 @@ export type ItemId = "Flashlight" | "Bandage" | "SmokeBomb" | "AlarmClock" | "En
 -- 괴물이 생존자를 알아채는 방법 (GDD 4.1, 4.4)
 export type Sense = "Sight" | "Sound"
 
--- 추격자 고유 스킬 (GDD 7.1): 돌진, 흔적 보기, 순간이동, 괴물 부르기
-export type SkillKind = "Dash" | "RevealFootprints" | "Blink" | "CallMonsters"
+-- 추격자 고유 스킬 (GDD 7.1): 돌진, 흔적 보기, 순간이동, 위치 감지 (조종자. 2026-11-22 괴물 부르기에서 바꿈)
+export type SkillKind = "Dash" | "RevealFootprints" | "Blink" | "RevealSurvivors"
 
 -- 추격자 해금 방법 (GDD 7.1)
 export type UnlockKind = "Default" | "Coins"
 
--- 추격자 화면에 생존자 위치를 잠깐 표시하는 이유 (GDD 4.1 감시자 경보, 6.2 발전기 소리)
-export type MarkerReason = "WatcherAlert" | "GeneratorNoise"
+-- 추격자 화면에 생존자 위치를 잠깐 표시하는 이유 (GDD 4.1 감시자 경보, 6.2 발전기 소리, 7.1 조종자 위치 감지)
+export type MarkerReason = "WatcherAlert" | "GeneratorNoise" | "SkillReveal"
+
+-- 움직이지 못하는 이유 (MovementService.stun, Player Attribute Stunned): 판자에 맞음 / 공격에 성공한 추격자가 멈춤
+export type StunReason = "Plank" | "AttackHit"
 
 -- 괴물(사냥개)이 반응하는 소리 (GDD 4.1, 6.2, 6.3). server/Util/NoiseBus
 export type NoiseKind = "Running" | "Generator" | "Alarm"
@@ -70,7 +77,7 @@ export type StageResult = {
 	stageId: StageId,
 	stageIndex: number, -- 이번 매치의 몇 번째 스테이지인가 (1부터)
 	solo: boolean, -- 추격자 없이 진행
-	chaserUserId: number?, -- 처음 뽑힌 추격자
+	chaserUserIds: { number }, -- 처음 뽑힌 추격자들 (솔로면 빈 배열)
 	chaserWon: boolean, -- 추격자가 남아 있고 생존자를 모두 잡음
 	players: { StagePlayerResult },
 }
@@ -108,17 +115,33 @@ export type LobbyAction = "JoinQueue" | "AcceptSolo" | "DeclineSolo"
 -- 화면 모드 (Config.VisualModes): 나이트 = 어두운 공포 분위기(기본), 캐주얼 = 밝고 귀여운 배경
 export type VisualMode = "Night" | "Casual"
 
+-- 게임 모드 (Config.GameModes, 2026-11-22 사용자 요청). 같이 하기(추격자가 있는 스테이지)에서 스테이지마다 투표로 정한다.
+--   Survival: 부상 상태로 맞으면 쓰러지고 동료가 붕대로 살림 / CopsAndRobbers: 경찰과 도둑. 잡히면 감옥, 동료가 5초 만져 구출
+--   FreezeTag: 얼음땡. 얼음이면 잡히지 않고 다른 사람이 땡 해야 풀림 (참가자 3명 이상)
+export type GameMode = "Survival" | "CopsAndRobbers" | "FreezeTag"
+
 -- 서버가 공개하는 로딩 단계 (MatchState Loading, client LoadingController): 스테이지 맵을 불러와 옮기는 중 / 로비로 돌아가는 중
 export type LoadingKind = "Stage" | "Lobby"
 
--- 투표 종류 (CastVote 리모트, VoteService): 맵, 화면 모드, 추격자 희망 (켜고 끄기)
-export type VoteKind = "Map" | "Mode" | "Chaser"
+-- 투표 종류 (CastVote 리모트, VoteService): 맵, 화면 모드, 게임 모드, 추격자 희망 (켜고 끄기)
+export type VoteKind = "Map" | "Mode" | "GameMode" | "Chaser"
 
 -- 로비의 추격자 선택 요청 (ChaserSelect 리모트)
 export type ChaserSelectAction = "Select" | "Unlock"
 
 -- 조작 동작 (client InputController, Config.Input.Bindings). Item은 휴대폰 화면 버튼 전용(아이템이 있는 첫 칸을 씀)
-export type InputAction = "Run" | "Item" | "Item1" | "Item2" | "Attack" | "Skill" | "SpectatePrevious" | "SpectateNext"
+-- Freeze·Thaw는 얼음땡 모드의 얼음·땡 (FreezeController)
+export type InputAction =
+	"Run"
+	| "Item"
+	| "Item1"
+	| "Item2"
+	| "Attack"
+	| "Skill"
+	| "SpectatePrevious"
+	| "SpectateNext"
+	| "Freeze"
+	| "Thaw"
 
 -- 지금 쓰는 입력 장치 (마지막 입력 종류로 정함). 화면의 키 안내와 휴대폰 버튼 표시를 바꾼다
 export type InputPlatform = "KeyboardMouse" | "Gamepad" | "Touch"
@@ -136,9 +159,19 @@ export type NoticeKey =
 	| "PreparationChaser"
 	| "ChaserReleased"
 	| "SurvivorCaught"
+	| "SurvivorDowned"
+	| "YouAreDowned"
+	| "SurvivorRevived"
+	| "SurvivorJailed"
+	| "YouAreJailed"
+	| "JailRescued"
+	| "ThawedBy"
+	| "AttackHitPause"
 	| "SurvivorEscaped"
 	| "ExitOpened"
 	| "ChaserLeft"
+	| "AllChasersLeft"
+	| "AllChasersLeftEnd"
 	| "MatchInProgress"
 	| "SoloTeleporting"
 	| "SoloTeleportFailed"
@@ -149,5 +182,6 @@ export type NoticeKey =
 	| "VipActivated"
 	| "MatchMode"
 	| "NextMap"
+	| "NextGameMode"
 
 return {}

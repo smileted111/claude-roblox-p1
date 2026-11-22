@@ -90,11 +90,12 @@ local Stages: { [Types.StageId]: StageDef } = {
 		TimeLimit = 300,
 		PostLaunch = false,
 		-- 지하라 가장 어둡게. 그림자 괴물이 숨는 어두운 구역이 있음 (임시)
+		-- 2026-11-22 사용자 요청으로 조금 더 밝게 (Brightness 0.6 → 0.8, Ambient·OutdoorAmbient 약 1.2배)
 		Lighting = {
 			ClockTime = 0,
-			Brightness = 0.6,
-			Ambient = Color3.fromRGB(66, 66, 78),
-			OutdoorAmbient = Color3.fromRGB(78, 78, 96),
+			Brightness = 0.8,
+			Ambient = Color3.fromRGB(80, 80, 94),
+			OutdoorAmbient = Color3.fromRGB(94, 94, 115),
 			ExposureCompensation = 0,
 			Atmosphere = {
 				Density = 0.45,

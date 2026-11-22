@@ -12,23 +12,30 @@
 --   CameraCeiling  number?             스테이지 안 카메라 최대 높이 (월드 Y, StageService, Config.Camera). 맵이 없으면 nil
 --   Loading        Types.LoadingKind?  Stage: 맵을 불러와 참가자를 옮기는 중 (StageService), Lobby: 스테이지를 끝내고 로비에
 --                                      다시 만드는 중 (StageService가 켜고 MatchService가 끔). 참가자 화면에 로딩 화면
---   HasChaser      boolean?            이번 스테이지에 추격자가 있는가. 솔로이거나 추격자가 나가면 false
---   SurvivorsLeft  number?             아직 잡히거나 탈출하지 않은 생존자 수
+--   HasChaser      boolean?            이번 스테이지에 추격자가 있는가 (1명 이상). 솔로이거나 추격자가 모두 나가면 false
+--   SurvivorsLeft  number?             아직 잡히거나 탈출하지 않고 서 있는(쓰러지지 않은) 생존자 수
 --   GeneratorsDone  number?            다 고친 발전기 수 (ObjectiveService)
 --   GeneratorsTotal number?            이번 스테이지 발전기 수. 스테이지 밖에서는 nil
 --   ExitOpen       boolean?            출구가 열렸는가 (ObjectiveService)
 --   QueueCount     number?             같이 하기 대기 인원 (LobbyService)
 --   MatchMode      Types.VisualMode?   진행 중인 매치의 화면 모드 (MatchService, 첫 투표로 정함). 매치 밖에서는 nil
+--   GameMode       Types.GameMode?     이번 스테이지의 게임 모드 (StageService, 투표로 정함). 추격자가 없는 스테이지(혼자)와
+--                                      스테이지 밖에서는 nil
 --   VoteMaps       string?             투표 중 고를 수 있는 맵 StageId를 쉼표로 이은 것 (VoteService). 투표 밖에서는 nil
 --   VotePlayed     string?             이번 매치에서 이미 플레이해 고를 수 없는 맵 (쉼표, VoteService)
 --   VoteMapCounts  string?             맵별 표 수 "Stage1:2,Stage4:1" (VoteService)
 --   VoteModeCounts string?             화면 모드별 표 수 "Night:1,Casual:2". 모드를 투표하지 않는 스테이지는 nil
+--   VoteGameModes  string?             이번 투표에 고를 수 있는 게임 모드 (쉼표, 참가자 수가 MinPlayers 이상인 것). 칸이 없으면 nil
+--   VoteGameModeCounts string?         게임 모드별 표 수 "Survival:1,CopsAndRobbers:2". 참가자가 1명이면 nil (투표 칸 없음)
 --   SoloServer     boolean?            혼자 하기 서버인가 (LobbyService)
 --   MatchRunning   boolean?            매치 진행 중 (MatchService). 참가자가 아니면 로비에서 기다린다
 --
 -- Player의 Attribute (플레이어별)
 --   Role           Types.Role?             이번 스테이지의 역할. 대기 중에는 nil
 --   SurvivorState  Types.SurvivorState?    생존자 상태. 이번 스테이지의 생존자(였던 사람)만 있음
+--   FreezeReadyAt  number?                 얼음땡: 다시 얼 수 있는 서버 시각 (땡으로 풀린 뒤 쿨다운, FreezeService). 없으면 바로
+--   DownedUntil    number?                 쓰러진 생존자를 살릴 수 있는 마지막 서버 시각 (GetServerTimeNow 기준, CatchService).
+--                                          쓰러져 있을 때만 있음
 --   ChaserOptOut   boolean?                "추격자 안 하기" 설정 (GDD 2.1)
 --   Stamina        number?                 스태미나 (0 ~ Config.Survivor.Stamina.Max, 정수로 반올림) (MovementService)
 --   Running        boolean?                지금 달리는 중인가 (MovementService)
@@ -37,7 +44,8 @@
 --   SpectateTarget number?                 관전 대상의 UserId (SpectateService). 관전 중이라도 볼 대상이 없으면 nil
 --   RepairProgress number?                 지금 고치는 발전기의 진행 0~1 (ObjectiveService). 고치는 중이 아니면 nil
 --   Item1, Item2   Types.ItemId?           아이템 칸 (ItemService). 비면 nil
---   Stunned        boolean?                기절 중 (판자에 맞은 추격자, MovementService). 움직이지도 공격하지도 못함
+--   Stunned        Types.StunReason?       움직이지 못하는 중과 그 이유 (MovementService). 판자에 맞은 추격자(Plank),
+--                                          공격에 성공한 추격자(AttackHit). 움직이지도 공격하지도 스킬을 쓰지도 못함
 --   FlashlightOn   boolean?                손전등을 켬 (ItemService)
 --   FlashlightBattery number?              손전등 남은 배터리 0~1 (ItemService). 손전등이 없으면 nil
 --   ChaserType     Types.ChaserId?         이번 스테이지 추격자 종류 (ChaserService). 추격자일 때만
@@ -52,6 +60,7 @@
 --   Voter          boolean?                지금 투표에 참여할 수 있음 (VoteService)
 --   VoteMap        Types.StageId?          내가 투표한 맵 (VoteService)
 --   VoteMode       Types.VisualMode?       내가 투표한 화면 모드 (VoteService)
+--   VoteGameMode   Types.GameMode?         내가 투표한 게임 모드 (VoteService)
 --   WantsChaser    boolean?                투표 창에서 추격자 희망을 켬 (VoteService). 켠 사람 중 무작위로 이번 스테이지 추격자
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -73,6 +82,7 @@ local Attribute = table.freeze({
 	MatchRunning = "MatchRunning",
 	Role = "Role",
 	SurvivorState = "SurvivorState",
+	DownedUntil = "DownedUntil",
 	ChaserOptOut = "ChaserOptOut",
 	Stamina = "Stamina",
 	Running = "Running",
@@ -95,6 +105,11 @@ local Attribute = table.freeze({
 	DataLoaded = "DataLoaded",
 	Vip = "Vip",
 	MatchMode = "MatchMode",
+	GameMode = "GameMode",
+	VoteGameModes = "VoteGameModes",
+	VoteGameModeCounts = "VoteGameModeCounts",
+	FreezeReadyAt = "FreezeReadyAt",
+	VoteGameMode = "VoteGameMode",
 	VisualMode = "VisualMode",
 	StageIndex = "StageIndex",
 	CameraCeiling = "CameraCeiling",
@@ -253,6 +268,33 @@ function MatchState.getVoteMode(player: Player): Types.VisualMode?
 	return readString(player, Attribute.VoteMode) :: Types.VisualMode?
 end
 
+function MatchState.getVoteGameMode(player: Player): Types.GameMode?
+	return readString(player, Attribute.VoteGameMode) :: Types.GameMode?
+end
+
+-- 이번 투표에 고를 수 있는 게임 모드 (칸이 없으면 빈 배열)
+function MatchState.getVoteGameModes(): { Types.GameMode }
+	return readList(Attribute.VoteGameModes) :: { any }
+end
+
+-- 얼음땡: 다시 얼 수 있는 서버 시각. 없으면 nil
+function MatchState.getFreezeReadyAt(player: Player): number?
+	return readNumber(player, Attribute.FreezeReadyAt)
+end
+
+-- 게임 모드 표 수. 이번 투표에 게임 모드 칸이 없으면 nil
+function MatchState.getVoteGameModeCounts(): { [string]: number }?
+	if readString(ReplicatedStorage, Attribute.VoteGameModeCounts) == nil then
+		return nil
+	end
+	return readCounts(Attribute.VoteGameModeCounts)
+end
+
+-- 이번 스테이지의 게임 모드. 추격자가 없는 스테이지(혼자)와 스테이지 밖에서는 nil
+function MatchState.getGameMode(): Types.GameMode?
+	return readString(ReplicatedStorage, Attribute.GameMode) :: Types.GameMode?
+end
+
 function MatchState.wantsChaser(player: Player): boolean
 	return player:GetAttribute(Attribute.WantsChaser) == true
 end
@@ -308,7 +350,16 @@ function MatchState.getCoins(player: Player): number?
 end
 
 function MatchState.isStunned(player: Player): boolean
-	return player:GetAttribute(Attribute.Stunned) == true
+	return MatchState.getStunReason(player) ~= nil
+end
+
+function MatchState.getStunReason(player: Player): Types.StunReason?
+	return readString(player, Attribute.Stunned) :: Types.StunReason?
+end
+
+-- 쓰러진 생존자를 살릴 수 있는 마지막 서버 시각. 쓰러져 있지 않으면 nil
+function MatchState.getDownedUntil(player: Player): number?
+	return readNumber(player, Attribute.DownedUntil)
 end
 
 function MatchState.getRole(player: Player): Types.Role?

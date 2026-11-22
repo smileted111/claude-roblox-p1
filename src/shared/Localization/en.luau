@@ -1,8 +1,8 @@
 --!strict
 -- English text. Same keys as ko.luau (typed as Ko.Text, so a missing or extra key is a type error).
 -- Keep the same format specifiers (%d, %s, %%) in the same order as the Korean source.
--- Game terms (keep consistent): Survivor, Chaser, Spectator, Caught, Escaped, Injured, Spectate,
---   Generator, Exit, Hiding spot, Stamina, Last Survivor, Best Survivor, Coins.
+-- Game terms (keep consistent): Survivor, Chaser, Spectator, Caught, Escaped, Injured, Downed, Revive, Spectate,
+--   Energy Core (the generator objective), Exit, Hiding spot, Stamina, Last Survivor, Best Survivor, Coins.
 
 local Ko = require(script.Parent.ko)
 
@@ -14,7 +14,7 @@ local En: Ko.Text = {
 	},
 
 	RoleGoals = {
-		Survivor = "Repair all generators and escape, or don't get caught until time runs out!",
+		Survivor = "Repair all Energy Cores and escape, or don't get caught until time runs out!",
 		Chaser = "Catch every Survivor before time runs out!",
 		Spectator = "Watch the other players until the next stage.",
 	},
@@ -22,6 +22,9 @@ local En: Ko.Text = {
 	SurvivorStates = {
 		Normal = "Healthy",
 		Injured = "Injured",
+		Downed = "Downed",
+		Jailed = "Jailed",
+		Frozen = "Frozen",
 		Caught = "Caught",
 		Escaped = "Escaped",
 	},
@@ -63,14 +66,14 @@ local En: Ko.Text = {
 		Dash = "Dash",
 		RevealFootprints = "Track",
 		Blink = "Blink",
-		CallMonsters = "Call Monsters",
+		RevealSurvivors = "Sense",
 	},
 
 	SkillDescriptions = {
 		Dash = "For %ds, move speed +%d%%",
 		RevealFootprints = "Survivor footprints visible for %ds",
 		Blink = "Teleport %d studs where you look (not through walls)",
-		CallMonsters = "Call the %d nearest monsters to you",
+		RevealSurvivors = "See where non-hiding Survivors are for %ds",
 	},
 
 	Items = {
@@ -87,9 +90,19 @@ local En: Ko.Text = {
 		PreparationChaser = "The waiting room door opens soon.",
 		ChaserReleased = "The Chaser has been released!",
 		SurvivorCaught = "%s was caught.",
+		SurvivorDowned = "%s is down!",
+		YouAreDowned = "You're down! A teammate must revive you with a Bandage within %ds.",
+		SurvivorJailed = "%s was locked in jail!",
+		YouAreJailed = "You're in jail! A teammate can free you by standing by the jail for %ds.",
+		JailRescued = "%s opened the jail and freed %d!",
+		ThawedBy = "%s unfroze %s!",
+		SurvivorRevived = "%s revived %s!",
+		AttackHitPause = "Hit! You can't move for %d seconds.",
 		SurvivorEscaped = "%s escaped!",
 		ExitOpened = "The exits are open! Escape now!",
-		ChaserLeft = "The Chaser left. Only monsters remain this stage.",
+		ChaserLeft = "Chaser %s left.",
+		AllChasersLeft = "All Chasers left. Only monsters remain this stage.",
+		AllChasersLeftEnd = "All Chasers left. This stage is over.",
 		MatchInProgress = "A match is in progress. Please wait in the lobby for the next match.",
 		SoloTeleporting = "Moving to a solo server...",
 		SoloTeleportFailed = "Couldn't move. Please try again in a moment.",
@@ -100,11 +113,54 @@ local En: Ko.Text = {
 		VipActivated = "You're now VIP! Name color · lobby emote · Coins +20%%",
 		MatchMode = "This match is in %s mode.",
 		NextMap = "Vote result: this stage is %s.",
+		NextGameMode = "This stage is %s mode.",
 	},
 
 	Modes = {
 		Night = "Night",
 		Casual = "Casual",
+	},
+
+	GameModes = {
+		Survival = "Survival",
+		CopsAndRobbers = "Cops and Robbers",
+		FreezeTag = "Freeze Tag",
+	},
+
+	GameModeTexts = {
+		Survival = {
+			ChaserName = "Chaser",
+			SurvivorName = "Survivor",
+			ChaserGoal = "Catch every Survivor before time runs out!",
+			SurvivorGoal = "Repair all Energy Cores and escape, or don't get caught! Revive downed friends with a Bandage.",
+			ChaserTitle = "This stage's Chaser is",
+			YouAreChaser = "You are the Chaser!",
+			YouAreSurvivor = "You are a Survivor!",
+			ChaserWins = "Chaser wins!",
+			SurvivorsWin = "Survivors win!",
+		},
+		CopsAndRobbers = {
+			ChaserName = "Cop",
+			SurvivorName = "Robber",
+			ChaserGoal = "Catch every Robber and lock them in jail!",
+			SurvivorGoal = "Repair the Energy Cores and escape, or hold out! Stand by the jail for %ds to free your friends.",
+			ChaserTitle = "This stage's Cop is",
+			YouAreChaser = "You are a Cop!",
+			YouAreSurvivor = "You are a Robber!",
+			ChaserWins = "Cops win!",
+			SurvivorsWin = "Robbers win!",
+		},
+		FreezeTag = {
+			ChaserName = "Tagger",
+			SurvivorName = "Runner",
+			ChaserGoal = "Catch every Runner, or get them all frozen!",
+			SurvivorGoal = "About to get caught? Freeze! Stand next to a frozen friend and press Unfreeze. If everyone freezes, the Tagger wins.",
+			ChaserTitle = "This stage's Tagger is",
+			YouAreChaser = "You are the Tagger!",
+			YouAreSurvivor = "You are a Runner!",
+			ChaserWins = "Tagger wins!",
+			SurvivorsWin = "Runners win!",
+		},
 	},
 
 	RoleReveal = {
@@ -120,6 +176,7 @@ local En: Ko.Text = {
 		Unhide = "Come Out",
 		OpenHideSpot = "Search",
 		Heal = "Heal",
+		Revive = "Revive (Bandage)",
 		Repair = "Repair",
 		PickUp = "Pick Up",
 		PushPlank = "Push Over",
@@ -133,7 +190,7 @@ local En: Ko.Text = {
 		StageTitle = "Stage %d · %s",
 		TimeLeft = "Time Left",
 		SurvivorsLeft = "Survivors left: %d",
-		Objective = "Generators %d/%d",
+		Objective = "Energy Cores %d/%d",
 		Stamina = "Stamina",
 		Attack = "Attack",
 		Skill = "Skill",
@@ -144,6 +201,16 @@ local En: Ko.Text = {
 		Repairing = "Repairing %d%%",
 		CoinGain = "+%d Coins",
 		Stunned = "Stunned!",
+		HitPaused = "Paused",
+		DownedStatus = "%s %ds",
+		DownedMarker = "Downed %ds",
+		DownedMarkerHint = "Revive with a Bandage",
+		JailLabel = "Jail · %d",
+		JailRescue = "Rescuing %d%%",
+		Freeze = "Freeze",
+		Thaw = "Unfreeze",
+		Frozen = "Frozen",
+		FreezeCooldown = "Freeze %d",
 		Battery = "%s %d%%",
 		SkillReady = "%s ready",
 		SkillCooldown = "%s %ds",
@@ -162,8 +229,9 @@ local En: Ko.Text = {
 	},
 
 	Markers = {
-		GeneratorNoise = "Generator noise",
+		GeneratorNoise = "Energy Core noise",
 		WatcherAlert = "Watcher alert",
+		SkillReveal = "Survivor",
 	},
 
 	Spectate = {
@@ -237,6 +305,7 @@ local En: Ko.Text = {
 		TimeLeft = "%ds left",
 		ModeSection = "Screen Mode",
 		MapSection = "Map",
+		GameModeSection = "Game Mode",
 		Votes = "Votes: %d",
 		Played = "%s (played)",
 		Voted = "Voted %d/%d",
@@ -244,7 +313,7 @@ local En: Ko.Text = {
 		Watching = "Players are voting for the next map.",
 		Choosing = "Choosing...",
 		WantChaser = "I want to be the Chaser",
-		WantChaserHint = "One volunteer becomes the Chaser",
+		WantChaserHint = "Chasers are picked from volunteers",
 		Wishers = "%d",
 		TagChaser = "Wants Chaser",
 	},
@@ -258,10 +327,14 @@ local En: Ko.Text = {
 		Tips = {
 			"Running makes noise, and Hounds come running.",
 			"Monsters can't find you in a closet. Stay too long and they'll hear you breathing!",
-			"Repairing generators earns Coins little by little.",
+			"Repairing Energy Cores earns Coins little by little.",
 			"Push over a plank to stun the Chaser for a moment.",
 			"Shine a flashlight on a Shadow to freeze it briefly.",
 			"Hold next to an injured friend to heal them.",
+			"Revive a downed friend with a Bandage before time runs out!",
+			"There are no monsters in Play Together. Just avoid the Chasers.",
+			"Cops and Robbers: stand by the jail for 5 seconds to free your friends.",
+			"Freeze Tag: the Tagger can't catch you while frozen. Unfreeze frozen friends by standing next to them.",
 			'Turn on "I want to be the Chaser" in the vote window to volunteer as Chaser.',
 		},
 	},
@@ -280,6 +353,7 @@ local En: Ko.Text = {
 		Restroom = "Restrooms",
 		ParkName = "Starlight Park",
 		Home = "Home Sweet Home",
+		Jail = "Jail",
 	},
 
 	Results = {

@@ -17,8 +17,8 @@ export type SkillContext = {
 export type SkillApi = {
 	-- seconds초 동안 이동 속도 × multiplier (MovementService)
 	boost: (player: Player, multiplier: number, seconds: number) -> (),
-	-- position에 가까운 움직이는 괴물 count마리를 seconds초 동안 position으로 부른다. 부른 수를 돌려준다 (MonsterService)
-	summonMonsters: (position: Vector3, count: number, seconds: number, source: string) -> number,
+	-- 숨지 않은(연막 밖) 생존자의 지금 위치를 추격자 한 명의 화면에 seconds초 동안 표시한다. 표시한 수를 돌려준다
+	revealSurvivors: (player: Player, seconds: number) -> number,
 	-- 지금 숨지 않은 생존자들의 발 위치
 	survivorFootPositions: () -> { Vector3 },
 	-- 추격자 한 명에게 발자국을 보낸다 (Footprints 리모트)

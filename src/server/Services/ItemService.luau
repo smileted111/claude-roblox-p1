@@ -4,11 +4,13 @@
 -- StageService가 준비 단계에서 맵을 불러오면 setupMap, 스테이지가 끝나면 clearMap을 부른다.
 -- 배치: 맵의 ItemSpawn 중 Config.MapObjects.ItemPickup.SpawnFraction만큼(반올림)을 무작위로 골라, 각 자리에
 --   Config.Items의 SpawnWeight 가중치로 뽑은 아이템 상자를 놓는다. 상자에는 "줍기" 프롬프트 (ItemState).
+--   괴물이 없는 스테이지(같이 하기)에서는 괴물에게만 쓰는 아이템(손전등·알람시계) 대신 NoMonstersReplacement(붕대)를
+--   놓는다 (가중치를 붕대에 더함, 2026-11-22 사용자 요청).
 -- 줍기: 준비·추격 단계, 숨지 않은 생존자, 거리, 빈칸이 있어야 한다. 칸은 Config.Survivor.InventorySlots(2)개,
 --   Player Attribute Item1·Item2 (MatchState). 스테이지가 끝나면 비운다.
 -- 사용: UseItem 리모트 (slot). 빈도 제한·관전자 거절은 RemoteHandler. 추격 단계, 숨지 않은 생존자, 그 칸에 아이템.
 --   효과는 서버가 적용하고, 효과가 없으면(부상이 아닌데 붕대 등) 아이템을 남긴다.
---   붕대         부상 → 정상
+--   붕대         부상 → 정상. 쓰러진 동료를 살릴 때도 1개 쓴다 (CatchService가 ItemService.takeItem으로 가져감)
 --   에너지 드링크 스태미나를 StaminaRestoreFraction만큼 (MovementService.restoreStamina)
 --   연막탄       쓴 자리에 Duration초 동안 반경 Radius의 연막 구역. 그 안의 생존자는 괴물이 보지 못하고
 --                (MonsterService가 ItemService.isConcealed로 뺌) 추격자 화면에서도 가려진다 (ChaserController).
@@ -159,19 +161,29 @@ local function clearInventory(player: Player): ()
 	dropFlashlight(player)
 end
 
--- SpawnWeight 가중치로 아이템 하나를 뽑는다. 뽑을 수 있는 아이템이 없으면 nil.
-local function rollItem(): Types.ItemId?
+-- 이번 스테이지에서 아이템별 뽑힐 가중치. 괴물이 없으면 NoMonstersReplacement가 있는 아이템의 가중치를 그 아이템에 옮긴다.
+local function spawnWeights(withMonsters: boolean): { [Types.ItemId]: number }
+	local weights: { [Types.ItemId]: number } = {}
+	for itemId, def in Items do
+		local target = if withMonsters then itemId else def.NoMonstersReplacement or itemId
+		weights[target] = (weights[target] or 0) + def.SpawnWeight
+	end
+	return weights
+end
+
+-- 가중치로 아이템 하나를 뽑는다. 뽑을 수 있는 아이템이 없으면 nil.
+local function rollItem(weights: { [Types.ItemId]: number }): Types.ItemId?
 	local total = 0
-	for _, def in Items do
-		total += def.SpawnWeight
+	for _, weight in weights do
+		total += weight
 	end
 	if total <= 0 then
 		return nil
 	end
 	local roll = random:NextNumber() * total
-	for itemId, def in Items do
-		roll -= def.SpawnWeight
-		if def.SpawnWeight > 0 and roll <= 0 then
+	for itemId, weight in weights do
+		roll -= weight
+		if weight > 0 and roll <= 0 then
 			return itemId
 		end
 	end
@@ -472,8 +484,23 @@ function ItemService.isConcealed(player: Player): boolean
 	return false
 end
 
+-- 아이템 칸에서 itemId 하나를 꺼낸다 (쓰러진 동료를 살릴 때 붕대, CatchService). 없으면 false.
+function ItemService.takeItem(player: Player, itemId: Types.ItemId): boolean
+	for slot = 1, Survivor.InventorySlots do
+		if MatchState.getItem(player, slot) == itemId then
+			setSlot(player, slot, nil)
+			if itemId == "Flashlight" then
+				dropFlashlight(player)
+			end
+			return true
+		end
+	end
+	return false
+end
+
 -- 불러온 맵의 ItemSpawn 중 일부에 아이템을 놓고, 모두의 아이템 칸을 비운다.
-function ItemService.setupMap(map: Instance): ()
+-- withMonsters: 이번 스테이지에 괴물이 나오는가 (아니면 괴물에게만 쓰는 아이템 대신 Config.Items의 NoMonstersReplacement)
+function ItemService.setupMap(map: Instance, withMonsters: boolean): ()
 	ItemService.clearMap()
 	local spawns: { BasePart } = {}
 	for _, descendant in map:GetDescendants() do
@@ -482,10 +509,11 @@ function ItemService.setupMap(map: Instance): ()
 		end
 	end
 	local count = math.round(#spawns * Config.SpawnFraction)
+	local weights = spawnWeights(withMonsters)
 	local summary: { [string]: number } = {}
 	for _ = 1, count do
 		local spawnPart = table.remove(spawns, random:NextInteger(1, #spawns)) :: BasePart
-		local itemId = rollItem()
+		local itemId = rollItem(weights)
 		if itemId then
 			placePickup(spawnPart, itemId, map)
 			summary[itemId] = (summary[itemId] or 0) + 1
@@ -496,7 +524,10 @@ function ItemService.setupMap(map: Instance): ()
 		table.insert(lines, `{itemId} {n}`)
 	end
 	table.sort(lines)
-	print(`[Item] 아이템 {#pickups}개 배치 ({table.concat(lines, ", ")})`)
+	print(
+		`[Item] 아이템 {#pickups}개 배치 ({table.concat(lines, ", ")})`
+			.. (if withMonsters then "" else " · 괴물 없음: 손전등·알람시계 대신 붕대")
+	)
 end
 
 -- 남은 아이템·연막과 모두의 아이템 칸을 지운다. 맵을 지우기 전에 부른다.

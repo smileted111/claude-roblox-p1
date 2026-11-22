@@ -6,12 +6,25 @@
 export type AttackConfig = {
 	RangeSlack: number, -- 서버 거리 검사의 여유. 요청이 오는 동안 생존자가 움직인 거리를 봐줌 (스터드)
 	CooldownSlack: number, -- 서버 쿨다운 검사의 여유. 요청이 도착하는 간격의 흔들림을 봐줌 (초)
+	HitPauseTime: number, -- 공격에 성공한 추격자가 그 자리에 멈추는 시간 (초). 이동·공격·스킬 모두 막힘
 }
 
 export type HealConfig = {
 	PromptDistance: number, -- "치료" 프롬프트가 보이는 거리 (스터드)
 	DistanceSlack: number, -- 서버 거리 검사의 여유 (스터드)
 	HoldSlack: number, -- 서버가 누른 시간을 검사할 때의 여유 (초)
+}
+
+-- 쓰러짐과 살리기 (2026-11-22 사용자 요청). 추격자가 있는 스테이지에서 부상 상태로 맞으면 쓰러지고(서 있는 다른 생존자가
+-- 있을 때만), 붕대를 가진 동료가 HoldTime초 눌러 살리면 부상으로 일어난다. DownedTime초 안에 못 살리면 잡힘.
+export type ReviveConfig = {
+	DownedTime: number, -- 쓰러진 뒤 살릴 수 있는 시간 (초)
+	HoldTime: number, -- "살리기" 프롬프트를 누르고 있어야 하는 시간 (초)
+	PromptDistance: number, -- "살리기" 프롬프트가 보이는 거리 (스터드)
+	DistanceSlack: number, -- 서버 거리 검사의 여유 (스터드)
+	HoldSlack: number, -- 서버가 누른 시간을 검사할 때의 여유 (초)
+	InvulnerableTime: number, -- 일어난 직후 다시 맞지 않는 시간 (초)
+	MarkerHeight: number, -- 쓰러진 동료 위 표시(생존자 화면)를 띄우는 높이 (스터드, HumanoidRootPart 위)
 }
 
 -- 잡힘 연출 (2026-11-21 사용자 요청으로 더 생동감 있게): 잡히는 순간 화면 번쩍임·흔들림, 잡힌 사람 카메라가
@@ -41,6 +54,7 @@ export type HitFlashConfig = {
 export type CatchConfig = {
 	Attack: AttackConfig,
 	Heal: HealConfig,
+	Revive: ReviveConfig,
 	CaughtEffect: CaughtEffectConfig,
 	HitFlash: HitFlashConfig,
 }
@@ -49,11 +63,21 @@ local Catch: CatchConfig = {
 	Attack = {
 		RangeSlack = 2, -- 임시: 달리기 24 기준 약 0.08초
 		CooldownSlack = 0.1, -- 임시
+		HitPauseTime = 10, -- 2026-11-22 사용자 요청
 	},
 	Heal = {
 		PromptDistance = 8, -- 임시
 		DistanceSlack = 4, -- 임시
 		HoldSlack = 0.25, -- 임시
+	},
+	Revive = {
+		DownedTime = 30, -- 2026-11-22 사용자 요청
+		HoldTime = 4, -- 임시: 치료(Survivor.HealTime)와 같게
+		PromptDistance = 8, -- 임시
+		DistanceSlack = 4, -- 임시
+		HoldSlack = 0.25, -- 임시
+		InvulnerableTime = 2, -- 임시
+		MarkerHeight = 3, -- 임시
 	},
 	CaughtEffect = {
 		CinematicTime = 1.35, -- 임시

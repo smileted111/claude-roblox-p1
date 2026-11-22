@@ -7,6 +7,8 @@ local Types = require(script.Parent.Parent.Types)
 
 export type ItemDef = {
 	SpawnWeight: number, -- 스테이지 시작 때 이 아이템이 뽑힐 가중치. 0이면 아직 맵에 놓지 않음
+	NoMonstersReplacement: Types.ItemId?, -- 괴물이 없는 스테이지(같이 하기)에서는 이 아이템 대신 놓는 아이템
+	-- (가중치를 그 아이템에 더함). 괴물에게만 쓰는 아이템에 둔다 (2026-11-22 사용자 요청)
 	Color: Color3, -- 맵에 놓인 아이템과 HUD 칸의 색
 	Duration: number?, -- 효과 지속 시간 (초)
 	Radius: number?, -- 효과 반경 (스터드)
@@ -20,12 +22,13 @@ local Items: { [Types.ItemId]: ItemDef } = {
 	-- 손전등: 그림자를 멈춤 (멈추는 시간은 Monsters.Shadow.FlashlightFreezeTime)
 	Flashlight = {
 		SpawnWeight = 2, -- 임시
+		NoMonstersReplacement = "Bandage",
 		Color = Color3.fromRGB(255, 240, 150), -- 임시
 		Range = 40, -- 임시
 		Angle = 30, -- 임시
 		Battery = 30, -- 임시
 	},
-	-- 붕대: 부상 → 정상. 수치 없음
+	-- 붕대: 부상 → 정상. 쓰러진 동료를 살릴 때도 1개 쓴다 (CatchService, Config.Catch.Revive). 수치 없음
 	Bandage = {
 		SpawnWeight = 3, -- 임시
 		Color = Color3.fromRGB(240, 240, 240), -- 임시
@@ -40,6 +43,7 @@ local Items: { [Types.ItemId]: ItemDef } = {
 	-- 알람시계: 던진 곳에 소리를 내서 괴물을 유인
 	AlarmClock = {
 		SpawnWeight = 2, -- 임시
+		NoMonstersReplacement = "Bandage",
 		Color = Color3.fromRGB(255, 200, 60), -- 임시
 		Range = 40, -- 임시: 던지는 거리
 		Radius = 60, -- 임시: 소리가 들리는 거리

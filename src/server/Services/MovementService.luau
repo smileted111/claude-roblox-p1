@@ -2,10 +2,12 @@
 -- MovementService: 이동 속도와 스태미나 (GDD 2.2, 4.1)
 --
 -- 속도(Humanoid.WalkSpeed)는 서버만 정한다. 클라이언트는 달리기 의사만 보낸다 (SetRunning, SurvivorController).
---   생존자  걷기 Config.Survivor.WalkSpeed, 달리기 RunSpeed. 부상이면 둘 다 × InjuredSpeedMultiplier. 숨어 있으면 0
+--   생존자  걷기 Config.Survivor.WalkSpeed, 달리기 RunSpeed. 부상이면 둘 다 × InjuredSpeedMultiplier. 숨어 있거나
+--           쓰러져 있으면 0 (쓰러진 캐릭터는 CatchService가 고정해 둔다)
 --   추격자  Config.Chasers[이번 추격자 종류(Player Attribute ChaserType)].WalkSpeed. 돌진 스킬 중에는 × 배율 (boost)
 --   그 외   대기 장소 등. Config.Survivor.WalkSpeed, 달리기 없음
---   기절    누구든 0 (판자에 맞은 추격자, MovementService.stun). Player Attribute Stunned
+--   기절    누구든 0 (MovementService.stun: 판자에 맞은 추격자, 공격에 성공한 추격자). Player Attribute Stunned에 이유
+--           (Types.StunReason). 겹치면 더 늦게 끝나는 쪽의 이유를 보여준다
 --
 -- 스태미나 (Config.Survivor.Stamina)
 --   생존자가 달리기 의사를 보내고 실제로 움직이는(MoveDirection) 동안 RunDrainPerSecond씩 준다.
@@ -26,6 +28,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Chasers = require(ReplicatedStorage.Shared.Config.Chasers)
+local Types = require(ReplicatedStorage.Shared.Types)
 local Match = require(ReplicatedStorage.Shared.Config.Match)
 local MatchState = require(ReplicatedStorage.Shared.MatchState)
 local MovementCheck = require(ReplicatedStorage.Shared.Config.MovementCheck)
@@ -54,6 +57,7 @@ type RunState = {
 	lastRunAt: number, -- 마지막으로 달린 시각 (os.clock). 회복 지연 계산용
 	nextNoiseAt: number, -- 다음 달리는 소리를 낼 시각 (os.clock)
 	stunnedUntil: number, -- 기절이 끝나는 시각 (os.clock)
+	stunReason: Types.StunReason, -- 기절 이유 (stunnedUntil을 정한 쪽)
 	boostUntil: number, -- 속도 증가가 끝나는 시각 (os.clock)
 	boostMultiplier: number,
 	shownStamina: number?, -- 마지막으로 Attribute에 쓴 값
@@ -77,8 +81,12 @@ local function getLivingHumanoid(player: Player): Humanoid?
 	return nil
 end
 
+-- 달릴 수 있는가: 숨지 않은 정상·부상 생존자 (쓰러지거나 감옥에 갇히면 못 달림. 갇힌 사람은 우리 안을 걷기만 한다)
 local function canRun(player: Player): boolean
-	return MatchState.getRole(player) == "Survivor" and not MatchState.isHidden(player)
+	local state = MatchState.getSurvivorState(player)
+	return MatchState.getRole(player) == "Survivor"
+		and not MatchState.isHidden(player)
+		and (state == "Normal" or state == "Injured")
 end
 
 local function speedFor(player: Player, state: RunState, running: boolean, now: number): number
@@ -94,7 +102,8 @@ local function speedFor(player: Player, state: RunState, running: boolean, now: 
 	if role ~= "Survivor" then
 		return Survivor.WalkSpeed
 	end
-	if MatchState.isHidden(player) then
+	local survivorState = MatchState.getSurvivorState(player)
+	if MatchState.isHidden(player) or survivorState == "Downed" or survivorState == "Frozen" then
 		return 0
 	end
 	local speed = if running then Survivor.RunSpeed else Survivor.WalkSpeed
@@ -166,9 +175,9 @@ local function update(player: Player, state: RunState, deltaTime: number, now: n
 	state.running = running
 	publish(player, state)
 
-	local stunned = now < state.stunnedUntil
-	if MatchState.isStunned(player) ~= stunned then
-		player:SetAttribute(Attribute.Stunned, if stunned then true else nil)
+	local stunReason: Types.StunReason? = if now < state.stunnedUntil then state.stunReason else nil
+	if MatchState.getStunReason(player) ~= stunReason then
+		player:SetAttribute(Attribute.Stunned, stunReason)
 	end
 
 	if humanoid then
@@ -255,6 +264,7 @@ local function onPlayerAdded(player: Player): ()
 		lastRunAt = 0,
 		nextNoiseAt = 0,
 		stunnedUntil = 0,
+		stunReason = "Plank",
 		boostUntil = 0,
 		boostMultiplier = 1,
 		shownStamina = nil,
@@ -288,12 +298,17 @@ function MovementService.markTeleported(player: Player): ()
 	end
 end
 
--- seconds초 동안 움직이지 못하게 한다 (판자에 맞은 추격자). 추격자 공격도 막힌다 (CatchService가 isStunned를 봄).
-function MovementService.stun(player: Player, seconds: number): ()
+-- seconds초 동안 움직이지 못하게 한다 (판자에 맞은 추격자 Plank, 공격에 성공한 추격자 AttackHit).
+-- 추격자 공격·스킬·문 열기도 막힌다 (CatchService·ChaserService·BarrierService가 isStunned를 봄).
+function MovementService.stun(player: Player, seconds: number, reason: Types.StunReason): ()
 	local state = states[player]
 	if state then
-		state.stunnedUntil = math.max(state.stunnedUntil, os.clock() + seconds)
-		player:SetAttribute(Attribute.Stunned, true)
+		local untilTime = os.clock() + seconds
+		if untilTime > state.stunnedUntil then
+			state.stunnedUntil = untilTime
+			state.stunReason = reason
+		end
+		player:SetAttribute(Attribute.Stunned, state.stunReason)
 	end
 end
 

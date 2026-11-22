@@ -110,6 +110,7 @@ end
 local MARKER_COLORS: { [Types.MarkerReason]: Color3 } = {
 	GeneratorNoise = UiStyle.Colors.Warning,
 	WatcherAlert = UiStyle.Colors.Accent,
+	SkillReveal = UiStyle.Colors.Stamina,
 }
 
 local function onChaserMarker(position: unknown, duration: unknown, reason: unknown): ()
